@@ -10,18 +10,12 @@ const Attendance = sequelize.define('Attendance', {
     user_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        references: {
-            model: 'users',
-            key: 'user_id'
-        }
+        references: { model: 'users', key: 'user_id' }
     },
     allocation_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        references: {
-            model: 'allocations',
-            key: 'allocation_id'
-        }
+        references: { model: 'allocations', key: 'allocation_id' }
     },
     attendance_date: {
         type: DataTypes.DATEONLY,
@@ -31,45 +25,17 @@ const Attendance = sequelize.define('Attendance', {
         type: DataTypes.DECIMAL(5, 2),
         allowNull: false
     },
-    status: {
-        type: DataTypes.ENUM('pending', 'verified', 'approved'),
-        defaultValue: 'pending'
+    month: {
+        type: DataTypes.STRING(10),
+        allowNull: false
     },
-    entered_by: {
+    year: {
         type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'users',
-            key: 'user_id'
-        }
+        allowNull: false
     },
     entered_date: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
-    },
-    verified_by: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-            model: 'users',
-            key: 'user_id'
-        }
-    },
-    verified_date: {
-        type: DataTypes.DATE,
-        allowNull: true
-    },
-    approved_by: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-            model: 'users',
-            key: 'user_id'
-        }
-    },
-    approved_date: {
-        type: DataTypes.DATE,
-        allowNull: true
     }
 }, {
     tableName: 'attendance',

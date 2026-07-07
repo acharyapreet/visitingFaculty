@@ -1,57 +1,55 @@
-const {DataTypes} = require('sequelize');
+const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 const Allocation = sequelize.define('Allocation', {
-    allocation_id : {
+    allocation_id: {
         type: DataTypes.INTEGER,
-        primaryKey : true,
+        primaryKey: true,
         autoIncrement: true
     },
     user_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        references: {
-            model: 'users',
-            key: 'user_id'
-        }
+        references: { model: 'users', key: 'user_id' }
     },
-    subject_name: {
-        type: DataTypes.ENUM(Mathematics-I),
-        allowNull: false
-    },
-    subject_code: {
-        type: DataTypes.STRING(50),
-        allowNull: false
-    },
-    class_name: {
-        type: DataTypes.STRING(50),
-        allowNull: false
-    },
-    session: {
-        type: DataTypes.STRING(20),
-        allowNull: false
-    },
-    rate_per_hour: {
+    course_id: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
+        references: { model: 'courses', key: 'course_id' }
+    },
+    semester_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: 'semesters', key: 'semester_id' }
+    },
+    section_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: 'sections', key: 'section_id' }
+    },
+    subject_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: 'subjects', key: 'subject_id' }
     },
     session_type: {
         type: DataTypes.ENUM('Theory', 'Practical'),
         allowNull: false
     },
+    rate_per_hour: {
+        type: DataTypes.ENUM(200, 400, 800),
+        allowNull: false
+    },
+    academic_year: {
+        type: DataTypes.STRING(20),
+        allowNull: false
+    },
     created_by: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        references: {
-            model: 'users',
-            key: 'user_id'
-        }
+        references: { model: 'users', key: 'user_id' }  
     },
     created_at: {
-        type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW
-    },
-    updated_at: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
     },

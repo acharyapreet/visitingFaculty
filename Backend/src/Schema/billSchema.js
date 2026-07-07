@@ -10,13 +10,10 @@ const Bill = sequelize.define('Bill', {
     user_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        references: {
-            model: 'users',
-            key: 'user_id'
-        }
+        references: { model: 'users', key: 'user_id' }
     },
     month: {
-        type: DataTypes.STRING(20),
+        type: DataTypes.STRING(10),
         allowNull: false
     },
     year: {
@@ -39,37 +36,13 @@ const Bill = sequelize.define('Bill', {
         type: DataTypes.DATEONLY,
         allowNull: false
     },
-    status: {
-        type: DataTypes.ENUM('draft', 'generated', 'approved', 'paid'),
-        defaultValue: 'draft'
-    },
     pdf_path: {
         type: DataTypes.STRING(255),
-        allowNull: false
+        allowNull: true
     },
-    generated_by: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'users',
-            key: 'user_id'
-        }
-    },
-    generated_date: {
+    generated_at: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
-    },
-    approved_by: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-            model: 'users',
-            key: 'user_id'
-        }
-    },
-    approved_date: {
-        type: DataTypes.DATE,
-        allowNull: true
     }
 }, {
     tableName: 'bills',
