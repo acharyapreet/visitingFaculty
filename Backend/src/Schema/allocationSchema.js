@@ -37,7 +37,7 @@ const Allocation = sequelize.define('Allocation', {
         allowNull: false
     },
     rate_per_hour: {
-        type: DataTypes.ENUM(200, 400, 800),
+        type: DataTypes.INTEGER,
         allowNull: false
     },
     academic_year: {
