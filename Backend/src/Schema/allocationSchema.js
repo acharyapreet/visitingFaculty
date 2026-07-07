@@ -16,7 +16,7 @@ const Allocation = sequelize.define('Allocation', {
         }
     },
     subject_name: {
-        type: DataTypes.STRING(255),
+        type: DataTypes.ENUM(Mathematics-I),
         allowNull: false
     },
     subject_code: {

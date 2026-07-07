@@ -1,24 +1,22 @@
-const {DataTypes} = require('sequelize');
+const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const bcrypt = require('bcrypt');
 
 const User = sequelize.define('User', {
-    user_id : {
-        type : DataTypes.INTEGER,
-        primaryKey : true,
+    user_id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
         autoIncrement: true
     },
-    role : {
-        type : DataTypes.ENUM('super_admin', 'admin', 'faculty'),
+    role: {
+        type: DataTypes.ENUM('super_admin', 'admin', 'faculty'),
         allowNull: false
     },
-    email : {
-        type : DataTypes.STRING(100),
-        allowNull : false,
-        unique : true,
-        validate :{
-            isEmail : true
-        }
+    email: {
+        type: DataTypes.STRING(100),
+        allowNull: false,
+        unique: true,
+        validate: { isEmail: true }
     },
     password_hash: {
         type: DataTypes.STRING(255),
@@ -85,21 +83,20 @@ const User = sequelize.define('User', {
 }, {
     tableName: 'users',
     timestamps: false,
-    hooks :{
-        beforeCreate : async (user) =>{
-            if(user.password_hash){
+    hooks: {
+        beforeCreate: async (user) => {
+            if (user.password_hash) {
                 user.password_hash = await bcrypt.hash(user.password_hash, 10);
             }
         },
-        beforeUpdate: async(user) =>{
-            if(user.changed('password_hash')){
+        beforeUpdate: async (user) => {
+            if (user.changed('password_hash')) {
                 user.password_hash = await bcrypt.hash(user.password_hash, 10);
             }
         }
     }
 });
 
-// Instance method to compare password
 User.prototype.comparePassword = async function(password) {
     return await bcrypt.compare(password, this.password_hash);
 };
