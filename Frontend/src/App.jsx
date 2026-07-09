@@ -4,9 +4,9 @@ import FacultyRegister from './features/faculty/Register';
 
 const SUPERADMIN_ACCOUNT = {
   role: 'superadmin',
-  userId: 'SUPERADMIN-2026-001',
-  email: 'superadmin@davv.ac.in',
-  password: 'SuperAdmin@123',
+  userId: '',
+  email: '',
+  password: '',
 };
 
 const loadStoredAccounts = () => {
