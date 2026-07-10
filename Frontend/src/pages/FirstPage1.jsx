@@ -3,15 +3,16 @@ import backgroundImage from '../assets/background.png';
 export default function FirstPage1({ onProceed }) {
   return (
     <div className="min-h-screen w-full overflow-hidden bg-[#eff3ff]">
-      <header className="absolute left-0 top-0 z-20 flex w-full items-center justify-between border-b border-white/40 bg-white/80 px-4 py-3 text-[11px] font-semibold text-blue-700 backdrop-blur-sm sm:px-6 md:px-12">
-        <p className="truncate pr-3">Unified Visiting Faculty Management, IIPS, DAVV</p>
-        <a href="#" className="shrink-0 text-blue-700 hover:text-blue-800">
+      {/* UPDATED HEADER: Even larger text and more height for a premium feel */}
+      <header className="absolute left-0 top-0 z-20 flex w-full items-center justify-between border-b border-white/40 bg-white/80 px-6 py-4 text-sm font-semibold text-blue-800 backdrop-blur-md sm:px-8 md:px-12 md:py-5">
+        <p className="truncate pr-4 tracking-wide">Unified Visiting Faculty Management, IIPS, DAVV</p>
+        <a href="#" className="shrink-0 text-blue-700 hover:text-blue-800 transition-colors">
           Home
         </a>
       </header>
 
       <main
-        className="relative flex min-h-screen items-center justify-center px-4 pt-20 pb-20 sm:px-6 md:px-10"
+        className="relative flex min-h-screen items-center justify-center px-4 pt-24 pb-20 sm:px-6 md:px-10"
         style={{
           backgroundImage: `linear-gradient(rgba(15,23,42,0.40), rgba(15,23,42,0.55)), url(${backgroundImage})`,
           backgroundSize: 'cover',
@@ -19,6 +20,7 @@ export default function FirstPage1({ onProceed }) {
           backgroundRepeat: 'no-repeat',
         }}
       >
+        {/* ... rest of your main content remains the same ... */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.12),transparent_25%),radial-gradient(circle_at_80%_25%,rgba(255,255,255,0.10),transparent_22%),radial-gradient(circle_at_50%_80%,rgba(0,77,210,0.18),transparent_28%)]" />
         <div className="absolute left-0 top-0 h-full w-full bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(15,23,42,0.04))]" />
 

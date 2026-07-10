@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { loadStoredAccounts } from './authUtils';
 
 const DEMO_ADMIN_ACCOUNT = {
   role: 'admin',
@@ -6,20 +7,13 @@ const DEMO_ADMIN_ACCOUNT = {
   password: 'Admin@123',
 };
 
-const loadStoredAccounts = () => {
-  try {
-    const rawAccounts = localStorage.getItem('iipsPortalAccounts');
-    return rawAccounts ? JSON.parse(rawAccounts) : [];
-  } catch {
-    return [];
-  }
-};
-
-const LoginCard = ({ onNavigate, role = 'faculty', initialUserId = '' }) => {
+const LoginCard = ({ onNavigate, role , initialUserId = '' }) => {
   const [userId, setUserId] = useState(() => initialUserId);
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [successRole, setSuccessRole] = useState(null);
+  
+  // Use the shared utility function instead of rewriting it
   const [storedAccounts] = useState(() => loadStoredAccounts());
   const [isLoading, setIsLoading] = useState(false);
 
@@ -87,6 +81,7 @@ const LoginCard = ({ onNavigate, role = 'faculty', initialUserId = '' }) => {
                 setSuccessRole(null);
                 setUserId('');
                 setPassword('');
+                // If they have the routing set up, this is where it will trigger
               }}
               className="w-full rounded-lg bg-[#004DD2] py-3 font-medium text-white shadow-md transition hover:bg-[#003bb3] focus:outline-none focus:ring-4 focus:ring-[#004DD2]/30"
             >
@@ -120,27 +115,6 @@ const LoginCard = ({ onNavigate, role = 'faculty', initialUserId = '' }) => {
               </div>
             )}
 
-            <div className="flex flex-col gap-3 rounded-xl border border-[#DDE3F0] bg-[#EEF3FF] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-[#004DD2] shadow-sm">
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B7280]">Selected Role</p>
-                  <p className="text-sm font-bold text-[#141B2B]">{roleLabel}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onNavigate('role-selection')}
-                className="self-start text-sm font-semibold text-[#004DD2] hover:underline sm:self-auto"
-              >
-                Change
-              </button>
-            </div>
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-[#424656]">Institute User ID</label>
@@ -204,25 +178,23 @@ const LoginCard = ({ onNavigate, role = 'faculty', initialUserId = '' }) => {
           </form>
 
           <div className="text-center mt-4 mb-6 sm:mt-5 sm:mb-8">
-            <button type="button" className="text-sm font-bold text-[#004DD2] hover:underline focus:outline-none">
+            <button type="button" onClick={() => onNavigate('forgot-password')} className="text-sm font-bold text-[#004DD2] hover:underline focus:outline-none">
               Forget Password ?
             </button>
           </div>
+          
 
-          {role === 'faculty' ? (
-            <div className="flex flex-col items-start">
-              <p className="mb-3 ml-1 text-xs font-bold text-[#004DD2]">Don't Have an Account ?</p>
-              <button
-                type="button"
-                onClick={() => onNavigate('faculty-register')}
-                className="w-full rounded-lg bg-[#004DD2] py-3 font-medium text-white transition-all hover:bg-[#003bb3] focus:outline-none focus:ring-4 focus:ring-[#004DD2]/30"
-              >
-                Register Now
-              </button>
-            </div>
-          ) : (
-            <div className="text-center text-xs text-[#6B7280]">Need admin access? Contact the system administrator.</div>
-          )}
+          {/* Always show the Register option so any new user can start the flow */}
+          <div className="flex flex-col items-start gap-3 mt-6">
+            <p className="ml-1 text-xs font-bold text-[#004DD2]">Don't Have an Account ?</p>
+            <button
+              type="button"
+              onClick={() => onNavigate('role-selection')}
+              className="w-full rounded-lg bg-[#004DD2] py-3 font-medium text-white transition-all hover:bg-[#003bb3] focus:outline-none focus:ring-4 focus:ring-[#004DD2]/30"
+            >
+              Register Now
+            </button>
+          </div>
         </div>
       </div>
     </>

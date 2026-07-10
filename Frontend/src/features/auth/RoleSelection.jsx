@@ -1,4 +1,4 @@
-const RoleSelection = ({ onNavigate }) => {
+export default function RoleSelection({ onNavigate }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-68px)] bg-[#F8F9FB] px-3 py-8 sm:px-4 sm:py-12">
       
@@ -13,9 +13,10 @@ const RoleSelection = ({ onNavigate }) => {
       {/* Cards Container */}
       <div className="flex flex-col sm:flex-row items-stretch justify-center gap-4 sm:gap-6 mb-10 sm:mb-12 w-full max-w-3xl">
         
-        {/* Admin Card - NOW FULLY CLICKABLE */}
-        <div 
-          onClick={() => onNavigate('admin-login')}
+        {/* Admin Card */}
+        <button 
+          type="button"
+          onClick={() => onNavigate('admin-register')}
           className="bg-white border border-[#C3C5D8] rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center w-full sm:w-[320px] cursor-pointer hover:shadow-lg hover:border-[#004DD2]/50 transition-all group"
         >
           <div className="w-14 h-14 bg-[#F1F3FF] rounded-full flex items-center justify-center mb-4 sm:mb-5 text-[#004DD2] group-hover:bg-[#004DD2] group-hover:text-white transition-colors duration-300">
@@ -25,16 +26,17 @@ const RoleSelection = ({ onNavigate }) => {
           </div>
           <h2 className="text-lg sm:text-xl font-bold text-[#141B2B] mb-3 sm:mb-4 group-hover:text-[#004DD2] transition-colors">Admin</h2>
           <div className="text-[#004DD2] text-sm font-medium flex items-center group-hover:underline text-center justify-center">
-            Continue to Admin Login
+            Continue to Admin Registration
             <svg className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
           </div>
-        </div>
+        </button>
 
-        {/* Faculty Card - NOW FULLY CLICKABLE */}
-        <div 
-          onClick={() => onNavigate('faculty-login')}
+        {/* Faculty Card */}
+        <button 
+          type="button"
+          onClick={() => onNavigate('faculty-register')}
           className="bg-white border border-[#C3C5D8] rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center w-full sm:w-[320px] cursor-pointer hover:shadow-lg hover:border-[#004DD2]/50 transition-all group"
         >
           <div className="w-14 h-14 bg-[#F1F3FF] rounded-full flex items-center justify-center mb-4 sm:mb-5 text-[#004DD2] group-hover:bg-[#004DD2] group-hover:text-white transition-colors duration-300">
@@ -45,18 +47,19 @@ const RoleSelection = ({ onNavigate }) => {
           </div>
           <h2 className="text-lg sm:text-xl font-bold text-[#141B2B] mb-3 sm:mb-4 group-hover:text-[#004DD2] transition-colors">Faculty</h2>
           <div className="text-[#004DD2] text-sm font-medium flex items-center group-hover:underline text-center justify-center">
-            Continue to Faculty Login
+            Continue to Faculty Registration
             <svg className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
           </div>
-        </div>
+        </button>
 
       </div>
 
       {/* Back Button */}
       <button 
-        onClick={() => onNavigate('landing')}
+        type="button"
+        onClick={() => onNavigate('login')}
         className="flex w-full items-center justify-center text-sm font-medium text-[#585F6C] hover:text-[#141B2B] transition-colors focus:outline-none sm:w-auto"
       >
         <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -67,6 +70,4 @@ const RoleSelection = ({ onNavigate }) => {
 
     </div>
   );
-};
-
-export default RoleSelection;
+}

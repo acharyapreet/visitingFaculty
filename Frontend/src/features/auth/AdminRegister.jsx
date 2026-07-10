@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { buildInstituteUserId, storeAccount } from './authUtils';
 
-const AdminRegister = ({ onNavigate }) => {
+export default function AdminRegister({ onNavigate }) {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -47,8 +48,29 @@ const AdminRegister = ({ onNavigate }) => {
 
     // If it passes all checks, clear any existing errors and proceed
     setFormError('');
-    console.log("Validation Passed! Admin Registration Data:", formData);
-    // Future: Add backend submit logic here
+    
+    // Generate official ID and store the account locally
+    const userId = buildInstituteUserId('IIPS-ADM');
+    
+    storeAccount({
+      role: 'admin',
+      userId,
+      email: formData.email.trim(),
+      password: formData.password,
+      fullName: formData.fullName.trim(),
+      mobile: formData.mobile.trim(),
+    });
+
+    // Set active session
+    localStorage.setItem(
+      'iipsCurrentSession',
+      JSON.stringify({ role: 'admin', userId, email: formData.email.trim() }),
+    );
+
+    window.alert(`Registered successfully! Your User ID is: ${userId}`);
+    
+    // Navigate back to login and auto-fill their new ID
+    onNavigate('login', { initialUserId: userId });
   };
 
   return (
@@ -216,6 +238,7 @@ const AdminRegister = ({ onNavigate }) => {
             <button 
               onClick={() => onNavigate('login')}
               className="text-[#004DD2] font-semibold hover:underline focus:outline-none"
+              type="button"
             >
               Sign In
             </button>
@@ -225,6 +248,4 @@ const AdminRegister = ({ onNavigate }) => {
       </div>
     </div>
   );
-};
-
-export default AdminRegister;
+}

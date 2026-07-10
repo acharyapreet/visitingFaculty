@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { buildInstituteUserId, storeAccount } from './authUtils';
 
 const initialFormState = {
   full_name: '',
@@ -15,27 +16,15 @@ const initialFormState = {
   confirmPassword: '',
 };
 
-const storeFacultyAccount = (account) => {
-  const existingAccounts = JSON.parse(localStorage.getItem('iipsPortalAccounts') || '[]');
-  const nextAccounts = [
-    ...existingAccounts.filter((item) => item.userId !== account.userId),
-    account,
-  ];
-
-  localStorage.setItem('iipsPortalAccounts', JSON.stringify(nextAccounts));
-};
-
-const buildInstituteUserId = (userId) => {
-  const yearSuffix = new Date().getFullYear().toString().slice(-2);
-  return `IIPS-2K${yearSuffix}-${String(userId).padStart(3, '0')}`;
-};
-
-function Register({ onNavigate, onRegistrationSuccess }) {
+export default function FacultyRegister({ onNavigate, onRegistrationSuccess }) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState(initialFormState);
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successData, setSuccessData] = useState(null);
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const progressWidth = step === 1 ? '36%' : '100%';
 
@@ -117,21 +106,18 @@ function Register({ onNavigate, onRegistrationSuccess }) {
     };
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/register/faculty', {
+      // Future backend integration
+      /* const response = await fetch('http://localhost:5000/api/auth/register/faculty', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
       const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+      */
 
-      if (!response.ok || data.success === false) {
-        throw new Error(data.message || 'Registration failed. Please try again.');
-      }
-
-      const instituteUserId = buildInstituteUserId(data.data?.user_id || Date.now() % 1000);
+      // Generate official ID using our shared utility
+      const instituteUserId = buildInstituteUserId('IIPS-FAC');
 
       const savedAccount = {
         role: 'faculty',
@@ -142,7 +128,8 @@ function Register({ onNavigate, onRegistrationSuccess }) {
         phoneNumber: payload.phone_number,
       };
 
-      storeFacultyAccount(savedAccount);
+      // Store using our shared utility
+      storeAccount(savedAccount);
       localStorage.setItem('iipsCurrentSession', JSON.stringify(savedAccount));
 
       setSuccessData({
@@ -186,18 +173,10 @@ function Register({ onNavigate, onRegistrationSuccess }) {
 
           <button
             type="button"
-            onClick={() => onNavigate('faculty-login', { initialUserId: successData.instituteUserId })}
+            onClick={() => onNavigate('login', { initialUserId: successData.instituteUserId, role: 'faculty' })}
             className="mt-8 w-full rounded-lg bg-[#004DD2] py-3 font-medium text-white shadow-md transition hover:bg-[#003bb3]"
           >
             Go to Sign In
-          </button>
-
-          <button
-            type="button"
-            className="mt-5 text-sm font-semibold text-[#004DD2] hover:underline"
-            onClick={() => onNavigate('faculty-login', { initialUserId: successData.instituteUserId })}
-          >
-            Resend Confirmation
           </button>
         </div>
       </div>
@@ -264,7 +243,7 @@ function Register({ onNavigate, onRegistrationSuccess }) {
                   <input
                     type="tel"
                     name="phone_number"
-                    placeholder="+1 555/000-0000"
+                    placeholder="9876543210"
                     value={formData.phone_number}
                     onChange={handleChange}
                     maxLength={10}
@@ -309,21 +288,42 @@ function Register({ onNavigate, onRegistrationSuccess }) {
 
                 <div className="grid gap-5 md:grid-cols-2">
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-[#424656]">Qualification</label>
-                    <select
-                      name="qualification"
-                      value={formData.qualification}
-                      onChange={handleChange}
-                      className="w-full rounded-lg border border-[#C3C5D8] px-4 py-2.5 text-[#141B2B] focus:border-[#004DD2] focus:outline-none focus:ring-2 focus:ring-[#004DD2]/20"
-                      required
-                    >
-                      <option value="">Select highest qualification</option>
-                      <option value="MSc">MSc</option>
-                      <option value="MTech">MTech</option>
-                      <option value="PhD">PhD</option>
-                      <option value="Post Graduate">Post Graduate</option>
-                    </select>
-                  </div>
+                  <label className="mb-1.5 block text-sm font-medium text-[#424656]">Qualification / Specialization</label>
+                  <select
+                    name="qualification"
+                    value={formData.qualification}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-[#C3C5D8] px-4 py-2.5 text-[#141B2B] focus:border-[#004DD2] focus:outline-none focus:ring-2 focus:ring-[#004DD2]/20"
+                    required
+                  >
+                    <option value="">Select highest qualification</option>
+                    <optgroup label="Doctoral Degrees">
+                      <option value="Ph.D. (Computer Science)">Ph.D. (Computer Science)</option>
+                      <option value="Ph.D. (Management)">Ph.D. (Management)</option>
+                      <option value="Ph.D. (Information Technology)">Ph.D. (Information Technology)</option>
+                      <option value="Ph.D. (Other)">Ph.D. (Other Fields)</option>
+                    </optgroup>
+                    <optgroup label="Master's Degrees">
+                      <option value="M.Tech (Computer Science/IT)">M.Tech (CS / IT)</option>
+                      <option value="MCA (Master of Computer Applications)">MCA</option>
+                      <option value="MBA (Master of Business Administration)">MBA</option>
+                      <option value="M.Sc. (Computer Science/Electronics)">M.Sc. (CS / Electronics)</option>
+                      <option value="M.A. / M.Com / Other Masters">Other Master's Degree</option>
+                    </optgroup>
+                    <optgroup label="Bachelor's / Graduation Degrees">
+                      <option value="B.Tech / B.E. (Computer Science/IT)">B.Tech / B.E. (CS / IT)</option>
+                      <option value="BCA (Bachelor of Computer Applications)">BCA</option>
+                      <option value="BBA (Bachelor of Business Administration)">BBA</option>
+                      <option value="B.Sc. (Computer Science/IT/Electronics)">B.Sc. (CS / IT / Electronics)</option>
+                      <option value="B.A. / B.Com / Other Bachelor's">Other Bachelor's Degree</option>
+                    </optgroup>
+                    <optgroup label="Professional Certifications / Clearance">
+                      <option value="UGC NET Qualified">UGC NET Qualified</option>
+                      <option value="CSIR NET Qualified">CSIR NET Qualified</option>
+                      <option value="GATE Qualified">GATE Qualified</option>
+                    </optgroup>
+                  </select>
+                </div>
 
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-[#424656]">Aadhaar No</label>
@@ -410,30 +410,58 @@ function Register({ onNavigate, onRegistrationSuccess }) {
                 </div>
 
                 <div className="grid gap-5 md:grid-cols-2">
+                  {/* UPDATE: New Password with Bulletproof Eye Icon */}
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-[#424656]">Password (Minimum length: 8 alpha numeric)</label>
-                    <input
-                      type="password"
-                      name="password"
-                      placeholder="Create a strong password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className="w-full rounded-lg border border-[#C3C5D8] px-4 py-2.5 text-[#141B2B] placeholder-[#9CA3AF] focus:border-[#004DD2] focus:outline-none focus:ring-2 focus:ring-[#004DD2]/20"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        placeholder="Create a strong password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        className="w-full rounded-lg border border-[#C3C5D8] py-2.5 pl-4 pr-12 text-[#141B2B] placeholder-[#9CA3AF] focus:border-[#004DD2] focus:outline-none focus:ring-2 focus:ring-[#004DD2]/20"
+                        required
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowPassword(!showPassword)} 
+                        className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-[#9CA3AF] hover:text-[#004DD2] transition-colors focus:outline-none"
+                      >
+                        {showPassword ? (
+                          <svg className="h-5 w-5 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M21 12c0 1.657-3.666 3-8.182 3-1.12 0-2.187-.13-3.182-.369M15.54 15.54l1.414 1.414" /></svg>
+                        ) : (
+                          <svg className="h-5 w-5 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
+                  {/* UPDATE: Confirm Password with Bulletproof Eye Icon */}
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-[#424656]">Confirm Password</label>
-                    <input
-                      type="password"
-                      name="confirmPassword"
-                      placeholder="Repeat your password"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      className="w-full rounded-lg border border-[#C3C5D8] px-4 py-2.5 text-[#141B2B] placeholder-[#9CA3AF] focus:border-[#004DD2] focus:outline-none focus:ring-2 focus:ring-[#004DD2]/20"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        name="confirmPassword"
+                        placeholder="Repeat your password"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        className="w-full rounded-lg border border-[#C3C5D8] py-2.5 pl-4 pr-12 text-[#141B2B] placeholder-[#9CA3AF] focus:border-[#004DD2] focus:outline-none focus:ring-2 focus:ring-[#004DD2]/20"
+                        required
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+                        className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-[#9CA3AF] hover:text-[#004DD2] transition-colors focus:outline-none"
+                      >
+                        {showConfirmPassword ? (
+                          <svg className="h-5 w-5 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M21 12c0 1.657-3.666 3-8.182 3-1.12 0-2.187-.13-3.182-.369M15.54 15.54l1.414 1.414" /></svg>
+                        ) : (
+                          <svg className="h-5 w-5 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -443,7 +471,7 @@ function Register({ onNavigate, onRegistrationSuccess }) {
           <div className="mt-8 flex flex-col-reverse gap-3 border-t border-[#DDE3F0] pt-6 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
-              onClick={() => (step === 2 ? setStep(1) : onNavigate('faculty-login'))}
+              onClick={() => (step === 2 ? setStep(1) : onNavigate('login'))}
               className="text-sm font-semibold text-[#004DD2] hover:underline"
             >
               {step === 2 ? 'Back' : 'Back to Sign In'}
@@ -476,5 +504,3 @@ function Register({ onNavigate, onRegistrationSuccess }) {
     </div>
   );
 }
-
-export default Register;
