@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import FirstPage1 from './pages/FirstPage1';
-import FacultyRegister from './features/faculty/Register';
+import FacultyRegister from './components/faculty/Register';
 
 const SUPERADMIN_ACCOUNT = {
   role: 'superadmin',
