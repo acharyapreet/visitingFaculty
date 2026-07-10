@@ -485,3 +485,27 @@ function App() {
 }
 
 export default App;
+
+
+
+// import { BrowserRouter, Routes, Route } from "react-router-dom";
+// import FacultyLayout from "./components/faculty/layout/FacultyLayout";
+// import FacultyDashboard from "./components/faculty/FacultyDashboard";
+// import MarkAttendance from "./components/faculty/MarkAttendance";
+// import AttendanceHistory from "./components/faculty/AttendanceHistory";
+// import ViewBill from "./components/faculty/ViewBill";
+
+// export default function App() {
+//   return (
+//     <BrowserRouter>
+//       <Routes>
+//         <Route element={<FacultyLayout />}>
+//           <Route path="/" element={<FacultyDashboard />} />
+//           <Route path="/mark-attendance" element={<MarkAttendance />} />
+//           <Route path="/attendance-history" element={<AttendanceHistory />} />
+//           <Route path="/view-bill" element={<ViewBill />} />
+//         </Route>
+//       </Routes>
+//     </BrowserRouter>
+//   );
+// }
