@@ -8,7 +8,7 @@ const Allocation = sequelize.define('Allocation', {
         autoIncrement: true
     },
     user_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING(30),
         allowNull: false,
         references: { model: 'users', key: 'user_id' }
     },
@@ -37,7 +37,7 @@ const Allocation = sequelize.define('Allocation', {
         allowNull: false
     },
     rate_per_hour: {
-        type: DataTypes.ENUM(200, 400, 800),
+        type: DataTypes.ENUM('200', '400', '800'),
         allowNull: false
     },
     academic_year: {
@@ -45,7 +45,7 @@ const Allocation = sequelize.define('Allocation', {
         allowNull: false
     },
     created_by: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING(30),
         allowNull: false,
         references: { model: 'users', key: 'user_id' }  
     },

@@ -8,7 +8,7 @@ const Bill = sequelize.define('Bill', {
         autoIncrement: true
     },
     user_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING,
         allowNull: false,
         references: { model: 'users', key: 'user_id' }
     },

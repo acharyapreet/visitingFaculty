@@ -11,7 +11,7 @@ const Subject = require('./subjectSchema');
 const Allocation = require('./allocationSchema');
 const Attendance = require('./attendanceSchema');
 const Bill = require('./billSchema');
-const BillDetail = require('./billDetailSchema');  // ✅ Add this - missing
+const BillDetail = require('./billDetailsSchema');  // ✅ Add this - missing
 
 // ============================================
 // 1. USER ASSOCIATIONS

@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../Schema/userSchema');
 const FacultyApproval = require('../Schema/facultyApprovalSchema');
 const AdminApproval = require('../Schema/adminApprovalSchema');
+require('dotenv').config();
 
 // faculty registration logic
 async function registerFaculty(facultyData) {
@@ -13,7 +14,7 @@ async function registerFaculty(facultyData) {
         throw new Error('Email already exist');
     }
 
-    const { password, ...restFacultyData } = facultyData;
+    const { password, user_id, ...restFacultyData } = facultyData;
     const user = await User.create({
         role: 'faculty',
         password_hash: password,
@@ -39,7 +40,7 @@ async function registerAdmin(adminData) {
         throw new Error('Email already exist');
     }
 
-    const { password, ...restAdminData } = adminData;
+    const { password, user_id, ...restAdminData } = adminData;
     const user = await User.create({
         role: 'admin',
         password_hash: password,
@@ -58,9 +59,9 @@ async function registerAdmin(adminData) {
 
 async function login(Details) {
     try {
-        const { email, password, role } = Details || {};
+        const { user_id, password, role } = Details || {};
         const user = await User.findOne({
-            where: { email, role }
+            where: { user_id }
         });
 
         if (!user) {

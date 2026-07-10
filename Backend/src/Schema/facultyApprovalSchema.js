@@ -8,12 +8,12 @@ const FacultyApproval = sequelize.define('FacultyApproval',{
         autoIncrement: true
     },
     user_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING(30),
         allowNull: false,
         references: { model: 'users', key: 'user_id' }
     },
     approved_by: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING(30),
         allowNull: true,
         references: { model: 'users', key: 'user_id' }
     },
@@ -27,8 +27,7 @@ const FacultyApproval = sequelize.define('FacultyApproval',{
     },
     uvfin: {
         type: DataTypes.STRING(20),
-        allowNull: true,
-        unique: true
+        allowNull: true
     },
     rejection_reason: {
         type: DataTypes.TEXT,

@@ -11,6 +11,10 @@ const Course = sequelize.define('Course', {
         type: DataTypes.STRING(255),
         allowNull: false
     },
+    program_incharge: {
+        type: DataTypes.STRING(100),
+        allowNull: true
+    },
     total_semesters: {
         type: DataTypes.INTEGER,
         allowNull: false
