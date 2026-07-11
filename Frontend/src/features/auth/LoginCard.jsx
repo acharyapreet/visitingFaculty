@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { loadStoredAccounts } from './authUtils';
+import { findUserByCredentials } from './authUtils';
 
 const DEMO_ADMIN_ACCOUNT = {
   role: 'admin',
@@ -7,17 +7,14 @@ const DEMO_ADMIN_ACCOUNT = {
   password: 'Admin@123',
 };
 
-const LoginCard = ({ onNavigate, role , initialUserId = '' }) => {
+// Removed the `role` prop requirement so any user can log in here
+const LoginCard = ({ onNavigate, initialUserId = '' }) => {
   const [userId, setUserId] = useState(() => initialUserId);
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // Added for eye toggle
   const [errorMessage, setErrorMessage] = useState('');
   const [successRole, setSuccessRole] = useState(null);
-  
-  // Use the shared utility function instead of rewriting it
-  const [storedAccounts] = useState(() => loadStoredAccounts());
   const [isLoading, setIsLoading] = useState(false);
-
-  const roleLabel = role === 'admin' ? 'Admin' : 'Faculty';
 
   const handleSignIn = async (e) => {
     e.preventDefault();
@@ -26,25 +23,29 @@ const LoginCard = ({ onNavigate, role , initialUserId = '' }) => {
 
     try {
       const normalizedUserId = userId.trim().toLowerCase();
-      const roleAccounts = storedAccounts.filter((account) => account.role === role);
-      const matchedAccount = roleAccounts.find((account) => {
-        const storedIdentifiers = [account.userId, account.email]
-          .filter(Boolean)
-          .map((value) => value.toLowerCase());
+      
+      // 1. Use the utility to check across ALL accounts natively
+      const matchedAccount = findUserByCredentials(normalizedUserId, password);
 
-        return storedIdentifiers.includes(normalizedUserId) && account.password === password;
-      });
-
+      // 2. Fallback check for the demo admin
       const demoAdminMatch =
-        role === 'admin' &&
         normalizedUserId === DEMO_ADMIN_ACCOUNT.userId.toLowerCase() &&
         password === DEMO_ADMIN_ACCOUNT.password;
 
-      if (matchedAccount || demoAdminMatch) {
-        setSuccessRole(roleLabel);
+      if (matchedAccount) {
+        // Capitalize the first letter for the UI (e.g., "superadmin" -> "Superadmin")
+        const formattedRole = matchedAccount.role.charAt(0).toUpperCase() + matchedAccount.role.slice(1);
+        setSuccessRole(formattedRole);
+        
         localStorage.setItem(
           'iipsCurrentSession',
-          JSON.stringify({ role, userId: matchedAccount?.userId || DEMO_ADMIN_ACCOUNT.userId }),
+          JSON.stringify({ role: matchedAccount.role, userId: matchedAccount.userId }),
+        );
+      } else if (demoAdminMatch) {
+        setSuccessRole('Admin');
+        localStorage.setItem(
+          'iipsCurrentSession',
+          JSON.stringify({ role: 'admin', userId: DEMO_ADMIN_ACCOUNT.userId }),
         );
       } else {
         setErrorMessage(
@@ -61,6 +62,7 @@ const LoginCard = ({ onNavigate, role , initialUserId = '' }) => {
 
   return (
     <>
+      {/* Success Pop-up */}
       {successRole && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141B2B]/40 backdrop-blur-sm px-3 sm:px-4">
           <div className="animate-in fade-in zoom-in duration-200 w-full max-w-sm rounded-2xl border border-[#C3C5D8] bg-white p-6 text-center shadow-2xl sm:p-8">
@@ -81,7 +83,8 @@ const LoginCard = ({ onNavigate, role , initialUserId = '' }) => {
                 setSuccessRole(null);
                 setUserId('');
                 setPassword('');
-                // If they have the routing set up, this is where it will trigger
+                // Navigate to dashboard and pass the role so the router knows where to send them
+                onNavigate('dashboard', { role: successRole.toLowerCase() });
               }}
               className="w-full rounded-lg bg-[#004DD2] py-3 font-medium text-white shadow-md transition hover:bg-[#003bb3] focus:outline-none focus:ring-4 focus:ring-[#004DD2]/30"
             >
@@ -91,6 +94,7 @@ const LoginCard = ({ onNavigate, role , initialUserId = '' }) => {
         </div>
       )}
 
+      {/* Main Login UI */}
       <div className="flex min-h-[calc(100vh-68px)] flex-col items-center justify-center bg-[#F8F9FB] px-3 py-8 sm:px-4 sm:py-12">
         <div className="mb-5 flex flex-col items-center sm:mb-6">
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#004DD2] shadow-md">
@@ -115,7 +119,6 @@ const LoginCard = ({ onNavigate, role , initialUserId = '' }) => {
               </div>
             )}
 
-
             <div>
               <label className="mb-1.5 block text-sm font-medium text-[#424656]">Institute User ID</label>
               <input
@@ -138,22 +141,44 @@ const LoginCard = ({ onNavigate, role , initialUserId = '' }) => {
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-[#424656]">Password</label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setErrorMessage('');
-                }}
-                disabled={isLoading}
-                className={`w-full rounded-lg border px-4 py-2.5 text-[#141B2B] placeholder-[#9CA3AF] transition-colors focus:outline-none focus:ring-2 ${
-                  errorMessage
-                    ? 'border-[#EF4444] focus:border-[#EF4444] focus:ring-[#EF4444]/20'
-                    : 'border-[#C3C5D8] focus:border-[#004DD2] focus:ring-[#004DD2]/20'
-                } ${isLoading ? 'cursor-not-allowed bg-gray-50 opacity-50' : 'bg-white'}`}
-                required
-              />
+              <div className="relative">
+                {/* Left Side Lock Icon */}
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#9CA3AF]">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setErrorMessage('');
+                  }}
+                  disabled={isLoading}
+                  className={`w-full rounded-lg border pl-10 pr-12 py-2.5 text-[#141B2B] placeholder-[#9CA3AF] transition-colors focus:outline-none focus:ring-2 ${
+                    errorMessage
+                      ? 'border-[#EF4444] focus:border-[#EF4444] focus:ring-[#EF4444]/20'
+                      : 'border-[#C3C5D8] focus:border-[#004DD2] focus:ring-[#004DD2]/20'
+                  } ${isLoading ? 'cursor-not-allowed bg-gray-50 opacity-50' : 'bg-white'}`}
+                  required
+                />
+                
+                {/* Right Side Bulletproof Eye Toggle */}
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)} 
+                  className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-[#9CA3AF] hover:text-[#004DD2] transition-colors focus:outline-none"
+                >
+                  {showPassword ? (
+                    <svg className="h-5 w-5 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M21 12c0 1.657-3.666 3-8.182 3-1.12 0-2.187-.13-3.182-.369M15.54 15.54l1.414 1.414" /></svg>
+                  ) : (
+                    <svg className="h-5 w-5 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                  )}
+                </button>
+              </div>
             </div>
 
             <button
@@ -183,8 +208,7 @@ const LoginCard = ({ onNavigate, role , initialUserId = '' }) => {
             </button>
           </div>
           
-
-          {/* Always show the Register option so any new user can start the flow */}
+          {/* Registration Section */}
           <div className="flex flex-col items-start gap-3 mt-6">
             <p className="ml-1 text-xs font-bold text-[#004DD2]">Don't Have an Account ?</p>
             <button
