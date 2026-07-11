@@ -4,7 +4,7 @@ import FirstPage1 from './pages/FirstPage1';
 import LoginCard from './features/auth/LoginCard';
 import RoleSelection from './features/auth/RoleSelection';
 import AdminRegister from './features/auth/AdminRegister';
-import FacultyRegister from './features/auth/FacultyRegister';
+import FacultyRegister from './components/faculty/FacultyRegister';
 import ForgotPassword from './features/auth/ForgotPassword';
 import VerifyOtp from './features/auth/VerifyOtp';
 import ResetPassword from './features/auth/ResetPassword';
