@@ -42,7 +42,8 @@ app.use('/api/admin', AdminApprovalRouter);
     // console.log("Loaded Models:", Object.keys(sequelize.models));
 
     if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: true });
+      // Use sequelize.sync() instead of { alter: true } to avoid MySQL duplicate index bug (ER_TOO_MANY_KEYS)
+      await sequelize.sync();
       console.log('Database models synced');
     }
 

@@ -1,4 +1,4 @@
-const approveAdmin = require("../service/superAdminService");
+const {approveAdmin, getPendingAdmins, getApprovedAdmin, getRejectedAdmin, getAllAdmins} = require("../service/superAdminService");
 
 async function AdminApprovalController(req, res) {
     try{
@@ -17,4 +17,82 @@ async function AdminApprovalController(req, res) {
     }
 };
 
-module.exports = AdminApprovalController;
+async function getPendingAdminsController(req, res) {
+    try{
+        const pendingAdmins = await getPendingAdmins();
+        return res.json({
+            success: true,
+            count: pendingAdmins.length,
+            data: pendingAdmins
+        });
+    }catch(error){
+        console.log('Admin pending show failed', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch pending admins',
+            error: error.message
+        });
+    }
+};
+
+async function getApprovedAdminsController(req, res) {
+    try{
+        const ApprovedAdmin = await getApprovedAdmin();
+        return res.json({
+            success: true,
+            count: ApprovedAdmin.length,
+            data: ApprovedAdmin
+        });
+    }catch(error){
+        console.log('Admin Approval failed', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch approved admins',
+            error: error.message
+        });
+    }
+};
+
+async function getRejectedAdminsController(req, res) {
+    try{
+        const RejectedAdmin = await getRejectedAdmin();
+        return res.json({
+            success: true,
+            count: RejectedAdmin.length,
+            data: RejectedAdmin
+        });
+    }catch(error){
+        console.log('Admin Rejection failed', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch rejected admins',
+            error: error.message
+        });
+    }
+};
+
+async function getAllAdminsController(req, res) {
+    try{
+        const Admins = await getAllAdmins();
+        return res.json({
+            success: true,
+            count: Admins.length,
+            data: Admins
+        });
+    }catch(error){
+        console.log('Admin show failed', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch all admins',
+            error: error.message
+        });
+    }
+};
+
+module.exports = {
+    AdminApprovalController,
+    getAllAdminsController,
+    getApprovedAdminsController,
+    getPendingAdminsController,
+    getRejectedAdminsController,
+};

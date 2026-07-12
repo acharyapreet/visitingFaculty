@@ -111,5 +111,97 @@ async function approveFaculty(params, Details, currentUser) {
        throw error;
     }
 };
+async function getPendingFaculty(){
+    try {
+        const pendingFaculty = await User.findAll({
+            where: { 
+                role: 'faculty', 
+                is_approved: false 
+            },
+            include: [{
+                model: FacultyApproval,
+                where: { status: 'pending' },
+                required: true
+            }],
+            attributes: { exclude: ['password_hash'] },
+            order: [['created_at', 'ASC']]
+        });
 
-module.exports = approveFaculty;
+        return pendingFaculty;
+
+    } catch (error) {
+        console.error('Get Pending Faculty Error:', error);
+        throw new Error('Failed to fetch pending faculty');
+    }
+};
+
+async function getRejectedFaculty() {
+    try {
+        const RejectedFaculty = await User.findAll({
+            where: {
+                role: 'faculty',
+                is_approved: false
+            },
+            include: [{
+                model: FacultyApproval,
+                where:{status: 'rejected'},
+                required: true
+            }],
+            attributes:{exclude: ['password_hash']},
+            order:[['created_at', 'ASC']]
+        });
+        return RejectedFaculty;
+    } catch (error) {
+        console.error('Get Rejected Faculty Error:', error);
+        throw new Error('Failed to fetch rejected faculty');
+    }
+}
+async function getApprovedFaculty() {
+    try {
+        const ApprovedFaculty = await User.findAll({
+            where: {
+                role: 'faculty',
+                is_approved: true
+            },
+            include: [{
+                model: FacultyApproval,
+                where:{status: 'approved'},
+                required: true
+            }],
+            attributes:{exclude: ['password_hash']},
+            order:[['created_at', 'ASC']]
+        });
+        return ApprovedFaculty;
+    } catch (error) {
+        console.error('Get Approved faculty Error:', error);
+        throw new Error('Failed to fetch approved faculty');
+    }
+}
+
+async function getAllFaculty() {
+    try {
+        const facultys = await User.findAll({
+            where: { role: 'faculty' },
+            attributes: { exclude: ['password_hash'] },
+            include: [{
+                model: FacultyApproval,
+                required: false
+            }],
+            order: [['created_at', 'DESC']]
+        });
+
+        return facultys;
+
+    } catch (error) {
+        console.error('Get All Faculty Error:', error);
+        throw new Error('Failed to fetch facultys');
+    }
+}
+
+module.exports = {
+    approveFaculty,
+    getAllFaculty,
+    getApprovedFaculty,
+    getPendingFaculty,
+    getRejectedFaculty
+};

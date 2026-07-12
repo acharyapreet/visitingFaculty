@@ -105,5 +105,97 @@ const approveAdmin = async (params, Details, currentUser) => {
         throw error;
     }
 };
+async function getPendingAdmins(){
+    try {
+        const pendingAdmins = await User.findAll({
+            where: { 
+                role: 'admin', 
+                is_approved: false 
+            },
+            include: [{
+                model: AdminApproval,
+                where: { status: 'pending' },
+                required: true
+            }],
+            attributes: { exclude: ['password_hash'] },
+            order: [['created_at', 'ASC']]
+        });
 
-module.exports = approveAdmin;
+        return pendingAdmins;
+
+    } catch (error) {
+        console.error('Get Pending Admins Error:', error);
+        throw new Error('Failed to fetch pending admins');
+    }
+};
+
+async function getRejectedAdmin() {
+    try {
+        const RejectedAdmin = await User.findAll({
+            where: {
+                role: 'admin',
+                is_approved: false
+            },
+            include: [{
+                model: AdminApproval,
+                where:{status: 'rejected'},
+                required: true
+            }],
+            attributes:{exclude: ['password_hash']},
+            order:[['created_at', 'ASC']]
+        });
+        return RejectedAdmin;
+    } catch (error) {
+        console.error('Get Rejected Admins Error:', error);
+        throw new Error('Failed to fetch rejected admins');
+    }
+}
+async function getApprovedAdmin() {
+    try {
+        const ApprovedAdmin = await User.findAll({
+            where: {
+                role: 'admin',
+                is_approved: true
+            },
+            include: [{
+                model: AdminApproval,
+                where:{status: 'approved'},
+                required: true
+            }],
+            attributes:{exclude: ['password_hash']},
+            order:[['created_at', 'ASC']]
+        });
+        return ApprovedAdmin;
+    } catch (error) {
+        console.error('Get Approved Admins Error:', error);
+        throw new Error('Failed to fetch approved admins');
+    }
+}
+
+async function getAllAdmins() {
+    try {
+        const admins = await User.findAll({
+            where: { role: 'admin' },
+            attributes: { exclude: ['password_hash'] },
+            include: [{
+                model: AdminApproval,
+                required: false
+            }],
+            order: [['created_at', 'DESC']]
+        });
+
+        return admins;
+
+    } catch (error) {
+        console.error('Get All Admins Error:', error);
+        throw new Error('Failed to fetch admins');
+    }
+}
+
+module.exports = {
+    approveAdmin,
+    getPendingAdmins,
+    getRejectedAdmin,
+    getApprovedAdmin,
+    getAllAdmins
+};
