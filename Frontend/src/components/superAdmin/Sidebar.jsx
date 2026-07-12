@@ -7,7 +7,7 @@ const navItems = [
   { key: "settings", label: "Settings", icon: Settings, dot: true },
 ];
 
-export default function Sidebar({ active, onNavigate }) {
+export default function Sidebar({ active, onNavigate, onSignOut }) {
   return (
     <aside className="w-full md:w-[280px] shrink-0 bg-white border-r border-gray-200 flex flex-col justify-between min-h-screen">
       <div>
@@ -80,10 +80,13 @@ export default function Sidebar({ active, onNavigate }) {
             </div>
           </div>
         </div>
-        <button className="flex items-center gap-2 px-2 text-red-500 font-semibold text-sm hover:text-red-600">
-          <LogOut className="w-4 h-4" />
-          Sign Out
-        </button>
+        <button 
+        onClick={onSignOut} // Use the prop passed from the Dashboard
+        className="flex items-center gap-2 px-2 text-red-500 font-semibold text-sm hover:text-red-600"
+      >
+        <LogOut className="w-4 h-4" />
+        Sign Out
+      </button>
       </div>
     </aside>
   );

@@ -9,9 +9,8 @@ import ForgotPassword from './features/auth/ForgotPassword';
 import VerifyOtp from './features/auth/VerifyOtp';
 import ResetPassword from './features/auth/ResetPassword';
 import PasswordUpdated from './features/auth/PasswordUpdated';
-import PendingApprovalsPage from './components/superAdmin/PendingApprovals'; // Fixed: Uppercase P
-import Sidebar from './components/superAdmin/Sidebar';
-import Topbar from './components/superAdmin/Topbar';
+
+import SuperAdminDashboard from './components/superAdmin/SuperAdminDashboard'; 
 
 function App() {
   const [view, setView] = useState('landing');
@@ -28,13 +27,8 @@ function App() {
   };
 
   const handleLoginSuccess = (user) => {
-    if (user.role === 'superadmin') {
-      navigate('superadmin-dashboard');
-    } else if (user.role === 'admin') {
-      navigate('admin-dashboard');
-    } else {
-      navigate('faculty-dashboard');
-    }
+    // Keep your original navigation command
+    navigate('dashboard');
   };
 
   const renderContent = () => {
@@ -49,41 +43,43 @@ function App() {
       case 'reset-password': return <ResetPassword onNavigate={navigate} />;
       case 'password-updated': return <PasswordUpdated onNavigate={navigate} />;
       
+      // RESTORED: Your original dashboard logic!
       case 'dashboard': {
         const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
         
-        // Return only the specific page component content
-        if (session.role === 'super_admin') return <PendingApprovalsPage onNavigate={navigate} />;
-        if (session.role === 'admin') return <div className="p-10">Admin Dashboard - Coming Soon</div>;
-        if (session.role === 'faculty') return <div className="p-10">Faculty Dashboard - Coming Soon</div>;
+        // Checking for both spellings just in case
+        if (session.role === 'super_admin' || session.role === 'superadmin') {
+          return <SuperAdminDashboard onSignOut={() => {
+            localStorage.removeItem('iipsCurrentSession');
+            navigate('login');
+          }} />;
+        }
         
+        if (session.role === 'admin') {
+          return <div className="p-10">Admin Dashboard - Coming Soon</div>;
+        }
+        
+        if (session.role === 'faculty') {
+          return <div className="p-10">Faculty Dashboard - Coming Soon</div>;
+        }
+        
+        // If no valid session is found, send them back to login
         return <LoginCard onNavigate={navigate} />;
       }
+        
       default: return <FirstPage1 onProceed={() => navigate('login')} />;
     }
   };
 
+  const isDashboard = view.includes('dashboard');
+
   return (
     <div className="min-h-screen bg-[#F8F9FB] flex flex-col font-sans">
-      {/* 1. Header is hidden when view is dashboard */}
-      {view !== 'dashboard' && <Header onNavigate={navigate} />}
+      {!isDashboard && <Header onNavigate={navigate} />}
       
-      {/* 2. Dashboard Layout Shell: Sidebar + Topbar + Content */}
-      {view === 'dashboard' ? (
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar onNavigate={navigate} />
-          <div className="flex flex-1 flex-col overflow-hidden">
-            
-            <main className="flex-1 overflow-y-auto bg-gray-50">
-              {renderContent()}
-            </main>
-          </div>
-        </div>
-      ) : (
-        <main className="flex-grow">
-          {renderContent()}
-        </main>
-      )}
+      <main className={isDashboard ? "" : "flex-grow"}>
+        {renderContent()}
+      </main>
     </div>
   );
 }
