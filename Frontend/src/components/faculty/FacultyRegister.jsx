@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { registerFaculty } from '../../api/authApi';
 
 const initialFormState = {
   full_name: '',
@@ -15,22 +16,6 @@ const initialFormState = {
   confirmPassword: '',
 };
 
-// Kept your teammate's local storage helper
-const storeFacultyAccount = (account) => {
-  const existingAccounts = JSON.parse(localStorage.getItem('iipsPortalAccounts') || '[]');
-  const nextAccounts = [
-    ...existingAccounts.filter((item) => item.userId !== account.userId),
-    account,
-  ];
-  localStorage.setItem('iipsPortalAccounts', JSON.stringify(nextAccounts));
-};
-
-// Kept your teammate's ID generator
-const buildInstituteUserId = (userId) => {
-  const yearSuffix = new Date().getFullYear().toString().slice(-2);
-  return `IIPS-2K${yearSuffix}-${String(userId).padStart(3, '0')}`;
-};
-
 export default function Register({ onNavigate, onRegistrationSuccess }) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState(initialFormState);
@@ -38,7 +23,6 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successData, setSuccessData] = useState(null);
 
-  // Your UI visibility states
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -122,48 +106,32 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
     };
 
     try {
-      // Kept your teammate's actual Backend API integration
-      const response = await fetch('http://localhost:5000/api/auth/register/faculty', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await registerFaculty(payload);
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (!response.ok || data.success === false) {
+      if (!data.success) {
         throw new Error(data.message || 'Registration failed. Please try again.');
       }
 
-      const instituteUserId = buildInstituteUserId(data.data?.user_id || Date.now() % 1000);
-
-      const savedAccount = {
-        role: 'faculty',
-        userId: instituteUserId,
-        email: payload.email,
-        password: payload.password,
-        fullName: payload.full_name,
-        phoneNumber: payload.phone_number,
-      };
-
-      storeFacultyAccount(savedAccount);
-      localStorage.setItem('iipsCurrentSession', JSON.stringify(savedAccount));
+      const registeredData = data.data;
 
       setSuccessData({
-        instituteUserId,
-        fullName: payload.full_name,
-        email: payload.email,
+        instituteUserId: registeredData.user_id,
+        fullName: registeredData.full_name,
+        email: registeredData.email,
       });
 
       if (typeof onRegistrationSuccess === 'function') {
-        onRegistrationSuccess(savedAccount);
+        onRegistrationSuccess(registeredData);
       }
 
       setStep(3);
     } catch (error) {
-      setSubmitError(error.message || 'Unable to complete faculty registration.');
+      setSubmitError(
+        error.response?.data?.message || 
+        error.message || 
+        'Unable to complete faculty registration.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -180,14 +148,18 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
             </svg>
           </div>
 
-          <h2 className="text-2xl font-bold text-[#141B2B]">Registration Successful!</h2>
+          <h2 className="text-2xl font-bold text-[#141B2B]">Registration Submitted!</h2>
           <p className="mt-4 text-sm leading-6 text-[#6B7280]">
-            Thank you for registering. A confirmation email containing your unique user ID has been sent to {successData.email}.
+            Thank you, {successData.fullName}. Your registration details have been sent to the administration for review.
           </p>
 
           <div className="mt-6 rounded-xl bg-[#EEF3FF] px-5 py-4 text-sm text-[#424656]">
-            Once you have your credentials, you can proceed to sign in to your portal.
-            <div className="mt-2 font-semibold text-[#004DD2]">User ID: {successData.instituteUserId}</div>
+            Your account is currently <span className="font-bold text-[#EF4444]">Pending Approval</span>. 
+            Once an Administrator verifies and approves your account, you will be able to log in.
+            <div className="mt-4 border-t border-[#C3C5D8]/50 pt-3">
+              <span className="text-xs text-[#6B7280]">Your assigned User ID is:</span>
+              <div className="mt-1 font-semibold text-[#004DD2]">{successData.instituteUserId}</div>
+            </div>
           </div>
 
           <button
@@ -195,16 +167,7 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
             onClick={() => onNavigate('faculty-login', { initialUserId: successData.instituteUserId })}
             className="mt-8 w-full rounded-lg bg-[#004DD2] py-3 font-medium text-white shadow-md transition hover:bg-[#003bb3]"
           >
-            Go to Sign In
-          </button>
-
-          {/* Kept your teammate's Resend Confirmation Button */}
-          <button
-            type="button"
-            className="mt-5 text-sm font-semibold text-[#004DD2] hover:underline"
-            onClick={() => onNavigate('faculty-login', { initialUserId: successData.instituteUserId })}
-          >
-            Resend Confirmation
+            Return to Sign In
           </button>
         </div>
       </div>
@@ -315,7 +278,6 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
                 </div>
 
                 <div className="grid gap-5 md:grid-cols-2">
-                  {/* Kept your expanded qualifications dropdown */}
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-[#424656]">Qualification / Specialization</label>
                     <select
