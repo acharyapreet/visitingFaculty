@@ -41,3 +41,13 @@ export const findUserByCredentials = (identifier, password) => {
            account.password === password;
   });
 };
+
+export const saveAuthData = (data) => {
+  localStorage.setItem("token", data.token);
+  localStorage.setItem("role", data.role);
+  localStorage.setItem("user_id", data.user_id);
+}
+
+export const logout = () => {
+  localStorage.clear();
+}
