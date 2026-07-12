@@ -198,10 +198,26 @@ async function getAllFaculty() {
     }
 }
 
+async function getFacultyById(user_id) {
+    try {
+        const faculty = await User.findByPk(user_id, {
+            attributes: { exclude: ['password_hash'] }
+        });
+        if(!faculty || faculty.role !== 'faculty'){
+            throw new Error('Faculty not found');
+        }
+        return faculty;
+    } catch (error) {
+        console.error('Get Faculty By Id Error:', error);
+        throw new Error('Failed to fetch faculty by id');
+    }
+}
+
 module.exports = {
     approveFaculty,
     getAllFaculty,
     getApprovedFaculty,
     getPendingFaculty,
-    getRejectedFaculty
+    getRejectedFaculty,
+    getFacultyById
 };

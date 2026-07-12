@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { buildInstituteUserId, storeAccount } from './authUtils';
+import axios from 'axios';
+import AdminRegistrationSuccess from './AdminRegistrationSuccess';
 
 export default function AdminRegister({ onNavigate }) {
   const [formData, setFormData] = useState({
@@ -10,73 +11,128 @@ export default function AdminRegister({ onNavigate }) {
     confirmPassword: ''
   });
   
-  // State to handle validation errors
   const [formError, setFormError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   
-  // NEW: State for password visibility toggles
+  // FIXED: Added the state to track if registration was successful
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [isDuplicate, setIsDuplicate] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChange = (e) => {
-    // For the mobile field, only allow numbers to be typed
     if (e.target.name === 'mobile') {
       const onlyNums = e.target.value.replace(/[^0-9]/g, '');
       setFormData({ ...formData, mobile: onlyNums });
     } else {
       setFormData({ ...formData, [e.target.name]: e.target.value });
     }
-    // Clear errors when the user starts typing again
     setFormError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // 1. Validate Mobile Number (Exactly 10 digits)
     if (formData.mobile.length !== 10) {
       setFormError('Mobile number must be exactly 10 digits.');
-      return; // Stop the function here
+      return;
     }
-
-    // 2. Validate Password Length (Minimum 8 characters)
     if (formData.password.length < 8) {
       setFormError('Password must be at least 8 characters long.');
       return;
     }
-
-    // 3. Validate Passwords Match
     if (formData.password !== formData.confirmPassword) {
       setFormError('Passwords do not match. Please try again.');
       return;
     }
 
-    // If it passes all checks, clear any existing errors and proceed
     setFormError('');
-    
-    // Generate official ID and store the account locally
-    const userId = buildInstituteUserId('IIPS-ADM');
-    
-    storeAccount({
-      role: 'admin',
-      userId,
-      email: formData.email.trim(),
-      password: formData.password,
-      fullName: formData.fullName.trim(),
-      mobile: formData.mobile.trim(),
-    });
+    setIsLoading(true);
 
-    // Set active session
-    localStorage.setItem(
-      'iipsCurrentSession',
-      JSON.stringify({ role: 'admin', userId, email: formData.email.trim() }),
-    );
+    try {
+      await axios.post('http://localhost:5000/api/auth/register/admin', {
+        email: formData.email.trim(),
+        password: formData.password,
+        full_name: formData.fullName.trim(),
+        phone_number: formData.mobile.trim()
+      });
 
-    window.alert(`Registered successfully! Your User ID is: ${userId}`);
-    
-    // Navigate back to login and auto-fill their new ID
-    onNavigate('login', { initialUserId: userId });
+      // FIXED: Instead of window.alert, we tell React to show the Success screen!
+      setIsSuccess(true);
+      
+    } catch (error) {
+      // Safely read both the 'message' and 'data' fields from your backend response
+      const responseData = error.response?.data;
+      const backendMessage = responseData?.message?.toLowerCase() || '';
+      const backendDetails = responseData?.data?.toLowerCase() || ''; // This catches "Email already exist"
+
+      // Check if it's a 409 OR if the message/details contain "already" or "exist"
+      if (
+        error.response?.status === 409 || 
+        backendMessage.includes('already') || 
+        backendDetails.includes('already') ||
+        backendDetails.includes('exist')
+      ) {
+        setIsDuplicate(true); // Trigger your nice warning screen!
+      } else {
+        // Fallback for real errors (like network dropping)
+        setFormError(responseData?.message || 'Registration failed. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
+// NEW: If the email is a duplicate, show this specific screen
+  if (isDuplicate) {
+    return (
+      <div className="flex min-h-[calc(100vh-68px)] items-center justify-center bg-[#F8F9FB] px-4 py-12">
+        <div className="w-full max-w-[520px] rounded-2xl bg-white p-8 text-center shadow-sm border border-[#C3C5D8]">
+          
+          {/* Orange Warning Icon */}
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[#FFF4E5] text-[#F59E0B]">
+            <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
 
+          <h2 className="mb-4 text-2xl font-bold text-[#141B2B]">Email Already Registered</h2>
+          <p className="mb-6 text-sm leading-relaxed text-[#6B7280] px-2">
+            An account with the email <strong>{formData.email}</strong> has already been submitted to our system. 
+          </p>
+
+          <button
+            onClick={() => {
+              // When they click this, hide this warning and show the Success/Pending screen!
+              setIsDuplicate(false);
+              setIsSuccess(true); 
+            }}
+            className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg bg-[#004DD2] py-3.5 font-medium text-white transition-colors hover:bg-[#003bb3]"
+          >
+            View Request Status
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          
+          <button 
+            onClick={() => setIsDuplicate(false)}
+            className="text-sm font-medium text-[#6B7280] hover:text-[#141B2B] transition-colors"
+          >
+            Use a different email
+          </button>
+
+        </div>
+      </div>
+    );
+  }
+
+  // Your existing isSuccess check goes right here...
+  // FIXED: If successful, return the new component
+  if (isSuccess) {
+    return <AdminRegistrationSuccess onNavigate={onNavigate} />;
+  }
+
+  // Otherwise, return the standard form
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-68px)] bg-[#F8F9FB] px-4 py-12">
       
@@ -190,7 +246,6 @@ export default function AdminRegister({ onNavigate }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </div>
-                {/* CHANGED TYPE to dynamic & adjusted right padding */}
                 <input 
                   type={showPassword ? "text" : "password"} 
                   name="password"
@@ -200,7 +255,6 @@ export default function AdminRegister({ onNavigate }) {
                   className="w-full border border-[#C3C5D8] rounded-lg pl-10 pr-12 py-2.5 text-[#141B2B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#004DD2]/20 focus:border-[#004DD2] transition-colors"
                   required
                 />
-                {/* ADDED TOGGLE BUTTON */}
                 <button 
                   type="button" 
                   onClick={() => setShowPassword(!showPassword)} 
@@ -231,7 +285,6 @@ export default function AdminRegister({ onNavigate }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 </div>
-                {/* CHANGED TYPE to dynamic & adjusted right padding */}
                 <input 
                   type={showConfirmPassword ? "text" : "password"} 
                   name="confirmPassword"
@@ -241,7 +294,6 @@ export default function AdminRegister({ onNavigate }) {
                   className="w-full border border-[#C3C5D8] rounded-lg pl-10 pr-12 py-2.5 text-[#141B2B] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#004DD2]/20 focus:border-[#004DD2] transition-colors"
                   required
                 />
-                {/* ADDED TOGGLE BUTTON */}
                 <button 
                   type="button" 
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
@@ -268,12 +320,15 @@ export default function AdminRegister({ onNavigate }) {
           {/* Submit Button */}
           <button 
             type="submit" 
-            className="w-full bg-[#004DD2] text-white font-medium rounded-lg py-3 mt-4 hover:bg-[#003bb3] focus:outline-none focus:ring-4 focus:ring-[#004DD2]/30 transition-all flex justify-center items-center gap-2"
+            disabled={isLoading}
+            className="w-full bg-[#004DD2] text-white font-medium rounded-lg py-3 mt-4 hover:bg-[#003bb3] focus:outline-none focus:ring-4 focus:ring-[#004DD2]/30 transition-all flex justify-center items-center gap-2 disabled:opacity-70"
           >
-            Submit Registration
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
+            {isLoading ? 'Submitting...' : 'Submit Registration'}
+            {!isLoading && (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            )}
           </button>
         </form>
 
