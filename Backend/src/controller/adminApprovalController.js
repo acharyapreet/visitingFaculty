@@ -1,4 +1,4 @@
-const {approveFaculty, getPendingFaculty, getApprovedFaculty, getRejectedFaculty, getAllFaculty} = require("../service/adminApprovalService");
+const {approveFaculty, getPendingFaculty, getApprovedFaculty, getRejectedFaculty, getAllFaculty, getFacultyById} = require("../service/adminApprovalService");
 const { getAllAdminsController } = require("./superAdminApprovalController");
 
 async function FacultyApprovalController(req, res) {
@@ -89,10 +89,28 @@ async function getAllFacultyController(req, res) {
     }
 };
 
+async function getFacultyController(req, res) {
+    try {
+        const Faculty = await getFacultyById(req.params.user_id);
+        return res.json({
+            success: true,
+            data: Faculty
+        });
+    } catch(error) {
+        console.log('Faculty show failed', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch Faculty',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     FacultyApprovalController,
     getAllFacultyController,
     getApprovedFacultyController,
     getRejectedFacultyController,
-    getPendingFacultysController
+    getPendingFacultysController,
+    getFacultyController
 };

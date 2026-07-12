@@ -192,10 +192,26 @@ async function getAllAdmins() {
     }
 }
 
+async function getAdminById(user_id) {
+    try {
+        const admin = await User.findByPk(user_id, {
+            attributes: { exclude: ['password_hash'] }
+        });
+        if (!admin || admin.role !== 'admin') {
+            throw new Error('Admin not found');
+        }
+        return admin;
+    } catch (error) {
+        console.error('Get Admin By Id Error:', error);
+        throw new Error('Failed to fetch admin by id');
+    }
+}
+
 module.exports = {
     approveAdmin,
     getPendingAdmins,
     getRejectedAdmin,
     getApprovedAdmin,
-    getAllAdmins
+    getAllAdmins,
+    getAdminById
 };

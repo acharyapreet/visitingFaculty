@@ -1,4 +1,4 @@
-const {approveAdmin, getPendingAdmins, getApprovedAdmin, getRejectedAdmin, getAllAdmins} = require("../service/superAdminService");
+const {approveAdmin, getPendingAdmins, getApprovedAdmin, getRejectedAdmin, getAllAdmins, getAdminById} = require("../service/superAdminService");
 
 async function AdminApprovalController(req, res) {
     try{
@@ -89,10 +89,28 @@ async function getAllAdminsController(req, res) {
     }
 };
 
+async function getAdminController(req, res) {
+    try {
+        const Admin = await getAdminById(req.params.user_id);
+        return res.json({
+            success: true,
+            data: Admin
+        });
+    } catch(error) {
+        console.log('Admin show failed', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch Admin',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     AdminApprovalController,
     getAllAdminsController,
     getApprovedAdminsController,
     getPendingAdminsController,
     getRejectedAdminsController,
+    getAdminController
 };
