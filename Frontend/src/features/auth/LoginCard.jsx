@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { findUserByCredentials } from './authUtils';
+import { loginUser } from '../../api/authApi';
 
 const DEMO_ADMIN_ACCOUNT = {
   role: 'admin',
@@ -22,39 +23,30 @@ const LoginCard = ({ onNavigate, initialUserId = '' }) => {
     setIsLoading(true);
 
     try {
-      const normalizedUserId = userId.trim().toLowerCase();
+      // 1. Call the real API using your teammate's setup
+      const response = await loginUser({
+        user_id: userId.trim(),
+        password: password,
+      });
+
+      const userData = response.data.data;
       
-      // 1. Use the utility to check across ALL accounts natively
-      const matchedAccount = findUserByCredentials(normalizedUserId, password);
+      // 2. Format the role for the UI popup (e.g. 'super_admin' -> 'Super Admin')
+      const formattedRole = userData.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+      setSuccessRole(formattedRole);
 
-      // 2. Fallback check for the demo admin
-      const demoAdminMatch =
-        normalizedUserId === DEMO_ADMIN_ACCOUNT.userId.toLowerCase() &&
-        password === DEMO_ADMIN_ACCOUNT.password;
-
-      if (matchedAccount) {
-        // Capitalize the first letter for the UI (e.g., "superadmin" -> "Superadmin")
-        const formattedRole = matchedAccount.role.charAt(0).toUpperCase() + matchedAccount.role.slice(1);
-        setSuccessRole(formattedRole);
-        
-        localStorage.setItem(
-          'iipsCurrentSession',
-          JSON.stringify({ role: matchedAccount.role, userId: matchedAccount.userId }),
-        );
-      } else if (demoAdminMatch) {
-        setSuccessRole('Admin');
-        localStorage.setItem(
-          'iipsCurrentSession',
-          JSON.stringify({ role: 'admin', userId: DEMO_ADMIN_ACCOUNT.userId }),
-        );
-      } else {
-        setErrorMessage(
-          'Invalid credentials. Please check your Institute User ID and password and try again.',
-        );
-      }
+      // 3. CRITICAL: Save the token exactly where axiosInstance.js is looking for it!
+      localStorage.setItem("token", userData.token);
+      
+      // Save the rest of the session data for your UI routing
+      localStorage.setItem(
+        'iipsCurrentSession',
+        JSON.stringify({ role: userData.role, userId: userData.user_id }),
+      );
+      
     } catch (error) {
       console.error('Login error:', error);
-      setErrorMessage('Could not sign in right now. Please try again.');
+      setErrorMessage('Invalid credentials. Please check your Institute User ID and password and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -84,7 +76,7 @@ const LoginCard = ({ onNavigate, initialUserId = '' }) => {
                 setUserId('');
                 setPassword('');
                 // Navigate to dashboard and pass the role so the router knows where to send them
-                onNavigate('dashboard', { role: successRole.toLowerCase() });
+                onNavigate('dashboard');
               }}
               className="w-full rounded-lg bg-[#004DD2] py-3 font-medium text-white shadow-md transition hover:bg-[#003bb3] focus:outline-none focus:ring-4 focus:ring-[#004DD2]/30"
             >
