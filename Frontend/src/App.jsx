@@ -9,7 +9,6 @@ import ForgotPassword from './features/auth/ForgotPassword';
 import VerifyOtp from './features/auth/VerifyOtp';
 import ResetPassword from './features/auth/ResetPassword';
 import PasswordUpdated from './features/auth/PasswordUpdated';
-
 import SuperAdminDashboard from './components/superAdmin/SuperAdminDashboard'; 
 
 function App() {
