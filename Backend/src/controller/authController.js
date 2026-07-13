@@ -1,4 +1,4 @@
-const {registerFaculty, registerAdmin, login} = require("../service/userService");
+const {registerFaculty, registerAdmin, login, logout} = require("../service/userService");
 
 async function facultyRegistration(req, res) {
     try{
@@ -68,8 +68,26 @@ async function loginUser(req, res) {
     }
 }
 
+async function logoutUser(req, res) {
+    try {
+        await logout(req.user_id);
+        return res.status(200).json({
+            success: true,
+            message: 'Logout successful'
+        });
+    } catch (error) {
+        console.log('Logout failed', error);
+        return res.status(error.statusCode || 400).json({
+            success: false,
+            message: 'Logout failed',
+            data: error.message
+        });
+    }
+}
+
 module.exports = {
     facultyRegistration,
     adminRegisteration,
-    loginUser
+    loginUser,
+    logoutUser
 };

@@ -96,8 +96,26 @@ async function login(Details) {
     }
 }
 
+async function logout(user_id) {
+    try {
+        const user = await User.findOne({
+            where: { user_id }
+        });
+
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        return { success: true, message: 'Logged out successfully' };
+    } catch (error) {
+        console.log('error in logout in userService', error);
+        throw error;
+    }
+}
+
 module.exports = {
     registerFaculty,
     registerAdmin,
-    login
+    login,
+    logout
 };
