@@ -12,7 +12,7 @@ const DEMO_ADMIN_ACCOUNT = {
 const LoginCard = ({ onNavigate, initialUserId = '' }) => {
   const [userId, setUserId] = useState(() => initialUserId);
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // Added for eye toggle
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successRole, setSuccessRole] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
