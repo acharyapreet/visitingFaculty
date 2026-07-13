@@ -121,7 +121,11 @@ export default function Settings() {
       `}</style>
 
       <div className="no-print">
-        <Topbar title="Settings" subtitle="System-wide configuration, security and audit log" />
+        <Topbar 
+            title="Settings" 
+            subtitle="System-wide configuration, security and audit log" 
+            showSearch={false} // This hides it!
+          />
       </div>
 
       <div className="px-8 py-8">
