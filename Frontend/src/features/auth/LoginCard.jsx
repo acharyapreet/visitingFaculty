@@ -36,12 +36,17 @@ const LoginCard = ({ onNavigate, initialUserId = '' }) => {
       setSuccessRole(formattedRole);
 
       // 3. CRITICAL: Save the token exactly where axiosInstance.js is looking for it!
+      // (Keep this line if your teammate's axiosInstance.js relies on it)
       localStorage.setItem("token", userData.token);
       
-      // Save the rest of the session data for your UI routing
+      // Save the rest of the session data AND THE TOKEN for your UI routing
       localStorage.setItem(
         'iipsCurrentSession',
-        JSON.stringify({ role: userData.role, userId: userData.user_id }),
+        JSON.stringify({ 
+          role: userData.role, 
+          userId: userData.user_id,
+          token: userData.token // <--- THIS IS THE MAGIC LINE!
+        })
       );
       
     } catch (error) {
