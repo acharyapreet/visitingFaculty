@@ -53,18 +53,30 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
     return '';
   };
 
-  const validateStepTwo = () => {
-    if (!formData.qualification.trim()) return 'Please select your highest qualification.';
-    if (!/^[0-9]{12}$/.test(formData.aadhaar_no.trim())) return 'Aadhaar number must be 12 digits.';
-    if (!/^[A-Z0-9]{10}$/.test(formData.pan_card_no.trim().toUpperCase())) return 'PAN number must be 10 alphanumeric characters.';
-    if (!formData.bank_name.trim()) return 'Please enter your bank name.';
-    if (!formData.account_no.trim()) return 'Please enter your account number.';
-    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifsc_code.trim().toUpperCase())) return 'IFSC code must be 11 characters.';
-    if (formData.password.length < 8) return 'Password must be at least 8 characters long.';
-    if (!/^(?=.*[A-Za-z])(?=.*\d).+$/.test(formData.password)) return 'Password must include letters and numbers.';
-    if (formData.password !== formData.confirmPassword) return 'Passwords do not match. Please try again.';
-    return '';
-  };
+    const validateStepTwo = () => {
+        if (!formData.qualification.trim()) return 'Qualification: Please select your highest qualification.';
+        
+        if (!/^[0-9]{12}$/.test(formData.aadhaar_no.trim())) {
+          return 'Aadhaar No: It must be exactly 12 numeric digits without spaces.';
+        }
+        
+        if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.pan_card_no.trim().toUpperCase())) {
+          return 'PAN Card: Invalid format. It must be 5 letters, 4 numbers, and 1 letter (e.g., ABCDE1234F).';
+        }
+        
+        if (!formData.bank_name.trim()) return 'Bank Name: Please enter your bank name.';
+        if (!formData.account_no.trim()) return 'Account No: Please enter your account number.';
+        
+        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifsc_code.trim().toUpperCase())) {
+          return 'IFSC Code: Invalid format. It must be 4 letters, a zero (0), and 6 letters/numbers (e.g., SBIN0001234).';
+        }
+        
+        if (formData.password.length < 8) return 'Password: Must be at least 8 characters long.';
+        if (!/^(?=.*[A-Za-z])(?=.*\d).+$/.test(formData.password)) return 'Password: Must include both letters and numbers.';
+        if (formData.password !== formData.confirmPassword) return 'Confirm Password: Passwords do not match.';
+        
+        return '';
+      };
 
   const handleNext = (event) => {
     event.preventDefault();
@@ -164,7 +176,7 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
 
           <button
             type="button"
-            onClick={() => onNavigate('faculty-login', { initialUserId: successData.instituteUserId })}
+            onClick={() => onNavigate('login', { initialUserId: successData.instituteUserId })}
             className="mt-8 w-full rounded-lg bg-[#004DD2] py-3 font-medium text-white shadow-md transition hover:bg-[#003bb3]"
           >
             Return to Sign In
@@ -476,7 +488,7 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
           <div className="mt-8 flex flex-col-reverse gap-3 border-t border-[#DDE3F0] pt-6 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
-              onClick={() => (step === 2 ? setStep(1) : onNavigate('faculty-login'))}
+              onClick={() => (step === 2 ? setStep(1) : onNavigate('login'))}
               className="text-sm font-semibold text-[#004DD2] hover:underline"
             >
               {step === 2 ? 'Back' : 'Back to Sign In'}

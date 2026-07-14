@@ -1,43 +1,89 @@
-import React, { useState } from "react";
-import Sidebar from "./Sidebar"; // Adjust this path if necessary
-import PendingApprovalsPage from "./PendingApprovals"; // Adjust path
-import AllAdminsPage from "./AllAdminsPage"; // Adjust path
-import SettingsPage from "./Settings"; // Adjust path
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import Sidebar from "./Sidebar"; 
+import PendingApprovalsPage from "./PendingApprovals"; 
+import AllAdminsPage from "./AllAdminsPage"; 
+import SettingsPage from "./Settings"; 
 
 export default function SuperAdminDashboard({ onSignOut }) {
-  // State to track which page is currently active. 
-  // 'pending' matches the key in your Sidebar navItems array.
-  const [activeTab, setActiveTab] = useState("pending");
+  // 1. Initialize state by checking localStorage first
+  // 1. Bulletproof State Initialization
+  // By passing a function into useState, React runs this BEFORE the first render.
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = localStorage.getItem("superAdminActiveTab");
+    console.log("On refresh, found saved main tab:", savedTab); // For debugging
+    return savedTab || "pending"; // Default to pending if nothing is saved
+  });
+  const [pendingCount, setPendingCount] = useState(0);
 
-  // A helper function that returns the correct full-page component
+  // 2. Save to localStorage whenever the tab changes
+  useEffect(() => {
+    localStorage.setItem("superAdminActiveTab", activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      try {
+        const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+        const response = await axios.get("http://localhost:5000/api/super_admin/pendingAdmin", {
+          headers: { 'Authorization': `Bearer ${session.token}` }
+        });
+        setPendingCount(response.data.data.length);
+      } catch (err) {
+        console.error("Error fetching pending count", err);
+      }
+    };
+
+    fetchPendingCount();
+  }, [activeTab]);
+
+  const handleSignOut = async () => {
+    try {
+      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+      
+      // UNCOMMENT THIS when your teammate gives you the logout URL
+      /*
+      await axios.post("http://localhost:5000/api/auth/logout", {}, {
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      });
+      */
+
+      // Clear all local storage on sign out
+      localStorage.removeItem('iipsCurrentSession');
+      localStorage.removeItem('superAdminActiveTab'); // Clear the saved tab too!
+      
+      if (onSignOut) onSignOut();
+      
+    } catch (err) {
+      console.error("Error signing out", err);
+      localStorage.removeItem('iipsCurrentSession');
+      localStorage.removeItem('iipsAdminActiveTab');
+      if (onSignOut) onSignOut();
+    }
+  };
+
   const renderMainContent = () => {
     switch (activeTab) {
       case "pending":
-        return <PendingApprovalsPage />;
+        return <PendingApprovalsPage onNavigate={setActiveTab} />;
       case "admins":
-        return <AllAdminsPage />;
+        return <AllAdminsPage onNavigate={setActiveTab} />;
       case "settings":
-        return <SettingsPage />;
+        return <SettingsPage onNavigate={setActiveTab} />;
       default:
-        return <PendingApprovalsPage />;
+        return <PendingApprovalsPage onNavigate={setActiveTab} />;
     }
   };
 
   return (
     <div className="flex w-full h-screen overflow-hidden bg-gray-50">
-      {/* 1. Render the Sidebar on the left.
-        We pass the activeTab so the sidebar knows which button to highlight.
-        We pass setActiveTab so clicking a button updates the state here.
-      */}
       <Sidebar 
         active={activeTab} 
         onNavigate={setActiveTab} 
-        onSignOut={onSignOut} // Pass it down!
+        onSignOut={handleSignOut} 
+        pendingCount={pendingCount} 
       />
 
-      {/* 2. Render the main content area on the right.
-        The switch statement above decides which of your 3 page components renders here.
-      */}
       <main className="flex-1 h-screen overflow-y-auto">
         {renderMainContent()}
       </main>

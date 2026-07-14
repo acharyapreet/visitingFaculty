@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from './components/Header';
 import FirstPage1 from './pages/FirstPage1';
 import LoginCard from './features/auth/LoginCard';
@@ -12,8 +12,23 @@ import PasswordUpdated from './features/auth/PasswordUpdated';
 import SuperAdminDashboard from './components/superAdmin/SuperAdminDashboard'; 
 import AdminDashboard from './components/admin/AdminDashboard';
 function App() {
-  const [view, setView] = useState('landing');
+  // 1. BULLETPROOF ROUTER MEMORY
+  const [view, setView] = useState(() => {
+    // First, check if a user is actively logged in. If they are, FORCE them to the dashboard.
+    const session = localStorage.getItem('iipsCurrentSession');
+    if (session) return 'dashboard';
+
+    // If not logged in, check if they were on another specific page (like 'admin-register')
+    const savedView = localStorage.getItem('iipsCurrentView');
+    return savedView || 'landing';
+  });
+
   const [authOptions, setAuthOptions] = useState({ userId: '', role: null });
+
+  // 2. WATCHER: Save the current page to memory every time it changes
+  useEffect(() => {
+    localStorage.setItem('iipsCurrentView', view);
+  }, [view]);
 
   const navigate = (nextView, options = {}) => {
     if (options.role) {
@@ -26,7 +41,6 @@ function App() {
   };
 
   const handleLoginSuccess = (user) => {
-    // Keep your original navigation command
     navigate('dashboard');
   };
 
@@ -42,14 +56,16 @@ function App() {
       case 'reset-password': return <ResetPassword onNavigate={navigate} />;
       case 'password-updated': return <PasswordUpdated onNavigate={navigate} />;
       
-      // RESTORED: Your original dashboard logic!
       case 'dashboard': {
         const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
         
-        // Checking for both spellings just in case
         if (session.role === 'super_admin' || session.role === 'superadmin') {
           return <SuperAdminDashboard onSignOut={() => {
+            // 3. CLEANUP: Wipe all memory when logging out so they start fresh
             localStorage.removeItem('iipsCurrentSession');
+            localStorage.removeItem('iipsCurrentView'); 
+            localStorage.removeItem('superAdminActiveTab');
+            localStorage.removeItem('iipsSettingsTab');
             navigate('login');
           }} />;
         }

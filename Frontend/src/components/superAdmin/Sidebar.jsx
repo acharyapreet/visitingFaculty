@@ -1,13 +1,15 @@
 import React from "react";
 import { ShieldCheck, ClipboardList, Users, Settings, LogOut } from "lucide-react";
 
-const navItems = [
-  { key: "pending", label: "Pending Approvals", icon: ClipboardList, badge: 3 },
-  { key: "admins", label: "All Admins", icon: Users },
-  { key: "settings", label: "Settings", icon: Settings, dot: true },
-];
+export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 3 }) {
+  
+  // Moved inside the component so it can use the dynamic pendingCount prop
+  const navItems = [
+    { key: "pending", label: "Pending Approvals", icon: ClipboardList, badge: pendingCount },
+    { key: "admins", label: "All Admins", icon: Users },
+    { key: "settings", label: "Settings", icon: Settings }, 
+  ];
 
-export default function Sidebar({ active, onNavigate, onSignOut }) {
   return (
     <aside className="w-full md:w-[280px] shrink-0 bg-white border-r border-gray-200 flex flex-col justify-between min-h-screen">
       <div>
@@ -50,14 +52,21 @@ export default function Sidebar({ active, onNavigate, onSignOut }) {
                     />
                     {item.label}
                   </span>
-                  {item.badge && (
-                    <span className="bg-amber-400 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                      {item.badge}
-                    </span>
-                  )}
-                  {item.dot && (
-                    <span className="w-2 h-2 rounded-full bg-purple-500" />
-                  )}
+                  
+                  {/* Container for Badges and Dots to keep them aligned right */}
+                  <div className="flex items-center gap-2">
+                    {/* Badge only renders if count is greater than 0 */}
+                    {item.badge > 0 && (
+                      <span className="bg-amber-400 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        {item.badge}
+                      </span>
+                    )}
+                    
+                    {/* Active Dot only renders when this specific tab is active */}
+                    {isActive && (
+                      <span className="w-2 h-2 rounded-full bg-purple-500" />
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -81,12 +90,12 @@ export default function Sidebar({ active, onNavigate, onSignOut }) {
           </div>
         </div>
         <button 
-        onClick={onSignOut} // Use the prop passed from the Dashboard
-        className="flex items-center gap-2 px-2 text-red-500 font-semibold text-sm hover:text-red-600"
-      >
-        <LogOut className="w-4 h-4" />
-        Sign Out
-      </button>
+          onClick={onSignOut} 
+          className="flex items-center gap-2 px-2 text-red-500 font-semibold text-sm hover:text-red-600"
+        >
+          <LogOut className="w-4 h-4" />
+          Sign Out
+        </button>
       </div>
     </aside>
   );
