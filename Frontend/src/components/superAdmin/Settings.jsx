@@ -14,7 +14,20 @@ const systemInfo = [
 ];
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState("General");
+  // --- BULLETPROOF TAB MEMORY ---
+  const [activeTab, setActiveTab] = useState(() => {
+    // Check if a tab was saved in the browser from a previous click
+    const savedSettingsTab = localStorage.getItem("iipsSettingsTab");
+    // If it exists, use it. Otherwise, default to "General"
+    return savedSettingsTab || "General";
+  });
+
+  // Save the tab to the browser every time the user clicks a new one
+  useEffect(() => {
+    localStorage.setItem("iipsSettingsTab", activeTab);
+  }, [activeTab]);
+  // ------------------------------
+
   const [auditFilter, setAuditFilter] = useState("Select...");
   const [logs, setLogs] = useState([]);
 
@@ -22,9 +35,10 @@ export default function Settings() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
   // --- General Tab States ---
   const [profileData, setProfileData] = useState({
-    full_name: "Super Admin", // You can replace these defaults with data fetched from your API
+    full_name: "Super Admin", 
     email: "superadmin@davv.ac.in",
     phone_number: "+91 73123 00000"
   });
@@ -35,13 +49,6 @@ export default function Settings() {
     setIsUpdatingProfile(true);
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-      
-      // Replace this URL with your actual backend endpoint for updating the profile
-      /* 
-      const response = await axios.put("http://localhost:5000/api/auth/profile", profileData, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      }); 
-      */
       
       console.log("Payload sent to backend:", profileData);
       alert("Profile updated successfully! (Note: Connect API to persist changes)");
@@ -124,7 +131,7 @@ export default function Settings() {
         <Topbar 
             title="Settings" 
             subtitle="System-wide configuration, security and audit log" 
-            showSearch={false} // This hides it!
+            showSearch={false} 
           />
       </div>
 

@@ -7,14 +7,18 @@ import SettingsPage from "./Settings";
 
 export default function SuperAdminDashboard({ onSignOut }) {
   // 1. Initialize state by checking localStorage first
+  // 1. Bulletproof State Initialization
+  // By passing a function into useState, React runs this BEFORE the first render.
   const [activeTab, setActiveTab] = useState(() => {
-    return localStorage.getItem("iipsAdminActiveTab") || "pending";
+    const savedTab = localStorage.getItem("superAdminActiveTab");
+    console.log("On refresh, found saved main tab:", savedTab); // For debugging
+    return savedTab || "pending"; // Default to pending if nothing is saved
   });
   const [pendingCount, setPendingCount] = useState(0);
 
   // 2. Save to localStorage whenever the tab changes
   useEffect(() => {
-    localStorage.setItem("iipsAdminActiveTab", activeTab);
+    localStorage.setItem("superAdminActiveTab", activeTab);
   }, [activeTab]);
 
   useEffect(() => {
@@ -46,7 +50,7 @@ export default function SuperAdminDashboard({ onSignOut }) {
 
       // Clear all local storage on sign out
       localStorage.removeItem('iipsCurrentSession');
-      localStorage.removeItem('iipsAdminActiveTab'); // Clear the saved tab too!
+      localStorage.removeItem('superAdminActiveTab'); // Clear the saved tab too!
       
       if (onSignOut) onSignOut();
       
