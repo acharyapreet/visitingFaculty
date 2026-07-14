@@ -10,7 +10,7 @@ import VerifyOtp from './features/auth/VerifyOtp';
 import ResetPassword from './features/auth/ResetPassword';
 import PasswordUpdated from './features/auth/PasswordUpdated';
 import SuperAdminDashboard from './components/superAdmin/SuperAdminDashboard'; 
-
+import AdminDashboard from './components/admin/AdminDashboard';
 function App() {
   const [view, setView] = useState('landing');
   const [authOptions, setAuthOptions] = useState({ userId: '', role: null });
@@ -55,11 +55,17 @@ function App() {
         }
         
         if (session.role === 'admin') {
-          return <div className="p-10">Admin Dashboard - Coming Soon</div>;
+          return <AdminDashboard onSignOut={() => {
+            localStorage.removeItem('iipsCurrentSession');
+            navigate('login');
+          }} />;
         }
         
         if (session.role === 'faculty') {
-          return <div className="p-10">Faculty Dashboard - Coming Soon</div>;
+          return <FacultyDashboard onSignOut={() => {
+            localStorage.removeItem('iipsCurrentSession');
+            navigate('login');
+          }} />;
         }
         
         // If no valid session is found, send them back to login
