@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from './components/Header';
 import FirstPage1 from './pages/FirstPage1';
 import LoginCard from './features/auth/LoginCard';
@@ -9,13 +9,26 @@ import ForgotPassword from './features/auth/ForgotPassword';
 import VerifyOtp from './features/auth/VerifyOtp';
 import ResetPassword from './features/auth/ResetPassword';
 import PasswordUpdated from './features/auth/PasswordUpdated';
-import PendingApprovalsPage from './components/superAdmin/PendingApprovals'; // Fixed: Uppercase P
-import Sidebar from './components/superAdmin/Sidebar';
-import Topbar from './components/superAdmin/Topbar';
-
+import SuperAdminDashboard from './components/superAdmin/SuperAdminDashboard'; 
+import AdminDashboard from './components/admin/AdminDashboard';
 function App() {
-  const [view, setView] = useState('landing');
+  // 1. BULLETPROOF ROUTER MEMORY
+  const [view, setView] = useState(() => {
+    // First, check if a user is actively logged in. If they are, FORCE them to the dashboard.
+    const session = localStorage.getItem('iipsCurrentSession');
+    if (session) return 'dashboard';
+
+    // If not logged in, check if they were on another specific page (like 'admin-register')
+    const savedView = localStorage.getItem('iipsCurrentView');
+    return savedView || 'landing';
+  });
+
   const [authOptions, setAuthOptions] = useState({ userId: '', role: null });
+
+  // 2. WATCHER: Save the current page to memory every time it changes
+  useEffect(() => {
+    localStorage.setItem('iipsCurrentView', view);
+  }, [view]);
 
   const navigate = (nextView, options = {}) => {
     if (options.role) {
@@ -28,13 +41,7 @@ function App() {
   };
 
   const handleLoginSuccess = (user) => {
-    if (user.role === 'superadmin') {
-      navigate('superadmin-dashboard');
-    } else if (user.role === 'admin') {
-      navigate('admin-dashboard');
-    } else {
-      navigate('faculty-dashboard');
-    }
+    navigate('dashboard');
   };
 
   const renderContent = () => {
@@ -52,38 +59,48 @@ function App() {
       case 'dashboard': {
         const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
         
-        // Return only the specific page component content
-        if (session.role === 'super_admin') return <PendingApprovalsPage onNavigate={navigate} />;
-        if (session.role === 'admin') return <div className="p-10">Admin Dashboard - Coming Soon</div>;
-        if (session.role === 'faculty') return <div className="p-10">Faculty Dashboard - Coming Soon</div>;
+        if (session.role === 'super_admin' || session.role === 'superadmin') {
+          return <SuperAdminDashboard onSignOut={() => {
+            // 3. CLEANUP: Wipe all memory when logging out so they start fresh
+            localStorage.removeItem('iipsCurrentSession');
+            localStorage.removeItem('iipsCurrentView'); 
+            localStorage.removeItem('superAdminActiveTab');
+            localStorage.removeItem('iipsSettingsTab');
+            navigate('login');
+          }} />;
+        }
         
+        if (session.role === 'admin') {
+          return <AdminDashboard onSignOut={() => {
+            localStorage.removeItem('iipsCurrentSession');
+            navigate('login');
+          }} />;
+        }
+        
+        if (session.role === 'faculty') {
+          return <FacultyDashboard onSignOut={() => {
+            localStorage.removeItem('iipsCurrentSession');
+            navigate('login');
+          }} />;
+        }
+        
+        // If no valid session is found, send them back to login
         return <LoginCard onNavigate={navigate} />;
       }
+        
       default: return <FirstPage1 onProceed={() => navigate('login')} />;
     }
   };
 
+  const isDashboard = view.includes('dashboard');
+
   return (
     <div className="min-h-screen bg-[#F8F9FB] flex flex-col font-sans">
-      {/* 1. Header is hidden when view is dashboard */}
-      {view !== 'dashboard' && <Header onNavigate={navigate} />}
+      {!isDashboard && <Header onNavigate={navigate} />}
       
-      {/* 2. Dashboard Layout Shell: Sidebar + Topbar + Content */}
-      {view === 'dashboard' ? (
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar onNavigate={navigate} />
-          <div className="flex flex-1 flex-col overflow-hidden">
-            
-            <main className="flex-1 overflow-y-auto bg-gray-50">
-              {renderContent()}
-            </main>
-          </div>
-        </div>
-      ) : (
-        <main className="flex-grow">
-          {renderContent()}
-        </main>
-      )}
+      <main className={isDashboard ? "" : "flex-grow"}>
+        {renderContent()}
+      </main>
     </div>
   );
 }

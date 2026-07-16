@@ -71,18 +71,39 @@ export default function FacultyDashboard() {
           {/* Mobile cards */}
           <div className="divide-y divide-slate-100 md:hidden">
             {allocatedSubjects.map((s) => (
-              <div key={s.code} className="px-4 py-4">
+              <div key={s.code} className="px-4 py-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-brand-600">{s.code}</span>
-                  <span className={`rounded-full px-3 py-1 text-xs font-medium ${typeStyles[s.type]}`}>
+                  <span className="text-sm font-bold text-brand-600">{s.code}</span>
+                  <span className={`rounded-full px-3 py-1 text-[10px] uppercase font-bold tracking-wider ${typeStyles[s.type]}`}>
                     {s.type}
                   </span>
                 </div>
-                <p className="mt-1 font-medium text-slate-800">{s.name}</p>
-                <p className="mt-1 text-sm text-slate-500">
-                  {s.course} · {s.semester} · Section {s.section}
-                </p>
-                <button className="mt-3 w-full rounded-lg border border-brand-600 py-2 text-sm font-semibold text-brand-600 hover:bg-brand-50">
+                <p className="mt-2 text-base font-bold text-slate-800">{s.name}</p>
+                
+                {/* Updated 2x2 Grid Layout for Mobile */}
+                <div className="mt-4 grid grid-cols-2 gap-y-4 text-sm">
+                  <div>
+                    <p className="text-[10px] font-semibold tracking-wide text-slate-400 uppercase mb-1">Course</p>
+                    <p className="font-medium text-slate-800">{s.course}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold tracking-wide text-slate-400 uppercase mb-1">Semester</p>
+                    <p className="font-medium text-slate-800">{s.semester}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold tracking-wide text-slate-400 uppercase mb-1">Section</p>
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-600">
+                      {s.section}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold tracking-wide text-slate-400 uppercase mb-1">Rate / Hour</p>
+                    <p className="font-bold text-slate-800">{s.rate || '₹--/hr'}</p>
+                  </div>
+                </div>
+
+                {/* Updated to Solid Button for Mobile */}
+                <button className="mt-5 w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 active:bg-brand-800">
                   Mark Attendance
                 </button>
               </div>
