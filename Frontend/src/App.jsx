@@ -6,15 +6,22 @@ import RoleSelection from './features/auth/RoleSelection';
 import AdminRegister from './features/auth/AdminRegister';
 import FacultyRegister from './components/faculty/FacultyRegister';
 import ForgotPassword from './features/auth/ForgotPassword';
-import VerifyOtp from './features/auth/VerifyOtp';
+import CheckEmail from './features/auth/CheckEmail';
 import ResetPassword from './features/auth/ResetPassword';
 import PasswordUpdated from './features/auth/PasswordUpdated';
 import SuperAdminDashboard from './components/superAdmin/SuperAdminDashboard'; 
 import AdminDashboard from './components/admin/AdminDashboard';
+import FacultyDashboard from './components/faculty/FacultyDashboard';
 function App() {
   // 1. BULLETPROOF ROUTER MEMORY
   const [view, setView] = useState(() => {
     // First, check if a user is actively logged in. If they are, FORCE them to the dashboard.
+    const urlParams = new URLSearchParams(window.location.search);
+    const pathname = window.location.pathname;
+    if (pathname.includes('reset-password') || urlParams.has('token')) {
+      return 'reset-password';
+    }
+
     const session = localStorage.getItem('iipsCurrentSession');
     if (session) return 'dashboard';
 
@@ -47,12 +54,12 @@ function App() {
   const renderContent = () => {
     switch (view) {
       case 'landing': return <FirstPage1 onProceed={() => navigate('login')} />;
-      case 'login': return <LoginCard onNavigate={navigate} onSuccess={handleLoginSuccess} role={authOptions.role} initialUserId={authOptions.userId} />;
+      case 'login': return <LoginCard onNavigate={navigate} onSuccess={handleLoginSuccess} role={authOptions.role} initialEmail={authOptions.userId} />;
       case 'role-selection': return <RoleSelection onNavigate={navigate} />;
       case 'admin-register': return <AdminRegister onNavigate={navigate} />;
       case 'faculty-register': return <FacultyRegister onNavigate={navigate} />;
       case 'forgot-password': return <ForgotPassword onNavigate={navigate} />;  
-      case 'reset-code': return <VerifyOtp onNavigate={navigate} />;
+      case 'reset-code': return <CheckEmail onNavigate={navigate} />;
       case 'reset-password': return <ResetPassword onNavigate={navigate} />;
       case 'password-updated': return <PasswordUpdated onNavigate={navigate} />;
       
