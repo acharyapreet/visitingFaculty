@@ -117,10 +117,10 @@ const LoginCard = ({ onNavigate, initialUserId = '' }) => {
             )}
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#424656]">Institute User ID</label>
+              <label className="mb-1.5 block text-sm font-medium text-[#424656]">E-mail</label>
               <input
                 type="text"
-                placeholder="IIPS-2K26-002"
+                placeholder="abc@gmail.com"
                 value={userId}
                 onChange={(e) => {
                   setUserId(e.target.value);
