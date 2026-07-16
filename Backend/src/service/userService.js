@@ -62,9 +62,9 @@ async function registerAdmin(adminData) {
 
 async function login(Details) {
     try {
-        const { user_id, password, role } = Details || {};
+        const { email, password } = Details || {};
         const user = await User.findOne({
-            where: { user_id }
+            where: { email }
         });
 
         if (!user) {

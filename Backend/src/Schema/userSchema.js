@@ -6,6 +6,7 @@ const User = sequelize.define('User', {
     user_id: {
         type: DataTypes.STRING(30),
         primaryKey: true,
+        autoIncrement:true
     },
     role: {
         type: DataTypes.ENUM('super_admin', 'admin', 'faculty'),
@@ -62,7 +63,6 @@ const User = sequelize.define('User', {
     uvfin: {  
         type: DataTypes.STRING(20),
         allowNull: true,
-        unique: true,
         comment: 'Unified Visiting Faculty ID (manually entered by admin)'
     },
     is_approved: {
@@ -98,10 +98,6 @@ const User = sequelize.define('User', {
     timestamps: false,
     hooks: {
         beforeCreate: async (user) => {
-            if(!user.user_id){
-                const timestamp = Date.now().toString().slice(-6);
-                user.user_id = `TEMP-${timestamp}`;
-            }
             if (user.password_hash) {
                 user.password_hash = await bcrypt.hash(user.password_hash, 10);
             }

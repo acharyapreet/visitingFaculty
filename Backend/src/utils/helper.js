@@ -1,71 +1,3 @@
-const User = require('../Schema/userSchema');
-const { Op } = require('sequelize');
-
-async function generateAdminId() {
-    try {
-        const currentYear = new Date().getFullYear();
-        const yearShort = currentYear.toString().slice(-2);
-
-        //count how many admins registered in this year
-        const adminCount = await User.count({
-            where: {
-                role: 'admin',
-                is_approved: true,
-                created_at: {
-                    [Op.between]: [
-                        new Date(currentYear, 0, 1),
-                        new Date(currentYear, 11, 31)
-                    ]
-                }
-            }
-        });
-        const sequence = String(adminCount + 1).padStart(3, '0');
-        return `AD-2k${yearShort}-${sequence}`;
-    } catch (error) {
-        console.log("error in getting admin Id", error);
-        const timestamp = Date.now().toString().slice(-6);
-        return `AD-${timestamp}`;
-
-    }
-};
-
-async function generateFacultyId() {
-    try {
-        const currentYear = new Date().getFullYear();
-        const yearShort = currentYear.toString().slice(-2);
-
-        //count how many faculty registered in this year
-        const facultyCount = await User.count({
-            where: {
-                role: 'faculty',
-                is_approved: true,
-                created_at: {
-                    [Op.between]: [
-                        new Date(currentYear, 0, 1),
-                        new Date(currentYear, 11, 31)
-                    ]
-                }
-            }
-        });
-        const sequence = String(facultyCount + 1).padStart(3, '0');
-        return `VF-2k${yearShort}-${sequence}`;
-    } catch (error) {
-        console.log("error in getting faculty Id", error);
-        const timestamp = Date.now().toString().slice(-6);
-        return `VF-${timestamp}`;
-
-    }
-} const generateUserId = async (role) => {
-    if (role === 'admin') {
-        return await generateAdminId();
-    } else if (role === 'faculty') {
-        return await generateFacultyId();
-    } else {
-        // Super admin or other
-        const timestamp = Date.now().toString().slice(-6);
-        return `${role.toUpperCase()}-${timestamp}`;
-    }
-};
 function numberToWords(num) {
     if (num === 0) return 'Zero';
 
@@ -112,9 +44,7 @@ const formatDate = (date) => {
 };
 
 module.exports = {
-    generateAdminId,
-    generateFacultyId,
-    generateUserId,
+
     numberToWords,
     getMonthName,
     isValidDateRange,

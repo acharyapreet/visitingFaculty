@@ -1,5 +1,4 @@
 const { User, FacultyApproval } = require('../Schema');
-const { generateFacultyId } = require('../utils/helper');
 const sendEmail = require('../utils/emailService');
 
 async function approveFaculty(params, Details, currentUser) {
@@ -20,33 +19,15 @@ async function approveFaculty(params, Details, currentUser) {
         }
 
         if (status === 'approved') {
-            if (!uvfin) {
-                throw new Error('UVFIN is required for faculty approval');
-            }
-
-            // Check if UVFIN already exists
-            const existingUVFIN = await User.findOne({
-                where: { uvfin }
-            });
-
-            if (existingUVFIN) {
-                throw new Error('UVFIN already exists. Please use a unique UVFIN');
-            }
-
-            // ✅ Generate Faculty ID: VF-2k26-005
-            const facultyId = await generateFacultyId();
-
-            // ✅ Get current user data
-            const oldUserId = user.user_id;
-
+            
             // ✅ Update user with new user_id and uvfin using class-level update (since instance.update cannot alter primary keys in Sequelize)
             await User.update(
-                { is_approved: true, user_id: facultyId, uvfin: uvfin },
-                { where: { user_id: oldUserId } }
+                { is_approved: true, uvfin: uvfin },
+                { where: { user_id } }
             );
 
             // Fetch the updated user instance
-            resultUser = await User.findByPk(facultyId);
+            resultUser = await User.findByPk(user_id);
 
             // Update status, approved_by, approval_date and uvfin in FacultyApproval
             await FacultyApproval.update(
@@ -67,8 +48,6 @@ async function approveFaculty(params, Details, currentUser) {
                     <h2>Faculty Account Approved</h2>
                     <p>Dear ${resultUser.full_name},</p>
                     <p>Your faculty account has been approved.</p>
-                    <p><strong>User ID:</strong> ${facultyId}</p>
-                    <p><strong>UVFIN:</strong> ${uvfin}</p>
                     <p>You can now login to the system.</p>
                     <p>Thank you,<br>DAVV Administration</p>
                 `
