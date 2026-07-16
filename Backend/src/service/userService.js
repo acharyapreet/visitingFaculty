@@ -1,7 +1,10 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { Op } = require('sequelize');
 const User = require('../Schema/userSchema');
 const FacultyApproval = require('../Schema/facultyApprovalSchema');
 const AdminApproval = require('../Schema/adminApprovalSchema');
+const sendEmail = require('../utils/emailService');
 require('dotenv').config();
 
 // faculty registration logic
@@ -113,9 +116,90 @@ async function logout(user_id) {
     }
 }
 
+async function generatePasswordResetToken(email) {
+    try {
+        const user = await User.findOne({
+            where: { email }
+        });
+
+        if (!user) {
+            throw new Error('User not found with this email.');
+        }
+        //secure random token generation
+        const resetToken = crypto.randomBytes(20).toString('hex');
+
+        // PASSWORD_RESET_EXPIRE should be in milliseconds or parsed appropriately. Let's make it 1 hour default if not parsed.
+        const resetDuration = parseInt(process.env.PASSWORD_RESET_EXPIRE) || 3600000;
+        const resetExpire = new Date(Date.now() + resetDuration);
+
+        await user.update({
+            reset_password_token: resetToken,
+            reset_password_expires: resetExpire
+        });
+
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+        const emailOptions = {
+            to: user.email,
+            subject: 'DAVV Visiting Faculty - Password Reset Request',
+            html: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px;">
+                    <h2 style="color: #007bff; text-align: center;">Password Reset Request</h2>
+                    <p>Hello ${user.full_name},</p>
+                    <p>We received a request to reset your password for your DAVV Visiting Faculty Portal account.</p>
+                    <p style="text-align: center; margin: 30px 0;">
+                        <a href="${resetUrl}" target="_blank" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Password</a>
+                    </p>
+                    <p>Or copy and paste this URL into your browser:</p>
+                    <p style="word-break: break-all; color: #555;">${resetUrl}</p>
+                    <hr style="border: 0; border-top: 1px solid #eee;" />
+                    <p style="font-size: 12px; color: #888;">This link will automatically expire in 1 hour. If you did not request this reset, please ignore this email.</p>
+                </div>
+            `
+        };
+        const emailResult = await sendEmail(emailOptions);
+        if (!emailResult.success) {
+            throw new Error('Failed to send reset email. Please try again.');
+        }
+        return { message: 'Reset link has been sent to your email.' };
+
+    } catch (error) {
+        console.log('error in generatePasswordResetToken in userService', error);
+        throw error;
+    }
+}
+
+async function resetUserPassword(token, newPassword) {
+    try {
+        const user = await User.findOne({
+            where: {
+                reset_password_token: token,
+                reset_password_expires: {
+                    [Op.gt]: new Date()
+                }
+            }
+        });
+        if (!user) {
+            throw new Error('Password reset token is invalid or has expired.');
+        }
+        await user.update({
+            password_hash: newPassword,
+            reset_password_token: null,
+            reset_password_expires: null
+        });
+        return { message: 'Your password has been successfully reset.' };
+    } catch (error) {
+        console.log('error in resetUserPassword in userService', error);
+        throw error;
+    }
+}
+
 module.exports = {
     registerFaculty,
     registerAdmin,
     login,
-    logout
+    logout,
+    generatePasswordResetToken,
+    resetUserPassword
 };

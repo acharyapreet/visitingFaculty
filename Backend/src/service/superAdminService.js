@@ -1,6 +1,5 @@
 const { User, AdminApproval } = require('../Schema');
-const sendEmail  = require('../utils/emailService');
-const { generateAdminId } = require('../utils/helper');
+const sendEmail = require('../utils/emailService');
 
 // ============================================
 // APPROVE ADMIN
@@ -29,20 +28,13 @@ const approveAdmin = async (params, Details, currentUser) => {
         }
 
         if (status === 'approved') {
-            // ✅ Generate Admin ID: AD-2k26-001
-            const adminId = await generateAdminId();
-
-            // ✅ Get current user data
-            const oldUserId = user.user_id;
-            
-            // ✅ Update user with new user_id using class-level update (since instance.update cannot alter primary keys in Sequelize)
             await User.update(
-                { is_approved: true, user_id: adminId },
-                { where: { user_id: oldUserId } }
+                { is_approved: true },
+                { where: { user_id } }
             );
 
             // Fetch the updated user instance
-            resultUser = await User.findByPk(adminId);
+            resultUser = await User.findByPk(user_id);
 
             // Update status, approved_by, and approval_date in AdminApproval
             await AdminApproval.update(
@@ -51,7 +43,7 @@ const approveAdmin = async (params, Details, currentUser) => {
                     approved_by: currentUser.user_id,
                     approval_date: new Date()
                 },
-                { where: { user_id: adminId } }
+                { where: { user_id } }
             );
 
             await sendEmail({
@@ -61,7 +53,6 @@ const approveAdmin = async (params, Details, currentUser) => {
                     <h2>Admin Account Approved</h2>
                     <p>Dear ${resultUser.full_name},</p>
                     <p>Your admin account has been approved.</p>
-                    <p><strong>User ID:</strong> ${adminId}</p>
                     <p>You can now login to the system.</p>
                     <p>Thank you,<br>DAVV Administration</p>
                 `
@@ -105,12 +96,12 @@ const approveAdmin = async (params, Details, currentUser) => {
         throw error;
     }
 };
-async function getPendingAdmins(){
+async function getPendingAdmins() {
     try {
         const pendingAdmins = await User.findAll({
-            where: { 
-                role: 'admin', 
-                is_approved: false 
+            where: {
+                role: 'admin',
+                is_approved: false
             },
             include: [{
                 model: AdminApproval,
@@ -138,11 +129,11 @@ async function getRejectedAdmin() {
             },
             include: [{
                 model: AdminApproval,
-                where:{status: 'rejected'},
+                where: { status: 'rejected' },
                 required: true
             }],
-            attributes:{exclude: ['password_hash']},
-            order:[['created_at', 'ASC']]
+            attributes: { exclude: ['password_hash'] },
+            order: [['created_at', 'ASC']]
         });
         return RejectedAdmin;
     } catch (error) {
@@ -159,11 +150,11 @@ async function getApprovedAdmin() {
             },
             include: [{
                 model: AdminApproval,
-                where:{status: 'approved'},
+                where: { status: 'approved' },
                 required: true
             }],
-            attributes:{exclude: ['password_hash']},
-            order:[['created_at', 'ASC']]
+            attributes: { exclude: ['password_hash'] },
+            order: [['created_at', 'ASC']]
         });
         return ApprovedAdmin;
     } catch (error) {
@@ -191,18 +182,15 @@ async function getAllAdmins() {
         throw new Error('Failed to fetch admins');
     }
 }
-
 async function getAdminById(user_id) {
     try {
-        const admin = await User.findByPk(user_id, {
-            attributes: { exclude: ['password_hash'] }
-        });
+        const admin = await User.findByPk(user_id, { attributes: { exclude: ['password_hash'] } });
         if (!admin || admin.role !== 'admin') {
-            throw new Error('Admin not found');
+            throw new Error('admin not found');
         }
         return admin;
     } catch (error) {
-        console.error('Get Admin By Id Error:', error);
+        console.error('Get admin By Id Error:', error);
         throw new Error('Failed to fetch admin by id');
     }
 }

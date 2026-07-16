@@ -1,4 +1,4 @@
-const {registerFaculty, registerAdmin, login, logout} = require("../service/userService");
+const {registerFaculty, registerAdmin, login, logout, generatePasswordResetToken, resetUserPassword} = require("../service/userService");
 
 async function facultyRegistration(req, res) {
     try{
@@ -85,9 +85,57 @@ async function logoutUser(req, res) {
     }
 }
 
+async function forgotPasswordController(req, res) {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email is required.'
+            });
+        }
+        const result = await generatePasswordResetToken(email);
+        return res.status(200).json({
+            success: true,
+            message: result.message
+        });
+    } catch (error) {
+        console.error('Forgot Password Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Something went wrong while sending reset link.'
+        });
+    }
+}
+
+async function resetPasswordController(req, res) {
+    try {
+        const { token, newPassword } = req.body;
+        if (!token || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Token and new password are required.'
+            });
+        }
+        const result = await resetUserPassword(token, newPassword);
+        return res.status(200).json({
+            success: true,
+            message: result.message
+        });
+    } catch (error) {
+        console.error('Reset Password Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to reset password.'
+        });
+    }
+}
+
 module.exports = {
     facultyRegistration,
     adminRegisteration,
     loginUser,
-    logoutUser
+    logoutUser,
+    forgotPasswordController,
+    resetPasswordController
 };
