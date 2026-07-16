@@ -118,7 +118,7 @@ app.use("/api/admin", AdminApprovalRouter);
 
     // if (process.env.NODE_ENV === 'development') {
     // Use sequelize.sync() instead of { alter: true } to avoid MySQL duplicate index bug (ER_TOO_MANY_KEYS)
-    await sequelize.sync();
+    await sequelize.sync({ alter: true });
     console.log("Database models synced");
     // }
 
