@@ -44,7 +44,6 @@ const formatDate = (date) => {
 };
 
 module.exports = {
-
     numberToWords,
     getMonthName,
     isValidDateRange,

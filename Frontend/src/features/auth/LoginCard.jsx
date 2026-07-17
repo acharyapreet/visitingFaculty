@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { findUserByCredentials } from './authUtils';
 import { loginUser } from '../../api/authApi';
 
 const DEMO_ADMIN_ACCOUNT = {
@@ -9,8 +8,9 @@ const DEMO_ADMIN_ACCOUNT = {
 };
 
 // Removed the `role` prop requirement so any user can log in here
-const LoginCard = ({ onNavigate, initialUserId = '' }) => {
-  const [userId, setUserId] = useState(() => initialUserId);
+const LoginCard = ({ onNavigate, initialEmail = '' }) => {
+  // Changed state from userId to email to match backend requirements
+  const [email, setEmail] = useState(() => initialEmail);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -23,9 +23,9 @@ const LoginCard = ({ onNavigate, initialUserId = '' }) => {
     setIsLoading(true);
 
     try {
-      // 1. Call the real API using your teammate's setup
+      // 1. Updated Payload: Sending 'email' instead of 'user_id'
       const response = await loginUser({
-        user_id: userId.trim(),
+        email: email.trim(),
         password: password,
       });
 
@@ -36,22 +36,23 @@ const LoginCard = ({ onNavigate, initialUserId = '' }) => {
       setSuccessRole(formattedRole);
 
       // 3. CRITICAL: Save the token exactly where axiosInstance.js is looking for it!
-      // (Keep this line if your teammate's axiosInstance.js relies on it)
       localStorage.setItem("token", userData.token);
       
       // Save the rest of the session data AND THE TOKEN for your UI routing
+      // Note: We still save userId here if the backend returns it, as other pages might need it!
       localStorage.setItem(
         'iipsCurrentSession',
         JSON.stringify({ 
           role: userData.role, 
-          userId: userData.user_id,
-          token: userData.token // <--- THIS IS THE MAGIC LINE!
+          userId: userData.user_id, 
+          token: userData.token
         })
       );
       
     } catch (error) {
       console.error('Login error:', error);
-      setErrorMessage('Invalid credentials. Please check your Institute User ID and password and try again.');
+      // Updated error text to reflect Email
+      setErrorMessage('Invalid credentials. Please check your E-mail and password and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -78,7 +79,7 @@ const LoginCard = ({ onNavigate, initialUserId = '' }) => {
             <button
               onClick={() => {
                 setSuccessRole(null);
-                setUserId('');
+                setEmail('');
                 setPassword('');
                 // Navigate to dashboard and pass the role so the router knows where to send them
                 onNavigate('dashboard');
@@ -119,11 +120,11 @@ const LoginCard = ({ onNavigate, initialUserId = '' }) => {
             <div>
               <label className="mb-1.5 block text-sm font-medium text-[#424656]">E-mail</label>
               <input
-                type="text"
+                type="email"
                 placeholder="abc@gmail.com"
-                value={userId}
+                value={email}
                 onChange={(e) => {
-                  setUserId(e.target.value);
+                  setEmail(e.target.value);
                   setErrorMessage('');
                 }}
                 disabled={isLoading}

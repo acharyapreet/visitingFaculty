@@ -1,26 +1,34 @@
 const { User, FacultyApproval } = require('../Schema');
+const { generateFacultyId } = require('../utils/helper');
 const sendEmail = require('../utils/emailService');
 
 async function approveFaculty(params, Details, currentUser) {
     try {
-        const {user_id} = params;
-        const {status, uvfin, rejection_reason} = Details;
+        const { user_id } = params;
+        const { status, uvfin, rejection_reason } = Details;
         const user = await User.findByPk(user_id);
-        if(!user || user.role !== 'faculty'){
+        if (!user || user.role !== 'faculty') {
             throw new Error("Faculty not found");
         }
 
         let resultUser = user;
         const approval = await FacultyApproval.findOne({
-            where: {user_id, status: 'pending'}
+            where: { user_id, status: 'pending' }
         });
         if (!approval) {
             throw new Error("no pending approval found");
         }
 
         if (status === 'approved') {
-            
-            // ✅ Update user with new user_id and uvfin using class-level update (since instance.update cannot alter primary keys in Sequelize)
+
+            // Check if UVFIN already exists
+            const existingUVFIN = await User.findOne({
+                where: { uvfin }
+            });
+
+            if (existingUVFIN) {
+                throw new Error('UVFIN already exists. Please use a unique UVFIN');
+            }
             await User.update(
                 { is_approved: true, uvfin: uvfin },
                 { where: { user_id } }
@@ -37,10 +45,10 @@ async function approveFaculty(params, Details, currentUser) {
                     approval_date: new Date(),
                     uvfin: uvfin
                 },
-                { where: { user_id: facultyId } }
+                { where: { user_id } }
             );
 
-           
+
             await sendEmail({
                 to: resultUser.email,
                 subject: 'Faculty Account Approved - DAVV',
@@ -87,15 +95,15 @@ async function approveFaculty(params, Details, currentUser) {
         return resultUser;
     } catch (error) {
         console.error('Approve Faculty Error:', error);
-       throw error;
+        throw error;
     }
 };
-async function getPendingFaculty(){
+async function getPendingFaculty() {
     try {
         const pendingFaculty = await User.findAll({
-            where: { 
-                role: 'faculty', 
-                is_approved: false 
+            where: {
+                role: 'faculty',
+                is_approved: false
             },
             include: [{
                 model: FacultyApproval,
@@ -123,11 +131,11 @@ async function getRejectedFaculty() {
             },
             include: [{
                 model: FacultyApproval,
-                where:{status: 'rejected'},
+                where: { status: 'rejected' },
                 required: true
             }],
-            attributes:{exclude: ['password_hash']},
-            order:[['created_at', 'ASC']]
+            attributes: { exclude: ['password_hash'] },
+            order: [['created_at', 'ASC']]
         });
         return RejectedFaculty;
     } catch (error) {
@@ -144,11 +152,11 @@ async function getApprovedFaculty() {
             },
             include: [{
                 model: FacultyApproval,
-                where:{status: 'approved'},
+                where: { status: 'approved' },
                 required: true
             }],
-            attributes:{exclude: ['password_hash']},
-            order:[['created_at', 'ASC']]
+            attributes: { exclude: ['password_hash'] },
+            order: [['created_at', 'ASC']]
         });
         return ApprovedFaculty;
     } catch (error) {
@@ -176,13 +184,10 @@ async function getAllFaculty() {
         throw new Error('Failed to fetch facultys');
     }
 }
-
 async function getFacultyById(user_id) {
     try {
-        const faculty = await User.findByPk(user_id, {
-            attributes: { exclude: ['password_hash'] }
-        });
-        if(!faculty || faculty.role !== 'faculty'){
+        const faculty = await User.findByPk(user_id, { attributes: { exclude: ['password_hash'] } });
+        if (!faculty || faculty.role !== 'faculty') {
             throw new Error('Faculty not found');
         }
         return faculty;

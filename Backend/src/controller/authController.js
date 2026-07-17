@@ -1,22 +1,23 @@
-const {registerFaculty, registerAdmin, login, logout, generatePasswordResetToken, resetUserPassword} = require("../service/userService");
-const User = require("../Schema/userSchema");
+const { registerFaculty, registerAdmin, login, logout, changePassword } = require("../service/userService");
 
 async function facultyRegistration(req, res) {
-    try{
+    try {
         const result = await registerFaculty(req.body);
         return res.status(201).json({
-            success : true,
-            message : "Registration successful",
-            data :{ user_id: result.user_id,
+            success: true,
+            message: "Registration successful",
+            data: {
+                user_id: result.user_id,
                 email: result.email,
-                full_name: result.full_name }
+                full_name: result.full_name
+            }
         });
-    }catch(error){
+    } catch (error) {
         console.log('Faculty Registration failed', error);
-        return res.status(error.statusCode ||400).json({
-            success : false,
-            message : "Registration Failed",
-            data : error.message
+        return res.status(error.statusCode || 400).json({
+            success: false,
+            message: "Registration Failed",
+            data: error.message
         });
     }
 };
@@ -28,17 +29,17 @@ async function adminRegisteration(req, res) {
             success: true,
             message: 'Registration Successfull',
             data: {
-               user_id: result.user_id,
+                user_id: result.user_id,
                 email: result.email,
-                full_name: result.full_name 
+                full_name: result.full_name
             }
         })
     } catch (error) {
         console.log('Admin Registration failed', error);
-        return res.status(error.statusCode ||400).json({
-            success : false,
-            message : "Registration Failed",
-            data : error.message
+        return res.status(error.statusCode || 400).json({
+            success: false,
+            message: "Registration Failed",
+            data: error.message
         });
     }
 }
@@ -46,25 +47,25 @@ async function adminRegisteration(req, res) {
 async function loginUser(req, res) {
     try {
         const result = await login(req.body);
-    
+
         return res.status(200).json({
             success: true,
             message: 'Login Successfull',
             data: {
-               user_id: result.user.user_id,
+                user_id: result.user.user_id,
                 role: result.user.role,
                 full_name: result.user.full_name,
                 email: result.user.email,
                 uvfin: result.user.uvfin || null,
-                token: result.token 
+                token: result.token
             }
         })
     } catch (error) {
         console.log('Login failed', error);
-        return res.status(error.statusCode ||401).json({
-            success : false,
-            message : "Login Failed",
-            data : error.message
+        return res.status(error.statusCode || 401).json({
+            success: false,
+            message: "Login Failed",
+            data: error.message
         });
     }
 }
@@ -108,10 +109,11 @@ async function forgotPasswordController(req, res) {
         });
     }
 }
-
+// 2. Reset Password Controller
 async function resetPasswordController(req, res) {
     try {
         const { token, newPassword } = req.body;
+
         if (!token || !newPassword) {
             return res.status(400).json({
                 success: false,
@@ -134,37 +136,11 @@ async function resetPasswordController(req, res) {
 
 async function changePasswordController(req, res) {
     try {
-        const { currentPassword, newPassword } = req.body;
-        const userId = req.user_id;
-
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({
-                success: false,
-                message: 'Current password and new password are required.'
-            });
-        }
-
-        const user = await User.findByPk(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found.'
-            });
-        }
-
-        const isValid = await user.comparePassword(currentPassword);
-        if (!isValid) {
-            return res.status(401).json({
-                success: false,
-                message: 'Current password is incorrect.'
-            });
-        }
-
-        await user.update({ password_hash: newPassword });
-
+        const { user_id, oldPassword, newPassword } = req.body;
+        const result = await changePassword(user_id, oldPassword, newPassword);
         return res.status(200).json({
             success: true,
-            message: 'Password changed successfully.'
+            message: result.message
         });
     } catch (error) {
         console.error('Change Password Controller Error:', error);

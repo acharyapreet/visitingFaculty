@@ -1,15 +1,15 @@
-const {approveAdmin, getPendingAdmins, getApprovedAdmin, getRejectedAdmin, getAllAdmins, getAdminById} = require("../service/superAdminService");
+const { approveAdmin, getPendingAdmins, getApprovedAdmin, getRejectedAdmin, getAllAdmins, getAdminById } = require("../service/superAdminService");
 
 async function AdminApprovalController(req, res) {
-    try{
+    try {
         const result = await approveAdmin(req.params, req.body, req.user);
         return res.json({
             success: true,
             message: `Admin ${req.body.status === 'approved' ? 'approved' : 'rejected'} successfully`
         });
-    }catch(error){
+    } catch (error) {
         console.log('Admin Approval failed', error);
-        return res.status(error.statusCode ||500).json({
+        return res.status(error.statusCode || 500).json({
             success: false,
             message: 'Failed to process Admin approval',
             error: error.message
@@ -18,14 +18,14 @@ async function AdminApprovalController(req, res) {
 };
 
 async function getPendingAdminsController(req, res) {
-    try{
+    try {
         const pendingAdmins = await getPendingAdmins();
         return res.json({
             success: true,
             count: pendingAdmins.length,
             data: pendingAdmins
         });
-    }catch(error){
+    } catch (error) {
         console.log('Admin pending show failed', error);
         return res.status(500).json({
             success: false,
@@ -36,14 +36,14 @@ async function getPendingAdminsController(req, res) {
 };
 
 async function getApprovedAdminsController(req, res) {
-    try{
+    try {
         const ApprovedAdmin = await getApprovedAdmin();
         return res.json({
             success: true,
             count: ApprovedAdmin.length,
             data: ApprovedAdmin
         });
-    }catch(error){
+    } catch (error) {
         console.log('Admin Approval failed', error);
         return res.status(500).json({
             success: false,
@@ -54,14 +54,14 @@ async function getApprovedAdminsController(req, res) {
 };
 
 async function getRejectedAdminsController(req, res) {
-    try{
+    try {
         const RejectedAdmin = await getRejectedAdmin();
         return res.json({
             success: true,
             count: RejectedAdmin.length,
             data: RejectedAdmin
         });
-    }catch(error){
+    } catch (error) {
         console.log('Admin Rejection failed', error);
         return res.status(500).json({
             success: false,
@@ -72,14 +72,14 @@ async function getRejectedAdminsController(req, res) {
 };
 
 async function getAllAdminsController(req, res) {
-    try{
+    try {
         const Admins = await getAllAdmins();
         return res.json({
             success: true,
             count: Admins.length,
             data: Admins
         });
-    }catch(error){
+    } catch (error) {
         console.log('Admin show failed', error);
         return res.status(500).json({
             success: false,
@@ -96,7 +96,7 @@ async function getAdminController(req, res) {
             success: true,
             data: Admin
         });
-    } catch(error) {
+    } catch (error) {
         console.log('Admin show failed', error);
         return res.status(500).json({
             success: false,

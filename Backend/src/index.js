@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 5000;
     console.log("Database connected");
 
     // Use sequelize.sync() instead of { alter: true } to avoid MySQL duplicate index bug (ER_TOO_MANY_KEYS)
-    await sequelize.sync();
+    await sequelize.sync({ alter: true });
     console.log("Database models synced");
 
     // Seed super admin
@@ -42,4 +42,4 @@ const PORT = process.env.PORT || 5000;
   } catch (err) {
     console.error("Failed to start server:", err);
   }
-})();
+})();
