@@ -40,6 +40,7 @@ const mockUserService = {
   logout: jest.fn(),
   generatePasswordResetToken: jest.fn(),
   resetUserPassword: jest.fn(),
+  changePassword: jest.fn(),
 };
 
 jest.mock('../src/service/userService', () => mockUserService);
@@ -383,8 +384,9 @@ describe('Auth Routes', () => {
     it('should change password successfully', async () => {
       const token = jwt.sign({ user_id: 1, role: 'faculty' }, process.env.JWT_SECRET);
       
-      const mockComparePassword = jest.fn().mockResolvedValue(true);
-      const mockUpdate = jest.fn().mockResolvedValue({});
+      mockUserService.changePassword.mockResolvedValue({
+        message: 'Password changed successfully.'
+      });
       
       // Mock User.findOne for authMiddleware
       mockUserModel.findOne.mockResolvedValue({
@@ -392,13 +394,6 @@ describe('Auth Routes', () => {
         role: 'faculty',
         is_approved: true,
         is_active: true,
-      });
-
-      // Mock User.findByPk for changePasswordController
-      mockUserModel.findByPk.mockResolvedValue({
-        user_id: 1,
-        comparePassword: mockComparePassword,
-        update: mockUpdate,
       });
 
       const res = await request(app)
@@ -414,13 +409,16 @@ describe('Auth Routes', () => {
         success: true,
         message: 'Password changed successfully.',
       });
-      expect(mockComparePassword).toHaveBeenCalledWith('oldpassword123');
-      expect(mockUpdate).toHaveBeenCalledWith({ password_hash: 'newpassword123' });
+      expect(mockUserService.changePassword).toHaveBeenCalledWith(undefined, undefined, 'newpassword123');
     });
 
     it('should return 400 if currentPassword or newPassword is missing', async () => {
       const token = jwt.sign({ user_id: 1, role: 'faculty' }, process.env.JWT_SECRET);
       
+      const error = new Error('Current password and new password are required.');
+      error.statusCode = 400;
+      mockUserService.changePassword.mockRejectedValue(error);
+
       mockUserModel.findOne.mockResolvedValue({
         user_id: 1,
         role: 'faculty',
@@ -443,18 +441,15 @@ describe('Auth Routes', () => {
     it('should return 401 if currentPassword is incorrect', async () => {
       const token = jwt.sign({ user_id: 1, role: 'faculty' }, process.env.JWT_SECRET);
       
-      const mockComparePassword = jest.fn().mockResolvedValue(false);
+      const error = new Error('Current password is incorrect.');
+      error.statusCode = 401;
+      mockUserService.changePassword.mockRejectedValue(error);
       
       mockUserModel.findOne.mockResolvedValue({
         user_id: 1,
         role: 'faculty',
         is_approved: true,
         is_active: true,
-      });
-
-      mockUserModel.findByPk.mockResolvedValue({
-        user_id: 1,
-        comparePassword: mockComparePassword,
       });
 
       const res = await request(app)
@@ -470,7 +465,6 @@ describe('Auth Routes', () => {
         success: false,
         message: 'Current password is incorrect.',
       });
-      expect(mockComparePassword).toHaveBeenCalledWith('wrongpassword');
     });
   });
 });

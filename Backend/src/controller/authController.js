@@ -1,4 +1,4 @@
-const { registerFaculty, registerAdmin, login, logout, changePassword } = require("../service/userService");
+const { registerFaculty, registerAdmin, login, logout, changePassword, generatePasswordResetToken, resetUserPassword } = require("../service/userService");
 
 async function facultyRegistration(req, res) {
     try {

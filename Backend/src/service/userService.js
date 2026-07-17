@@ -194,7 +194,27 @@ async function resetUserPassword(token, newPassword) {
         throw error;
     }
 }
-
+async function changePassword(user_id, oldPassword, newPassword) {
+    try {
+        const user = await User.findByPk(user_id);
+        if(!user){
+            throw new Error('user not found');
+        }
+        const isMatch = await user.comparePassword(oldPassword);
+        if(!isMatch){
+            throw new Error('password does not match');
+        }
+        await User.update({
+            password_hash: newPassword
+        },{
+            where: {user_id}
+        })
+        return { message: 'password changed successfully' };
+    } catch (error) {
+        console.log('error in changePassword in userService', error);
+        throw error;
+    }
+}
 async function updateProfile(user_id, updateData) {
     try {
         const user = await User.findByPk(user_id);
@@ -213,9 +233,17 @@ async function updateProfile(user_id, updateData) {
             'pan_card_no'
         ];
         const filteredUpdates = {};
+        allowedUpdate.forEach(field => {
+            if (updateData[field] !== undefined) {
+                filteredUpdates[field] = updateData[field];
+            }
+        });
 
+        await user.update(filteredUpdates);
+        return user;
     } catch (error) {
-
+        console.log('error in updateProfile in userService', error);
+        throw error;
     }
 }
 
@@ -225,5 +253,7 @@ module.exports = {
     login,
     logout,
     generatePasswordResetToken,
-    resetUserPassword
+    resetUserPassword,
+    changePassword,
+    updateProfile
 };

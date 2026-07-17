@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 5000;
     console.log("Database models synced");
 
     // Seed super admin
-    const superAdminId = process.env.SUPER_ADMIN_USER_ID || "abc";
+    const superAdminId = parseInt(process.env.SUPER_ADMIN_USER_ID || "1", 10);
     const superAdminEmail = process.env.SUPER_ADMIN_EMAIL || "abc@gmail.com";
     const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD || "ADMIN";
 
