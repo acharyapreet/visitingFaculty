@@ -1,4 +1,4 @@
-const { registerFaculty, registerAdmin, login, logout, changePassword, generatePasswordResetToken, resetUserPassword } = require("../service/userService");
+const { registerFaculty, registerAdmin, login, logout, changePassword, generatePasswordResetToken, resetUserPassword, updateProfile } = require("../service/userService");
 
 async function facultyRegistration(req, res) {
     try {
@@ -151,6 +151,22 @@ async function changePasswordController(req, res) {
     }
 }
 
+async function updateProfileController(req, res) {
+    try {
+        const result = await updateProfile(req.params.user_id, req.body);
+        return res.status(200).json({
+            success: true,
+            message: result.message
+        });
+    } catch (error) {
+        console.error('Change Password Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to change password.'
+        });
+    }
+}
+
 module.exports = {
     facultyRegistration,
     adminRegisteration,
@@ -158,5 +174,6 @@ module.exports = {
     logoutUser,
     forgotPasswordController,
     resetPasswordController,
-    changePasswordController
+    changePasswordController,
+    updateProfileController
 };

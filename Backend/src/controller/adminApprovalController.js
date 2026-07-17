@@ -1,4 +1,4 @@
-const { approveFaculty, getPendingFaculty, getApprovedFaculty, getRejectedFaculty, getAllFaculty, getFacultyById } = require("../service/adminApprovalService");
+const { approveFaculty, getPendingFaculty, getApprovedFaculty, getRejectedFaculty, getAllFaculty, getFacultyById, updateUvfin } = require("../service/adminApprovalService");
 const { getAllAdminsController } = require("./superAdminApprovalController");
 
 async function FacultyApprovalController(req, res) {
@@ -105,11 +105,28 @@ async function getAllFacultyController(req, res) {
     }
 };
 
+async function updateUvfinController(req, res) {
+    try {
+        const result = await updateUvfin(req.params.user_id, req.body.uvfin);
+        return res.status(200).json({
+            success: true,
+            message: result.message
+        });
+    } catch (error) {
+        console.error('Change uvfin Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to change uvfin.'
+        });
+    }
+}
+
 module.exports = {
     FacultyApprovalController,
     getAllFacultyController,
     getApprovedFacultyController,
     getRejectedFacultyController,
     getPendingFacultysController,
-    getFacultyController
+    getFacultyController,
+    updateUvfinController
 };

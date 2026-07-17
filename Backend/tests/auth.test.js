@@ -41,9 +41,16 @@ const mockUserService = {
   generatePasswordResetToken: jest.fn(),
   resetUserPassword: jest.fn(),
   changePassword: jest.fn(),
+  updateProfile: jest.fn(),
 };
 
 jest.mock('../src/service/userService', () => mockUserService);
+
+const mockAdminApprovalService = {
+  updateUvfin: jest.fn(),
+};
+
+jest.mock('../src/service/adminApprovalService', () => mockAdminApprovalService);
 
 // Import the app
 const app = require('../src/app');
@@ -324,14 +331,14 @@ describe('Auth Routes', () => {
     });
   });
 
-  describe('POST /api/auth/resetPassword', () => {
+  describe('PUT /api/auth/resetPassword', () => {
     it('should reset password successfully', async () => {
       mockUserService.resetUserPassword.mockResolvedValue({
         message: 'Your password has been successfully reset.',
       });
 
       const res = await request(app)
-        .post('/api/auth/resetPassword')
+        .put('/api/auth/resetPassword')
         .send({
           token: 'mocked_reset_token',
           newPassword: 'newpassword123',
@@ -347,7 +354,7 @@ describe('Auth Routes', () => {
 
     it('should return 400 if token or password is missing', async () => {
       const res = await request(app)
-        .post('/api/auth/resetPassword')
+        .put('/api/auth/resetPassword')
         .send({ token: 'mocked_reset_token' }); // missing password
 
       expect(res.statusCode).toBe(400);
@@ -361,7 +368,7 @@ describe('Auth Routes', () => {
       mockUserService.resetUserPassword.mockRejectedValue(new Error('Password reset token is invalid or has expired.'));
 
       const res = await request(app)
-        .post('/api/auth/resetPassword')
+        .put('/api/auth/resetPassword')
         .send({
           token: 'expired_token',
           newPassword: 'newpassword123',
@@ -375,9 +382,9 @@ describe('Auth Routes', () => {
     });
   });
 
-  describe('POST /api/auth/changePassword', () => {
+  describe('PUT /api/auth/changePassword', () => {
     it('should return 401 if not authenticated', async () => {
-      const res = await request(app).post('/api/auth/changePassword');
+      const res = await request(app).put('/api/auth/changePassword');
       expect(res.statusCode).toBe(401);
     });
 
@@ -397,7 +404,7 @@ describe('Auth Routes', () => {
       });
 
       const res = await request(app)
-        .post('/api/auth/changePassword')
+        .put('/api/auth/changePassword')
         .set('Authorization', `Bearer ${token}`)
         .send({
           currentPassword: 'oldpassword123',
@@ -427,7 +434,7 @@ describe('Auth Routes', () => {
       });
 
       const res = await request(app)
-        .post('/api/auth/changePassword')
+        .put('/api/auth/changePassword')
         .set('Authorization', `Bearer ${token}`)
         .send({ currentPassword: 'oldpassword123' });
 
@@ -453,7 +460,7 @@ describe('Auth Routes', () => {
       });
 
       const res = await request(app)
-        .post('/api/auth/changePassword')
+        .put('/api/auth/changePassword')
         .set('Authorization', `Bearer ${token}`)
         .send({
           currentPassword: 'wrongpassword',
@@ -465,6 +472,90 @@ describe('Auth Routes', () => {
         success: false,
         message: 'Current password is incorrect.',
       });
+    });
+  });
+
+  describe('PUT /api/auth/update/:user_id', () => {
+    it('should return 401 if not authenticated', async () => {
+      const res = await request(app).put('/api/auth/update/1');
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('should update user profile successfully', async () => {
+      const token = jwt.sign({ user_id: 1, role: 'faculty' }, process.env.JWT_SECRET);
+      
+      mockUserService.updateProfile.mockResolvedValue({
+        message: 'Profile updated successfully'
+      });
+
+      mockUserModel.findOne.mockResolvedValue({
+        user_id: 1,
+        role: 'faculty',
+        is_approved: true,
+        is_active: true,
+      });
+
+      const res = await request(app)
+        .put('/api/auth/update/1')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ full_name: 'Updated Name' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual({
+        success: true,
+        message: 'Profile updated successfully',
+      });
+      expect(mockUserService.updateProfile).toHaveBeenCalledWith('1', { full_name: 'Updated Name' });
+    });
+  });
+
+  describe('PUT /api/admin/updateFaculty/:user_id', () => {
+    it('should return 401 if not authenticated', async () => {
+      const res = await request(app).put('/api/admin/updateFaculty/1');
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('should return 403 if authenticated but not admin', async () => {
+      const token = jwt.sign({ user_id: 1, role: 'faculty' }, process.env.JWT_SECRET);
+      
+      mockUserModel.findOne.mockResolvedValue({
+        user_id: 1,
+        role: 'faculty',
+        is_approved: true,
+        is_active: true,
+      });
+
+      const res = await request(app)
+        .put('/api/admin/updateFaculty/1')
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('should update faculty UVFIN successfully', async () => {
+      const token = jwt.sign({ user_id: 2, role: 'admin' }, process.env.JWT_SECRET);
+      
+      mockAdminApprovalService.updateUvfin.mockResolvedValue({
+        message: 'uvfin updated successfully'
+      });
+
+      mockUserModel.findOne.mockResolvedValue({
+        user_id: 2,
+        role: 'admin',
+        is_approved: true,
+        is_active: true,
+      });
+
+      const res = await request(app)
+        .put('/api/admin/updateFaculty/1')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ uvfin: 'UF001' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual({
+        success: true,
+        message: 'uvfin updated successfully',
+      });
+      expect(mockAdminApprovalService.updateUvfin).toHaveBeenCalledWith('1', 'UF001');
     });
   });
 });

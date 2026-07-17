@@ -1,4 +1,4 @@
-const { User, FacultyApproval } = require('../Schema');
+const { User, FacultyApproval, AdminApproval } = require('../Schema');
 const { generateFacultyId } = require('../utils/helper');
 const sendEmail = require('../utils/emailService');
 
@@ -196,6 +196,30 @@ async function getFacultyById(user_id) {
         throw new Error('Failed to fetch faculty by id');
     }
 }
+async function updateUvfin(user_id, uvfinId) {
+    try{
+        const user = await User.findByPk(user_id);
+        if(!user|| user.role != 'faculty'){
+            throw new Error('faculty not found');
+        }
+        const approved = await AdminApproval.findOne({ where: { user_id, status: 'approved' } });
+        if(!approved){
+            throw new Error('faculty not approved');
+        }
+        const existingUvfin = await User.findOne({where: {uvfin: uvfinId}});
+        if(existingUvfin){
+            throw new Error('UVFIN already exists. Please use a unique UVFIN');
+        }
+        await User.update({
+            uvfin: uvfinId
+        }, {where: {user_id}})
+        return {message: "uvfin updated successfully"};
+    }catch(error){
+        console.error('Update UVFIN Error:', error);
+        throw new Error('Failed to update UVFIN');
+    }
+
+}
 
 module.exports = {
     approveFaculty,
@@ -203,5 +227,6 @@ module.exports = {
     getApprovedFaculty,
     getPendingFaculty,
     getRejectedFaculty,
-    getFacultyById
+    getFacultyById,
+    updateUvfin
 };
