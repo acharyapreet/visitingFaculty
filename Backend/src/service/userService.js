@@ -7,6 +7,11 @@ const AdminApproval = require('../Schema/adminApprovalSchema');
 const sendEmail = require('../utils/emailService');
 require('dotenv').config();
 
+async function getNextUserId() {
+    const maxUserId = await User.max('user_id');
+    return (maxUserId || 0) + 1;
+}
+
 // faculty registration logic
 async function registerFaculty(facultyData) {
     const existingUser = await User.findOne({
@@ -17,12 +22,23 @@ async function registerFaculty(facultyData) {
         throw new Error('Email already exist');
     }
 
+    const normalizedData = {
+        email: facultyData.email?.trim(),
+        full_name: facultyData.full_name || facultyData.fullName || facultyData.name,
+        phone_number: facultyData.phone_number || facultyData.mobile || facultyData.phone,
+        password_hash: facultyData.password || facultyData.password_hash,
+    };
+
     const { password, user_id, ...restFacultyData } = facultyData;
     const user = await User.create({
+        user_id: await getNextUserId(),
         role: 'faculty',
-        password_hash: password,
+        password_hash: normalizedData.password_hash,
         is_approved: false,
         is_active: true,
+        email: normalizedData.email,
+        full_name: normalizedData.full_name,
+        phone_number: normalizedData.phone_number,
         ...restFacultyData
     });
 
@@ -43,12 +59,23 @@ async function registerAdmin(adminData) {
         throw new Error('Email already exist');
     }
 
+    const normalizedData = {
+        email: adminData.email?.trim(),
+        full_name: adminData.full_name || adminData.fullName || adminData.name,
+        phone_number: adminData.phone_number || adminData.mobile || adminData.phone,
+        password_hash: adminData.password || adminData.password_hash,
+    };
+
     const { password, user_id, ...restAdminData } = adminData;
     const user = await User.create({
+        user_id: await getNextUserId(),
         role: 'admin',
-        password_hash: password,
+        password_hash: normalizedData.password_hash,
         is_approved: false,
         is_active: true,
+        email: normalizedData.email,
+        full_name: normalizedData.full_name,
+        phone_number: normalizedData.phone_number,
         ...restAdminData
     });
 

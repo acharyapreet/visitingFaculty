@@ -8,12 +8,12 @@ const AdminApproval = sequelize.define('AdminApproval', {
         autoIncrement: true
     },
     user_id: {
-        type: DataTypes.STRING(30),
+        type: DataTypes.INTEGER(30),
         allowNull: false,
         references: { model: 'users', key: 'user_id' }
     },
     approved_by: {
-        type: DataTypes.STRING(30),
+        type: DataTypes.INTEGER(30),
         allowNull: true,
         references: { model: 'users', key: 'user_id' }
     },

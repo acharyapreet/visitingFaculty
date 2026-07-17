@@ -1,4 +1,5 @@
 const {registerFaculty, registerAdmin, login, logout, generatePasswordResetToken, resetUserPassword} = require("../service/userService");
+const User = require("../Schema/userSchema");
 
 async function facultyRegistration(req, res) {
     try{
@@ -131,11 +132,55 @@ async function resetPasswordController(req, res) {
     }
 }
 
+async function changePasswordController(req, res) {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const userId = req.user_id;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Current password and new password are required.'
+            });
+        }
+
+        const user = await User.findByPk(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.'
+            });
+        }
+
+        const isValid = await user.comparePassword(currentPassword);
+        if (!isValid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Current password is incorrect.'
+            });
+        }
+
+        await user.update({ password_hash: newPassword });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Password changed successfully.'
+        });
+    } catch (error) {
+        console.error('Change Password Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to change password.'
+        });
+    }
+}
+
 module.exports = {
     facultyRegistration,
     adminRegisteration,
     loginUser,
     logoutUser,
     forgotPasswordController,
-    resetPasswordController
+    resetPasswordController,
+    changePasswordController
 };

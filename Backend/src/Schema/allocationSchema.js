@@ -8,7 +8,7 @@ const Allocation = sequelize.define('Allocation', {
         autoIncrement: true
     },
     user_id: {
-        type: DataTypes.STRING(30),
+        type: DataTypes.INTEGER(30),
         allowNull: false,
         references: { model: 'users', key: 'user_id' }
     },
@@ -45,7 +45,7 @@ const Allocation = sequelize.define('Allocation', {
         allowNull: false
     },
     created_by: {
-        type: DataTypes.STRING(30),
+        type: DataTypes.INTEGER(30),
         allowNull: false,
         references: { model: 'users', key: 'user_id' }  
     },
