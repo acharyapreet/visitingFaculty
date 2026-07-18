@@ -11,11 +11,7 @@ class AllocationService {
         };
 
         if (query && query.trim()) {
-            const search = `%${query.trim()}%`;
-            whereClause[Op.or] = [
-                { full_name: { [Op.like]: search } },
-                { email: { [Op.like]: search } }
-            ];
+            whereClause.full_name = { [Op.like]: `%${query.trim()}%` };
         }
 
         const facultyList = await User.findAll({
