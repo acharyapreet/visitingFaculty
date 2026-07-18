@@ -1,0 +1,24 @@
+### Generate a new Bill
+POST http://localhost:5000/api/bills/generate
+Content-Type: application/json
+
+{
+    "facultyId": "TEMP-123456",
+    "month": "July",
+    "year": 2026
+}
+
+### Get All Bills
+GET http://localhost:5000/api/bills/
+
+### Get Bill Details
+GET http://localhost:5000/api/bills/details/1
+
+### Get Bill History for Faculty
+GET http://localhost:5000/api/bills/history/TEMP-123456
+
+### Download Bill PDF
+GET http://localhost:5000/api/bills/download/1
+
+### Delete Bill
+DELETE http://localhost:5000/api/bills/1

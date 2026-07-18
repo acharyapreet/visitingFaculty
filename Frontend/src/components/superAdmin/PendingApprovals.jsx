@@ -62,7 +62,6 @@ export default function PendingApprovalsPage() {
     setTimeout(() => setToast(null), 5000); 
   };
 
-  // Helper functions to safely extract nested backend data
   const getAdminStatus = (admin) => {
     if (admin?.AdminApproval?.status) return admin.AdminApproval.status.toLowerCase();
     if (admin?.status) return admin.status.toLowerCase();
@@ -81,7 +80,6 @@ export default function PendingApprovalsPage() {
       return;
     }
 
-    // Safety check: ensure selectedAdmin is defined
     if (!selectedAdmin) {
       setUpdateError("No admin selected.");
       return;
@@ -92,8 +90,6 @@ export default function PendingApprovalsPage() {
 
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-      
-      // Use optional chaining to find the ID, checking multiple potential field names
       const targetUserId = selectedAdmin.user_id || selectedAdmin.id || selectedAdmin.userId;
 
       if (!targetUserId) {
@@ -103,15 +99,12 @@ export default function PendingApprovalsPage() {
       const payload = { status: status };
       if (status === 'rejected') payload.rejection_reason = rejectReason;
 
-      const response = await axios.put(`http://localhost:5000/api/super_admin/admin/${targetUserId}/approve`, payload, {
+      await axios.put(`http://localhost:5000/api/super_admin/admin/${targetUserId}/approve`, payload, {
         headers: { 'Authorization': `Bearer ${session.token}` }
       });
 
-      // Show the success toast
       if (status === 'approved') {
-        // Look for the ID in the response.data.data or just response.data
-        const generatedId = response.data.data?.user_id || response.data.user_id || targetUserId; 
-        showToast('success', `Approved - User ID: ${generatedId}`, `Credentials emailed to ${selectedAdmin.email}`);
+        showToast('success', 'Admin Approved', `Credentials emailed to ${selectedAdmin.email}`);
       } else {
         showToast('error', 'Application Rejected', `Rejection notice sent to ${selectedAdmin.email}`);
       }
@@ -121,7 +114,6 @@ export default function PendingApprovalsPage() {
 
     } catch (err) {
       console.error(`Error updating status to ${status}:`, err);
-      // More descriptive error handling
       setUpdateError(err.response?.data?.message || err.message || "An error occurred while updating.");
     } finally {
       setIsUpdating(false);
@@ -152,6 +144,55 @@ export default function PendingApprovalsPage() {
     if (modalType === 'approve') return 'approve';
     if (modalType === 'reject') return 'reject';
     return getAdminStatus(selectedAdmin) === 'rejected' ? 'reject' : 'approve';
+  };
+
+  // Helper for rendering the dynamic status box in the modal
+  const renderStatusBox = () => {
+    const status = getAdminStatus(selectedAdmin);
+    let boxStyles, iconStyles, title, subtitle, Icon;
+
+    if (status === 'approved') {
+      boxStyles = "border-green-200 bg-green-50/30";
+      iconStyles = "bg-green-100 text-green-600";
+      title = "Approved Admin";
+      subtitle = "This admin account is active and has portal access.";
+      Icon = <CheckCircle className="w-5 h-5" />;
+    } else if (status === 'rejected') {
+      boxStyles = "border-red-200 bg-red-50/30";
+      iconStyles = "bg-red-100 text-red-600";
+      title = "Rejected Admin";
+      subtitle = "This registration application was declined.";
+      Icon = <XCircle className="w-5 h-5" />;
+    } else {
+      boxStyles = "border-[#D1B8E8] bg-white";
+      iconStyles = "bg-[#F5EDFB] text-[#7E22CE]";
+      title = "Pending Approval";
+      subtitle = "This application is waiting for your review.";
+      Icon = (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      );
+    }
+
+    return (
+      <div className={`mb-6 border-2 rounded-xl p-4 flex items-center gap-4 shadow-sm ${boxStyles}`}>
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${iconStyles}`}>
+          {Icon}
+        </div>
+        <div>
+          <p className={`text-[10px] font-bold uppercase tracking-widest mb-0.5 ${status === 'approved' ? 'text-green-600' : status === 'rejected' ? 'text-red-600' : 'text-[#7E22CE]'}`}>
+            {title}
+          </p>
+          <p className="text-sm font-bold text-[#1F2937]">
+            {selectedAdmin.full_name || 'Admin Candidate'}
+          </p>
+          <p className={`text-[10px] mt-0.5 font-medium ${status === 'approved' ? 'text-green-600' : status === 'rejected' ? 'text-red-600' : 'text-[#7E22CE]'}`}>
+            {subtitle}
+          </p>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -232,7 +273,7 @@ export default function PendingApprovalsPage() {
                 </thead>
                 <tbody>
                   {currentRecords.map((r, index) => {
-                    const currentStatus = getAdminStatus(r); // FIXED STATUS EXTRACTION
+                    const currentStatus = getAdminStatus(r);
                     
                     return (
                       <tr key={index} className="border-b border-gray-50 last:border-0 align-middle hover:bg-gray-50 transition-colors">
@@ -381,30 +422,8 @@ export default function PendingApprovalsPage() {
                 </div>
               )}
 
-              {/* Auto-Generated User ID Box */}
-             {/* Updated Purple Box to match Figma Design */}
-            {/* Final Figma-Matched Purple Box */}
-            {(modalType === 'approve' || (modalType === 'details' && getAdminStatus(selectedAdmin) === 'approved')) && (
-              <div className="mb-6 border-2 border-[#D1B8E8] bg-white rounded-xl p-4 flex items-center gap-4 shadow-sm">
-                <div className="w-10 h-10 rounded-full bg-[#F5EDFB] text-[#7E22CE] flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-[#7E22CE] uppercase tracking-widest mb-0.5">
-                    {getAdminStatus(selectedAdmin) === 'approved' ? 'Assigned User ID' : 'Auto-Generated User ID'}
-                  </p>
-                  <p className="text-sm font-bold text-[#1F2937]">
-                    {getAdminStatus(selectedAdmin) === 'approved' 
-                      ? (selectedAdmin.employee_id || selectedAdmin.user_id) 
-                      : "Will be generated upon approval"}
-                  </p>
-                  {/* THIS IS THE MESSAGE YOU WANTED! */}
-                  <p className="text-[10px] text-[#7E22CE] mt-0.5 font-medium">
-                    This ID will be permanently assigned to the admin account.
-                  </p>
-                </div>
-              </div>
-            )}
+              {/* DYNAMIC STATUS BOX */}
+              {renderStatusBox()}
 
               {modalType === 'reject' && (
                 <div className="mb-6">
@@ -447,16 +466,14 @@ export default function PendingApprovalsPage() {
                       <p>Your admin registration request for the DAVV Visiting Faculty Management System has been <strong>approved</strong>.</p>
                       <p>Your login credentials are as follows:</p>
                       
-                      {/* NEW: The Gray Box from your Figma Design */}
+                      {/* UPDATED: Removed User ID, showing Email instead */}
                       <div className="bg-gray-50 p-4 rounded-xl font-mono text-xs text-gray-800 space-y-2 border border-gray-100">
                         <div>
-                          <span className="text-gray-500 font-sans font-semibold w-20 inline-block">User ID:</span> 
-                          {getAdminStatus(selectedAdmin) === 'approved' 
-                            ? selectedAdmin.employee_id || selectedAdmin.user_id 
-                            : "[Will be Auto-Generated]"}
+                          <span className="text-gray-500 font-sans font-semibold w-16 inline-block">Email:</span> 
+                          {selectedAdmin.email}
                         </div>
                         <div>
-                          <span className="text-gray-500 font-sans font-semibold w-20 inline-block">Portal:</span> 
+                          <span className="text-gray-500 font-sans font-semibold w-16 inline-block">Portal:</span> 
                           https://vfm.davv.ac.in
                         </div>
                       </div>

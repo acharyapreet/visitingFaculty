@@ -1,242 +1,317 @@
-import { useMemo, useState } from "react";
-import { registeredFaculty } from "../../data/mockData";
-import StatusBadge from "../../components/admin/StatusBadge";
-import {
-  IconSearch,
-  IconDownload,
-  IconPlus,
-  IconFilter,
-  IconDots,
-  IconChevronLeft,
-  IconChevronRight,
-} from "../../components/admin/icons";
+import React, { useEffect, useMemo, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { Download, Plus, Search, Filter, MoreHorizontal, Eye, BookOpen } from "lucide-react";
+import Sidebar from "./Sidebar";
+import Topbar from "./Topbar";
+import LoadingSpinner from "./LoadingSpinner";
+import FacultyModal from "./FacultyModal";
+import adminApi from "../../api/adminApi";
 
-const DEPARTMENTS = ["Computer Science", "Electronics", "Mathematics", "Physics", "Chemistry"];
-const STATUSES = ["Active", "Inactive"];
 const PAGE_SIZE = 5;
 
+const statusStyles = {
+  active: "bg-blue-50 text-blue-600",
+  inactive: "bg-slate-100 text-slate-400",
+  approved: "bg-green-50 text-green-600",
+  rejected: "bg-red-50 text-red-500",
+  pending: "bg-amber-50 text-amber-600",
+};
+
 export default function FacultyManagement() {
-  const [query, setQuery] = useState("");
+  const navigate = useNavigate();
+  const [faculty, setFaculty] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [viewId, setViewId] = useState(null);
+
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await adminApi.getAllFaculty();
+        setFaculty(Array.isArray(data) ? data : data?.faculty ?? []);
+      } catch (err) {
+        setError(err?.response?.data?.message || "Failed to load faculty list.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAll();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenuId(null);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const departments = useMemo(
+    () => [...new Set(faculty.map((f) => f.department).filter(Boolean))],
+    [faculty]
+  );
 
   const filtered = useMemo(() => {
-    return registeredFaculty.filter((f) => {
-      const matchesQuery =
-        !query ||
-        f.name.toLowerCase().includes(query.toLowerCase()) ||
-        f.uvfin.toLowerCase().includes(query.toLowerCase());
-      const matchesStatus = !status || f.status === status;
-      return matchesQuery && matchesStatus;
+    return faculty.filter((f) => {
+      const q = search.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        f.name?.toLowerCase().includes(q) ||
+        f.uvfin?.toLowerCase().includes(q) ||
+        f.uvfinId?.toLowerCase().includes(q);
+      const matchesDept = !department || f.department === department;
+      const matchesStatus = !status || f.status?.toLowerCase() === status.toLowerCase();
+      return matchesSearch && matchesDept && matchesStatus;
     });
-  }, [query, status]);
+  }, [faculty, search, department, status]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => setPage(1), [search, department, status]);
 
   const handleExport = () => {
-    const header = "UVFIN,Faculty Name,Qualification,Status,Allocate Subject\n";
-    const rows = filtered
-      .map((f) => [f.uvfin, f.name, f.qualification, f.status, f.allocateSubject].join(","))
-      .join("\n");
-    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+    const headers = ["UVFIN", "Name", "Qualification", "Status", "Department"];
+    const rows = filtered.map((f) => [f.uvfin || f.uvfinId, f.name, f.qualification, f.status, f.department]);
+    const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "faculty-management.csv";
+    a.download = "faculty_list.csv";
     a.click();
     URL.revokeObjectURL(url);
   };
 
   return (
-    <div>
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Faculty Management</h1>
-          <p className="text-sm text-slate-500">All registered visiting faculty members</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleExport}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <IconDownload /> Export
-          </button>
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            <IconPlus /> Register New
-          </button>
-        </div>
-      </div>
+    <div className="flex min-h-screen bg-slate-50">
+      <Sidebar />
+      <div className="flex-1 min-w-0">
+        <Topbar showSearch={false} breadcrumb={["Admin", "Faculty Management"]} />
 
-      <div className="mb-4 flex items-center gap-3">
-        <div className="relative flex-1">
-          <IconSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Search by name or UVFIN..."
-            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-          />
-        </div>
-        <select
-          value={department}
-          onChange={(e) => setDepartment(e.target.value)}
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 outline-none focus:border-blue-400"
-        >
-          <option value="">Select Department</option>
-          {DEPARTMENTS.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 outline-none focus:border-blue-400"
-        >
-          <option value="">Select Status</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
-          <IconFilter /> Filter
-        </button>
-      </div>
-
-      <div className="overflow-visible rounded-2xl border border-slate-100 bg-white shadow-sm">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="text-[11px] font-medium tracking-wide text-slate-400">
-              <th className="px-6 py-3 font-medium">UVFIN</th>
-              <th className="px-6 py-3 font-medium">FACULTY NAME</th>
-              <th className="px-6 py-3 font-medium">QUALIFICATION</th>
-              <th className="px-6 py-3 font-medium">STATUS</th>
-              <th className="px-6 py-3 font-medium">ALLOCATE SUBJECT</th>
-              <th className="px-6 py-3 font-medium">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageRows.map((f) => (
-              <tr key={f.uvfin} className="border-t border-slate-100">
-                <td className="px-6 py-4 text-sm text-slate-600">{f.uvfin}</td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
-                      {f.name.replace(/^(Prof\.|Dr\.|Mr\.)\s*/, "").charAt(0)}
-                    </div>
-                    <p className="text-sm font-medium text-slate-900">{f.name}</p>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-700">{f.qualification}</td>
-                <td className="px-6 py-4">
-                  <StatusBadge label={f.status} />
-                </td>
-                <td className="px-6 py-4">
-                  <StatusBadge label={f.allocateSubject} />
-                </td>
-                <td className="relative px-6 py-4">
-                  <button
-                    type="button"
-                    onClick={() => setOpenMenuId(openMenuId === f.uvfin ? null : f.uvfin)}
-                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                    aria-label="More actions"
-                  >
-                    <IconDots />
-                  </button>
-                  {openMenuId === f.uvfin ? (
-                    <div className="absolute right-6 top-12 z-10 w-40 rounded-xl border border-slate-100 bg-white py-1.5 shadow-lg">
-                      <button
-                        type="button"
-                        className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                        onClick={() => setOpenMenuId(null)}
-                      >
-                        View Profile
-                      </button>
-                      <button
-                        type="button"
-                        className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                        onClick={() => setOpenMenuId(null)}
-                      >
-                        Edit Details
-                      </button>
-                      <button
-                        type="button"
-                        className="block w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-red-50"
-                        onClick={() => setOpenMenuId(null)}
-                      >
-                        Deactivate
-                      </button>
-                    </div>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-            {pageRows.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
-                  No faculty match your search.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-
-        <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
-          <p className="text-sm text-slate-500">
-            Showing {pageRows.length} of {filtered.length} records
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 disabled:opacity-40"
-            >
-              <IconChevronLeft />
-            </button>
-            {Array.from({ length: totalPages }).map((_, i) => (
+        <main className="p-4 sm:p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800">Faculty Management</h1>
+              <p className="text-sm text-slate-400">All registered visiting faculty members</p>
+            </div>
+            <div className="flex gap-3">
               <button
-                key={i}
-                type="button"
-                onClick={() => setPage(i + 1)}
-                className={`flex h-8 w-8 items-center justify-center rounded-lg text-sm font-medium ${
-                  page === i + 1 ? "bg-blue-600 text-white" : "border border-slate-200 text-slate-600"
-                }`}
+                onClick={handleExport}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 hover:bg-slate-50"
               >
-                {i + 1}
+                <Download size={16} /> Export
               </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 disabled:opacity-40"
+              <button
+                onClick={() => navigate("/admin/faculty-management/register")}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+              >
+                <Plus size={16} /> Register New
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name or UVFIN..."
+                className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <select
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 bg-white"
             >
-              <IconChevronRight />
+              <option value="">Select Department</option>
+              {departments.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 bg-white"
+            >
+              <option value="">Select Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600">
+              <Filter size={15} /> Filter
             </button>
           </div>
-        </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs font-medium text-slate-400 border-b border-slate-100">
+                    <th className="px-6 py-3">UVFIN</th>
+                    <th className="px-6 py-3">Faculty Name</th>
+                    <th className="px-6 py-3">Qualification</th>
+                    <th className="px-6 py-3">Status</th>
+                    <th className="px-6 py-3">Allocate Subject</th>
+                    <th className="px-6 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading && (
+                    <tr>
+                      <td colSpan={6} className="py-10">
+                        <LoadingSpinner label="Loading faculty..." />
+                      </td>
+                    </tr>
+                  )}
+
+                  {!loading && error && (
+                    <tr>
+                      <td colSpan={6} className="py-10 text-center text-red-500 text-sm">
+                        {error}
+                      </td>
+                    </tr>
+                  )}
+
+                  {!loading && !error && paginated.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-slate-400 text-sm">
+                        No faculty found matching your filters.
+                      </td>
+                    </tr>
+                  )}
+
+                  {!loading &&
+                    !error &&
+                    paginated.map((f) => (
+                      <tr key={f.id || f.user_id} className="border-b border-slate-50 last:border-0">
+                        <td className="px-6 py-4 font-medium text-slate-700">
+                          {f.uvfin || f.uvfinId}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold">
+                              {f.name?.charAt(0) ?? "F"}
+                            </div>
+                            <span className="font-medium text-slate-800">{f.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-slate-600">{f.qualification}</td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                              statusStyles[f.status?.toLowerCase()] || "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            {f.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {f.allocated ? (
+                            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600">
+                              Allocated
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => navigate("/admin/subject-allocation")}
+                              className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-500 hover:bg-red-100"
+                            >
+                              Allocate Subject
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 relative">
+                          <button
+                            onClick={() =>
+                              setOpenMenuId(openMenuId === (f.id || f.user_id) ? null : f.id || f.user_id)
+                            }
+                            className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500"
+                          >
+                            <MoreHorizontal size={16} />
+                          </button>
+                          {openMenuId === (f.id || f.user_id) && (
+                            <div
+                              ref={menuRef}
+                              className="absolute right-6 z-10 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-lg py-1"
+                            >
+                              <button
+                                onClick={() => {
+                                  setViewId(f.id || f.user_id);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                              >
+                                <Eye size={14} /> View Profile
+                              </button>
+                              <button
+                                onClick={() => {
+                                  navigate("/admin/subject-allocation");
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                              >
+                                <BookOpen size={14} /> Allocate Subject
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 text-sm">
+              <span className="text-slate-400">
+                Showing {paginated.length} of {filtered.length} records
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
+                >
+                  ‹
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`h-8 w-8 flex items-center justify-center rounded-lg text-sm font-medium ${
+                      p === page ? "bg-blue-600 text-white" : "border border-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  disabled={page === totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
+
+      {viewId && <FacultyModal userId={viewId} onClose={() => setViewId(null)} />}
     </div>
   );
 }

@@ -1,0 +1,15 @@
+### Mark Attendance
+POST http://localhost:5000/api/attendance
+Content-Type: application/json
+
+{
+    "user_id": "TEMP-123456",
+    "allocation_id": 1,
+    "attendance_date": "2026-07-11",
+    "hours": 2.5,
+    "month": "July",
+    "year": 2026
+}
+
+### Daily Attendance
+GET http://localhost:5000/api/attendance/daily/TEMP-123456

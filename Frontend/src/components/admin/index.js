@@ -1,0 +1,11 @@
+export { default as AdminDashboard } from "./AdminDashboard";
+export { default as FacultyManagement } from "./FacultyManagement";
+export { default as SubjectAllocation } from "./SubjectAllocation";
+export { default as AttendanceRecords } from "./AttendanceRecords";
+export { default as BillGeneration } from "./BillGeneration";
+export { default as Sidebar } from "./Sidebar";
+export { default as Topbar } from "./Topbar";
+export { default as PendingFacultyTable } from "./PendingFacultyTable";
+export { default as DashboardCard } from "./DashboardCard";
+export { default as FacultyModal } from "./FacultyModal";
+export { default as LoadingSpinner } from "./LoadingSpinner";

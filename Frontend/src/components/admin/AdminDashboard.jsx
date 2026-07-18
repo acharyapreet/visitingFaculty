@@ -1,172 +1,150 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { initialPendingFaculty } from "./mockdata";
-import ApproveFacultyModal from "../../components/admin/ApproveFacultyModal";
-import RejectFacultyModal from "../../components/admin/RejectFacultyModal";
-import FacultyInfoModal from "../../components/admin/FacultyInfoModal";
-import StatusBanner from "../../components/admin/StatusBanner";
-import { IconCheck, IconX, IconEye, IconArrowRight } from "../../components/admin/icons";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowRight, Users, Clock } from "lucide-react";
 
-const ADMIN_NAME = "Dr. Pradeep";
-const SESSION_LABEL = "Session 2026-27";
-const OVERVIEW_MONTH = "December 2024";
+// Components
+import Sidebar from "./Sidebar";
+import Topbar from "./Topbar";
+import PendingFacultyTable from "./PendingFacultyTable";
+import DashboardCard from "./DashboardCard";
+import adminApi from "../../api/adminApi";
 
-export default function Dashboard() {
-  const [pending, setPending] = useState(initialPendingFaculty);
-  const [approveTarget, setApproveTarget] = useState(null);
-  const [rejectTarget, setRejectTarget] = useState(null);
-  const [viewTarget, setViewTarget] = useState(null);
-  const [banner, setBanner] = useState(null); // { tone, title, subtitle }
+// Her other pages (imported so we can route to them dynamically)
+import FacultyManagement from "./FacultyManagement";
+import SubjectAllocation from "./SubjectAllocation";
+import AttendanceRecords from "./AttendanceRecords";
+import BillGeneration from "./BillGeneration";
 
-  const removeFromQueue = (facultyId) =>
-    setPending((list) => list.filter((f) => f.id !== facultyId));
+const SESSION = "2026-27";
 
-  const handleApproveSubmit = (faculty, uvfin) => {
-    removeFromQueue(faculty.id);
-    setApproveTarget(null);
-    setViewTarget(null);
-    setBanner({
-      tone: "success",
-      title: `Approved · User ID: ${uvfin}`,
-      subtitle: `Credentials emailed to ${faculty.personal.email}`,
-    });
-  };
+export default function AdminDashboard({ onSignOut }) {
+  // 1. BULLETPROOF ROUTER FOR ADMIN TABS
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('adminActiveTab') || 'dashboard';
+  });
 
-  const handleRejectConfirm = (faculty, remarks) => {
-    removeFromQueue(faculty.id);
-    setRejectTarget(null);
-    setViewTarget(null);
-    setBanner({
-      tone: "error",
-      title: `Rejected: Feedback Sent to ${faculty.personal.fullName.split(" ")[0]} ${faculty.personal.fullName.split(" ").slice(-1)}`,
-      subtitle: `Credentials emailed to ${faculty.personal.email} — Reason: "${remarks}"`,
-    });
+  useEffect(() => {
+    localStorage.setItem('adminActiveTab', activeTab);
+  }, [activeTab]);
+
+  // Dashboard Specific State
+  const [pendingFaculty, setPendingFaculty] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+
+  // Use your global session instead of her hardcoded "adminUser"
+  const admin = JSON.parse(localStorage.getItem("iipsCurrentSession") || "{}") || { name: "Admin" };
+
+  const fetchPending = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await adminApi.getPendingFaculty();
+      setPendingFaculty(Array.isArray(data) ? data : data?.faculty ?? []);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to load pending faculty.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'dashboard') {
+      fetchPending();
+    }
+  }, [fetchPending, activeTab]);
+
+  const filteredFaculty = useMemo(() => {
+    if (!search.trim()) return pendingFaculty;
+    const q = search.toLowerCase();
+    return pendingFaculty.filter(
+      (f) =>
+        f.name?.toLowerCase().includes(q) ||
+        f.uvfin?.toLowerCase().includes(q) ||
+        f.uvfinId?.toLowerCase().includes(q)
+    );
+  }, [pendingFaculty, search]);
+
+  const monthLabel = useMemo(
+    () => new Date().toLocaleString("en-US", { month: "long", year: "numeric" }),
+    []
+  );
+
+  // 2. DYNAMIC CONTENT RENDERER
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'faculty-management': return <FacultyManagement />;
+      case 'subject-allocation': return <SubjectAllocation />;
+      case 'attendance-records': return <AttendanceRecords />;
+      case 'bill-generation': return <BillGeneration />;
+      case 'dashboard':
+      default:
+        return (
+          <main className="p-4 sm:p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 className="text-2xl font-bold text-slate-800">
+                  Welcome {admin.name || "Admin"}
+                </h1>
+                <p className="text-sm text-slate-400">Here's the overview for {monthLabel}</p>
+              </div>
+              <button className="self-start sm:self-auto px-4 py-2 rounded-full border border-slate-200 bg-white text-sm font-medium text-slate-600">
+                Session {SESSION}
+              </button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <DashboardCard
+                icon={Users}
+                label="Pending Registrations"
+                value={pendingFaculty.length}
+                tone="amber"
+              />
+              <DashboardCard icon={Clock} label="Session" value={SESSION} tone="blue" />
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-semibold text-slate-800">
+                    Faculty Remaining for Registration approval
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
+                    {pendingFaculty.length}
+                  </span>
+                </div>
+                {/* CHANGED: Replaced <a> tag with button to prevent page reload */}
+                <button
+                  onClick={() => setActiveTab('faculty-management')}
+                  className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
+                >
+                  View All <ArrowRight size={14} />
+                </button>
+              </div>
+
+              {error && (
+                <p className="text-sm text-red-500 px-6 py-4">{error}</p>
+              )}
+
+              <PendingFacultyTable
+                faculty={filteredFaculty}
+                loading={loading}
+                onChanged={fetchPending}
+              />
+            </div>
+          </main>
+        );
+    }
   };
 
   return (
-    <div>
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Welcome {ADMIN_NAME}</h1>
-          <p className="text-sm text-slate-500">here&apos;s the overview for {OVERVIEW_MONTH}</p>
-        </div>
-        <span className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600">
-          {SESSION_LABEL}
-        </span>
+    <div className="flex min-h-screen bg-slate-50">
+      {/* Pass routing props down to the Sidebar so it can control the navigation */}
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onSignOut={onSignOut} />
+      <div className="flex-1 min-w-0">
+        <Topbar onSearch={setSearch} />
+        {renderContent()}
       </div>
-
-      {banner ? (
-        <div className="mb-6">
-          <StatusBanner {...banner} onDismiss={() => setBanner(null)} />
-        </div>
-      ) : null}
-
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm">
-        <div className="flex items-center justify-between px-6 py-5">
-          <div className="flex items-center gap-3">
-            <h2 className="text-base font-semibold text-slate-900">
-              Faculty Remaining for Registration approval
-            </h2>
-            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-              {pending.length}
-            </span>
-          </div>
-          <Link
-            to="/admin/faculty"
-            className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
-          >
-            View All <IconArrowRight />
-          </Link>
-        </div>
-
-        {pending.length === 0 ? (
-          <div className="border-t border-slate-100 px-6 py-12 text-center text-sm text-slate-400">
-            No pending faculty registrations right now.
-          </div>
-        ) : (
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-t border-slate-100 text-[11px] font-medium tracking-wide text-slate-400">
-                <th className="px-6 py-3 font-medium">FACULTY NAME</th>
-                <th className="px-6 py-3 font-medium">UVFIN</th>
-                <th className="px-6 py-3 font-medium">QUALIFICATION</th>
-                <th className="px-6 py-3 font-medium">ACTION</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pending.map((f) => (
-                <tr key={f.id} className="border-t border-slate-100">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-amber-700">
-                        {f.name.replace(/^(Prof\.|Dr\.)\s*/, "").charAt(0)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">{f.name}</p>
-                        <p className="text-xs text-slate-400">{f.phone}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
-                      {f.uvfin}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-700">{f.qualification}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setApproveTarget(f)}
-                        className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-                      >
-                        <IconCheck /> Approve
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRejectTarget(f)}
-                        className="flex items-center gap-1.5 rounded-lg bg-red-500 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-red-600"
-                      >
-                        <IconX /> Reject
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewTarget(f)}
-                        className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
-                      >
-                        <IconEye /> View
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <ApproveFacultyModal
-        faculty={approveTarget}
-        onCancel={() => setApproveTarget(null)}
-        onSubmit={handleApproveSubmit}
-      />
-      <RejectFacultyModal
-        faculty={rejectTarget}
-        onCancel={() => setRejectTarget(null)}
-        onConfirm={handleRejectConfirm}
-      />
-      <FacultyInfoModal
-        faculty={viewTarget}
-        onClose={() => setViewTarget(null)}
-        onApprove={(f) => {
-          setViewTarget(null);
-          setApproveTarget(f);
-        }}
-        onReject={(f) => {
-          setViewTarget(null);
-          setRejectTarget(f);
-        }}
-      />
     </div>
   );
 }
