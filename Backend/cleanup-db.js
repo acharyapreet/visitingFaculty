@@ -7,17 +7,9 @@ async function cleanupDatabase() {
     await sequelize.authenticate();
     console.log('Database connected');
 
-    // Disable foreign key checks to allow dropping tables smoothly in MySQL
-    await sequelize.query('SET FOREIGN_KEY_CHECKS = 0;');
-    console.log('Foreign key checks disabled');
-
     // Recreate all tables cleanly
     await sequelize.sync({ force: true });
     console.log('Database tables recreated successfully');
-
-    // Enable foreign key checks back
-    await sequelize.query('SET FOREIGN_KEY_CHECKS = 1;');
-    console.log('Foreign key checks enabled');
 
     // Seed super admin
     const superAdminId = parseInt(process.env.SUPER_ADMIN_USER_ID || "1", 10);

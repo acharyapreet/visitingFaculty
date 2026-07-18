@@ -8,10 +8,10 @@ const Attendance = sequelize.define('Attendance', {
         autoIncrement: true
     },
     user_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.INTEGER(30),
         allowNull: false,
         references: { model: 'users', key: 'user_id' }
-    },
+    }, 
     allocation_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
