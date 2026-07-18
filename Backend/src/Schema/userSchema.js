@@ -6,7 +6,7 @@ const User = sequelize.define('User', {
     user_id: {
         type: DataTypes.INTEGER(30),
         primaryKey: true,
-        autoIncrement:true
+        autoIncrement: true
     },
     role: {
         type: DataTypes.ENUM('super_admin', 'admin', 'faculty'),
@@ -60,7 +60,7 @@ const User = sequelize.define('User', {
         allowNull: true,
         unique: true
     },
-    uvfin: {  
+    uvfin: {
         type: DataTypes.STRING(20),
         allowNull: true,
         comment: 'Unified Visiting Faculty ID (manually entered by admin)'
@@ -110,7 +110,7 @@ const User = sequelize.define('User', {
     }
 });
 
-User.prototype.comparePassword = async function(password) {
+User.prototype.comparePassword = async function (password) {
     return await bcrypt.compare(password, this.password_hash);
 };
 

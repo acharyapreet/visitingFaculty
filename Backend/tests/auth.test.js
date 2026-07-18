@@ -48,6 +48,7 @@ jest.mock('../src/service/userService', () => mockUserService);
 
 const mockAdminApprovalService = {
   updateUvfin: jest.fn(),
+  approveFaculty: jest.fn(),
 };
 
 jest.mock('../src/service/adminApprovalService', () => mockAdminApprovalService);
@@ -331,14 +332,14 @@ describe('Auth Routes', () => {
     });
   });
 
-  describe('PUT /api/auth/resetPassword', () => {
+  describe('POST /api/auth/resetPassword', () => {
     it('should reset password successfully', async () => {
       mockUserService.resetUserPassword.mockResolvedValue({
         message: 'Your password has been successfully reset.',
       });
 
       const res = await request(app)
-        .put('/api/auth/resetPassword')
+        .post('/api/auth/resetPassword')
         .send({
           token: 'mocked_reset_token',
           newPassword: 'newpassword123',
@@ -354,7 +355,7 @@ describe('Auth Routes', () => {
 
     it('should return 400 if token or password is missing', async () => {
       const res = await request(app)
-        .put('/api/auth/resetPassword')
+        .post('/api/auth/resetPassword')
         .send({ token: 'mocked_reset_token' }); // missing password
 
       expect(res.statusCode).toBe(400);
@@ -368,7 +369,7 @@ describe('Auth Routes', () => {
       mockUserService.resetUserPassword.mockRejectedValue(new Error('Password reset token is invalid or has expired.'));
 
       const res = await request(app)
-        .put('/api/auth/resetPassword')
+        .post('/api/auth/resetPassword')
         .send({
           token: 'expired_token',
           newPassword: 'newpassword123',
@@ -556,6 +557,91 @@ describe('Auth Routes', () => {
         message: 'uvfin updated successfully',
       });
       expect(mockAdminApprovalService.updateUvfin).toHaveBeenCalledWith('1', 'UF001');
+    });
+  });
+
+  describe('PUT /api/admin/faculty/:user_id/approve', () => {
+    it('should return 401 if not authenticated', async () => {
+      const res = await request(app).put('/api/admin/faculty/1/approve');
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('should return 403 if authenticated but not admin', async () => {
+      const token = jwt.sign({ user_id: 1, role: 'faculty' }, process.env.JWT_SECRET);
+      
+      mockUserModel.findOne.mockResolvedValue({
+        user_id: 1,
+        role: 'faculty',
+        is_approved: true,
+        is_active: true,
+      });
+
+      const res = await request(app)
+        .put('/api/admin/faculty/1/approve')
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('should approve faculty successfully', async () => {
+      const token = jwt.sign({ user_id: 2, role: 'admin' }, process.env.JWT_SECRET);
+      
+      mockAdminApprovalService.approveFaculty.mockResolvedValue({
+        message: 'Faculty approved successfully'
+      });
+
+      mockUserModel.findOne.mockResolvedValue({
+        user_id: 2,
+        role: 'admin',
+        is_approved: true,
+        is_active: true,
+      });
+
+      const res = await request(app)
+        .put('/api/admin/faculty/1/approve')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ status: 'approved' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual({
+        success: true,
+        message: 'Faculty approved successfully',
+      });
+      expect(mockAdminApprovalService.approveFaculty).toHaveBeenCalledWith(
+        expect.objectContaining({ user_id: '1' }),
+        expect.objectContaining({ status: 'approved' }),
+        expect.objectContaining({ user_id: 2, role: 'admin' })
+      );
+    });
+
+    it('should reject faculty successfully', async () => {
+      const token = jwt.sign({ user_id: 2, role: 'admin' }, process.env.JWT_SECRET);
+      
+      mockAdminApprovalService.approveFaculty.mockResolvedValue({
+        message: 'Faculty rejected successfully'
+      });
+
+      mockUserModel.findOne.mockResolvedValue({
+        user_id: 2,
+        role: 'admin',
+        is_approved: true,
+        is_active: true,
+      });
+
+      const res = await request(app)
+        .put('/api/admin/faculty/1/approve')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ status: 'rejected' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual({
+        success: true,
+        message: 'Faculty rejected successfully',
+      });
+      expect(mockAdminApprovalService.approveFaculty).toHaveBeenCalledWith(
+        expect.objectContaining({ user_id: '1' }),
+        expect.objectContaining({ status: 'rejected' }),
+        expect.objectContaining({ user_id: 2, role: 'admin' })
+      );
     });
   });
 });

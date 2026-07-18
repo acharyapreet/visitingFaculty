@@ -8,9 +8,8 @@ const Subject = sequelize.define('Subject', {
         autoIncrement: true
     },
     subject_code: {
-        type: DataTypes.STRING(20),
-        allowNull: false,
-        unique: true
+        type: DataTypes.STRING(50),
+        allowNull: false
     },
     subject_name: {
         type: DataTypes.STRING(255),
