@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Search, Download, FileText } from "lucide-react";
-import Sidebar from "./Sidebar";
-import Topbar from "./Topbar";
 import LoadingSpinner from "./LoadingSpinner";
 import adminApi from "../../api/adminApi";
 
@@ -76,181 +74,174 @@ export default function BillGeneration() {
   useEffect(() => setPage(1), [historySearch]);
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <Sidebar />
-      <div className="flex-1 min-w-0">
-        <Topbar showSearch={false} title="View Bill" breadcrumb={["Admin", "Bill Generation"]} />
+    <main className="p-4 sm:p-6 space-y-6 w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Bill Generation</h1>
+          <p className="text-sm text-slate-400">Official DAVV remuneration bill</p>
+        </div>
+      </div>
 
-        <main className="p-4 sm:p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">Bill Generation</h1>
-              <p className="text-sm text-slate-400">Official DAVV remuneration bill</p>
-            </div>
+      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col md:flex-row gap-3 items-stretch md:items-end">
+        <div className="flex-1">
+          <label className="text-sm font-medium text-slate-700 mb-1 block">Faculty Search</label>
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Name or UVFIN-ID (e.g. UVFIN-2024-001)"
+              className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-700 mb-1 block">Month</label>
+          <select
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white"
+          >
+            {MONTHS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-700 mb-1 block">Session</label>
+          <select
+            value={session}
+            onChange={(e) => setSession(e.target.value)}
+            className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white"
+          >
+            <option value="2024-25">2024-25</option>
+            <option value="2025-26">2025-26</option>
+            <option value="2026-27">2026-27</option>
+          </select>
+        </div>
+        <button
+          onClick={handleGenerate}
+          disabled={generating}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+        >
+          <Search size={16} /> {generating ? "Generating..." : "Search"}
+        </button>
+      </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col md:flex-row gap-3 items-stretch md:items-end">
-            <div className="flex-1">
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Faculty Search</label>
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Name or UVFIN-ID (e.g. UVFIN-2024-001)"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Month</label>
-              <select
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white"
-              >
-                {MONTHS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
+      {error && <p className="text-sm text-red-500">{error}</p>}
+
+      {generating && <LoadingSpinner fullPage label="Generating bill preview..." />}
+
+      {!generating && bill && <BillPreview bill={bill} />}
+
+      {/* Bill history */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <FileText size={18} className="text-blue-600" />
+            <h2 className="font-semibold text-slate-800">Bill History</h2>
+          </div>
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+              placeholder="Search bills..."
+              className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm w-56"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs font-medium text-slate-400 border-b border-slate-100">
+                <th className="px-6 py-3">Bill No.</th>
+                <th className="px-6 py-3">Faculty</th>
+                <th className="px-6 py-3">Month</th>
+                <th className="px-6 py-3">Amount</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {historyLoading && (
+                <tr>
+                  <td colSpan={6} className="py-10">
+                    <LoadingSpinner label="Loading bill history..." />
+                  </td>
+                </tr>
+              )}
+              {!historyLoading && paginated.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400 text-sm">
+                    No bills generated yet.
+                  </td>
+                </tr>
+              )}
+              {!historyLoading &&
+                paginated.map((b, idx) => (
+                  <tr key={b.id || idx} className="border-b border-slate-50 last:border-0">
+                    <td className="px-6 py-4 font-medium text-slate-700">{b.billNo}</td>
+                    <td className="px-6 py-4 text-slate-700">{b.facultyName}</td>
+                    <td className="px-6 py-4 text-slate-500">{b.month}</td>
+                    <td className="px-6 py-4 font-semibold text-blue-600">₹{b.amount}</td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                          statusStyles[b.status?.toLowerCase()] || "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {b.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button className="flex items-center gap-1 text-blue-600 text-xs font-medium hover:underline">
+                        <Download size={13} /> PDF
+                      </button>
+                    </td>
+                  </tr>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Session</label>
-              <select
-                value={session}
-                onChange={(e) => setSession(e.target.value)}
-                className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white"
-              >
-                <option value="2024-25">2024-25</option>
-                <option value="2025-26">2025-26</option>
-                <option value="2026-27">2026-27</option>
-              </select>
-            </div>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 text-sm">
+          <span className="text-slate-400">
+            Showing {paginated.length} of {filteredHistory.length} bills
+          </span>
+          <div className="flex items-center gap-1">
             <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
             >
-              <Search size={16} /> {generating ? "Generating..." : "Search"}
+              ‹
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className={`h-8 w-8 flex items-center justify-center rounded-lg text-sm font-medium ${
+                  p === page ? "bg-blue-600 text-white" : "border border-slate-200 text-slate-600"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
+            >
+              ›
             </button>
           </div>
-
-          {error && <p className="text-sm text-red-500">{error}</p>}
-
-          {generating && <LoadingSpinner fullPage label="Generating bill preview..." />}
-
-          {!generating && bill && <BillPreview bill={bill} />}
-
-          {/* Bill history */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <FileText size={18} className="text-blue-600" />
-                <h2 className="font-semibold text-slate-800">Bill History</h2>
-              </div>
-              <div className="relative">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
-                  placeholder="Search bills..."
-                  className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm w-56"
-                />
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs font-medium text-slate-400 border-b border-slate-100">
-                    <th className="px-6 py-3">Bill No.</th>
-                    <th className="px-6 py-3">Faculty</th>
-                    <th className="px-6 py-3">Month</th>
-                    <th className="px-6 py-3">Amount</th>
-                    <th className="px-6 py-3">Status</th>
-                    <th className="px-6 py-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {historyLoading && (
-                    <tr>
-                      <td colSpan={6} className="py-10">
-                        <LoadingSpinner label="Loading bill history..." />
-                      </td>
-                    </tr>
-                  )}
-                  {!historyLoading && paginated.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-400 text-sm">
-                        No bills generated yet.
-                      </td>
-                    </tr>
-                  )}
-                  {!historyLoading &&
-                    paginated.map((b, idx) => (
-                      <tr key={b.id || idx} className="border-b border-slate-50 last:border-0">
-                        <td className="px-6 py-4 font-medium text-slate-700">{b.billNo}</td>
-                        <td className="px-6 py-4 text-slate-700">{b.facultyName}</td>
-                        <td className="px-6 py-4 text-slate-500">{b.month}</td>
-                        <td className="px-6 py-4 font-semibold text-blue-600">₹{b.amount}</td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                              statusStyles[b.status?.toLowerCase()] || "bg-slate-100 text-slate-500"
-                            }`}
-                          >
-                            {b.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <button className="flex items-center gap-1 text-blue-600 text-xs font-medium hover:underline">
-                            <Download size={13} /> PDF
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 text-sm">
-              <span className="text-slate-400">
-                Showing {paginated.length} of {filteredHistory.length} bills
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  disabled={page === 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
-                >
-                  ‹
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`h-8 w-8 flex items-center justify-center rounded-lg text-sm font-medium ${
-                      p === page ? "bg-blue-600 text-white" : "border border-slate-200 text-slate-600"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-                <button
-                  disabled={page === totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
-                >
-                  ›
-                </button>
-              </div>
-            </div>
-          </div>
-        </main>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }
 
