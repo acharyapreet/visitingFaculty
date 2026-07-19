@@ -45,15 +45,15 @@ function parseCSV(text) {
 
 // Map known course metadata (total semesters & sections)
 const defaultCourseMeta = {
-    'C1': { name: 'MCA', semCount: 10, sections: ['A', 'B'] },
-    'C2': { name: 'Mtech(it)', semCount: 10, sections: ['A', 'B'] },
-    'C3': { name: 'Mtech(cs)', semCount: 10, sections: [] },
-    'C4': { name: 'MBA(ms)', semCount: 10, sections: ['A', 'B'] },
-    'C5': { name: 'MBA(ms)', semCount: 4, sections: ['A', 'B', 'C'] },
-    'C6': { name: 'Mtech(apr)', semCount: 4, sections: [] },
-    'C7': { name: 'Mtech(eship)', semCount: 4, sections: [] },
-    'C8': { name: 'bcom(honurs)', semCount: 8, sections: [] },
-    'C9': { name: 'MBA(tm)', semCount: 10, sections: [] }
+    'C1': { name: 'MCA', semCount: 10, sections: ['A', 'B'], program_incharge: 'Dr. Shaligram Prajapati' },
+    'C2': { name: 'Mtech(it)', semCount: 10, sections: ['A', 'B'], program_incharge: 'Dr. Kirti Mathur' },
+    'C3': { name: 'Mtech(cs)', semCount: 10, sections: [], program_incharge: 'Dr. Yasmin Shaikh' },
+    'C4': { name: 'MBA(ms)', semCount: 10, sections: ['A', 'B'], program_incharge: 'Dr. Manmindar Singh' },
+    'C5': { name: 'MBA(ms)', semCount: 4, sections: ['A', 'B', 'C'], program_incharge: 'Dr. Kapil Jain' },
+    'C6': { name: 'MBA(apr)', semCount: 4, sections: [], program_incharge: 'Dr. Anshu Bhati' },
+    'C7': { name: 'MBA(eship)', semCount: 4, sections: [], program_incharge: 'Dr. Nirmala Sawan' },
+    'C8': { name: 'Bcom(hons)', semCount: 8, sections: [], program_incharge: 'Dr. Sujata Parwani' },
+    'C9': { name: 'MBA(tm)', semCount: 10, sections: [], program_incharge: 'Dr. Shilpa Bagdare' }
 };
 
 /**
@@ -61,6 +61,58 @@ const defaultCourseMeta = {
  * @param {Object} options - { csvText, filePath }
  */
 async function importSubjectsFromCSV(options = {}) {
+    // 0. Always sync default courses and program incharges
+    for (const [code, meta] of Object.entries(defaultCourseMeta)) {
+        let [course, created] = await Course.findOrCreate({
+            where: { course_code: code },
+            defaults: {
+                course_code: code,
+                course_name: meta.name,
+                program_incharge: meta.program_incharge || null,
+                total_semesters: meta.semCount,
+                is_active: true
+            }
+        });
+
+        const updates = {};
+        if (meta.program_incharge && course.program_incharge !== meta.program_incharge) {
+            updates.program_incharge = meta.program_incharge;
+        }
+        if (meta.name && course.course_name !== meta.name) {
+            updates.course_name = meta.name;
+        }
+        if (meta.semCount && course.total_semesters !== meta.semCount) {
+            updates.total_semesters = meta.semCount;
+        }
+        if (Object.keys(updates).length > 0) {
+            await course.update(updates);
+        }
+
+        for (let s = 1; s <= meta.semCount; s++) {
+            await Semester.findOrCreate({
+                where: { course_id: course.course_id, semester_number: s },
+                defaults: {
+                    course_id: course.course_id,
+                    semester_number: s,
+                    is_active: true
+                }
+            });
+        }
+
+        if (meta.sections && meta.sections.length > 0) {
+            for (const secName of meta.sections) {
+                await Section.findOrCreate({
+                    where: { course_id: course.course_id, section_name: secName },
+                    defaults: {
+                        course_id: course.course_id,
+                        section_name: secName,
+                        is_active: true
+                    }
+                });
+            }
+        }
+    }
+
     let rawCSVText = '';
 
     if (options.csvText) {
@@ -88,8 +140,8 @@ async function importSubjectsFromCSV(options = {}) {
         }
 
         if (!rawCSVText) {
-            console.log("No CSV content or default CSV file found. Skipping CSV auto-import.");
-            return { success: false, message: "No CSV file provided or found." };
+            console.log("Default courses seeded. No CSV content or default CSV file found for subjects import.");
+            return { success: true, message: "Default courses initialized. No CSV file provided or found." };
         }
     }
 
@@ -128,6 +180,7 @@ async function importSubjectsFromCSV(options = {}) {
             defaults: {
                 course_code: cleanCourseCode,
                 course_name: meta.name,
+                program_incharge: meta.program_incharge || null,
                 total_semesters: meta.semCount,
                 is_active: true
             }
