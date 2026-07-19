@@ -20,15 +20,6 @@ async function approveFaculty(params, Details, currentUser) {
         }
 
         if (status === 'approved') {
-
-            // Check if UVFIN already exists
-            const existingUVFIN = await User.findOne({
-                where: { uvfin }
-            });
-
-            if (existingUVFIN) {
-                throw new Error('UVFIN already exists. Please use a unique UVFIN');
-            }
             await User.update(
                 { is_approved: true, uvfin: uvfin },
                 { where: { user_id } }
@@ -197,24 +188,24 @@ async function getFacultyById(user_id) {
     }
 }
 async function updateUvfin(user_id, uvfinId) {
-    try{
+    try {
         const user = await User.findByPk(user_id);
-        if(!user|| user.role != 'faculty'){
+        if (!user || user.role != 'faculty') {
             throw new Error('faculty not found');
         }
         const approved = await AdminApproval.findOne({ where: { user_id, status: 'approved' } });
-        if(!approved){
+        if (!approved) {
             throw new Error('faculty not approved');
         }
-        const existingUvfin = await User.findOne({where: {uvfin: uvfinId}});
-        if(existingUvfin){
+        const existingUvfin = await User.findOne({ where: { uvfin: uvfinId } });
+        if (existingUvfin) {
             throw new Error('UVFIN already exists. Please use a unique UVFIN');
         }
         await User.update({
             uvfin: uvfinId
-        }, {where: {user_id}})
-        return {message: "uvfin updated successfully"};
-    }catch(error){
+        }, { where: { user_id } })
+        return { message: "uvfin updated successfully" };
+    } catch (error) {
         console.error('Update UVFIN Error:', error);
         throw new Error('Failed to update UVFIN');
     }

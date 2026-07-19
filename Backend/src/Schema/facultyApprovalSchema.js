@@ -27,7 +27,8 @@ const FacultyApproval = sequelize.define('FacultyApproval',{
     },
     uvfin: {
         type: DataTypes.STRING(20),
-        allowNull: true
+        allowNull: true,
+        defaultValue: null
     },
     rejection_reason: {
         type: DataTypes.TEXT,
