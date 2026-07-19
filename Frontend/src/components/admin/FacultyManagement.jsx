@@ -14,7 +14,6 @@ const statusStyles = {
   pending: "bg-amber-50 text-amber-600",
 };
 
-// 1. Add setActiveTab as a prop here
 export default function FacultyManagement({ setActiveTab }) {
   const [faculty, setFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,8 +33,11 @@ export default function FacultyManagement({ setActiveTab }) {
       setLoading(true);
       setError("");
       try {
-        const data = await adminApi.getAllFaculty();
-        setFaculty(Array.isArray(data) ? data : data?.faculty ?? []);
+        const response = await adminApi.getAllFaculty();
+        // The API returns { success: true, count: X, data: [...] }
+        // Depending on axios config, response might be the data directly, or nested in response.data
+        const facultyList = response?.data?.data || response?.data || response || [];
+        setFaculty(Array.isArray(facultyList) ? facultyList : []);
       } catch (err) {
         setError(err?.response?.data?.message || "Failed to load faculty list.");
       } finally {
@@ -61,13 +63,19 @@ export default function FacultyManagement({ setActiveTab }) {
   const filtered = useMemo(() => {
     return faculty.filter((f) => {
       const q = search.trim().toLowerCase();
+      // UPDATED: Mapped to full_name and nested uvfin
       const matchesSearch =
         !q ||
-        f.name?.toLowerCase().includes(q) ||
-        f.uvfin?.toLowerCase().includes(q) ||
-        f.uvfinId?.toLowerCase().includes(q);
+        f.full_name?.toLowerCase().includes(q) ||
+        f.FacultyApproval?.uvfin?.toLowerCase().includes(q) ||
+        f.user_id?.toLowerCase().includes(q);
+        
       const matchesDept = !department || f.department === department;
-      const matchesStatus = !status || f.status?.toLowerCase() === status.toLowerCase();
+      
+      // UPDATED: Mapped to FacultyApproval.status
+      const currentStatus = f.FacultyApproval?.status || (f.is_active ? 'active' : 'pending');
+      const matchesStatus = !status || currentStatus.toLowerCase() === status.toLowerCase();
+      
       return matchesSearch && matchesDept && matchesStatus;
     });
   }, [faculty, search, department, status]);
@@ -79,7 +87,13 @@ export default function FacultyManagement({ setActiveTab }) {
 
   const handleExport = () => {
     const headers = ["UVFIN", "Name", "Qualification", "Status", "Department"];
-    const rows = filtered.map((f) => [f.uvfin || f.uvfinId, f.name, f.qualification, f.status, f.department]);
+    const rows = filtered.map((f) => [
+      f.FacultyApproval?.uvfin || "N/A", // Mapped from backend structure
+      f.full_name,                       // Mapped from backend structure
+      f.qualification || "N/A",
+      f.FacultyApproval?.status || "Pending",
+      f.department || "N/A"
+    ]);
     const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -105,7 +119,6 @@ export default function FacultyManagement({ setActiveTab }) {
             <Download size={16} /> Export
           </button>
           <button
-            // 2. Changed from navigate() to setActiveTab()
             onClick={() => setActiveTab("register-faculty")}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
           >
@@ -142,6 +155,9 @@ export default function FacultyManagement({ setActiveTab }) {
           className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 bg-white"
         >
           <option value="">Select Status</option>
+          <option value="approved">Approved</option>
+          <option value="pending">Pending</option>
+          <option value="rejected">Rejected</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
@@ -191,26 +207,30 @@ export default function FacultyManagement({ setActiveTab }) {
               {!loading &&
                 !error &&
                 paginated.map((f) => (
-                  <tr key={f.id || f.user_id} className="border-b border-slate-50 last:border-0">
+                  <tr key={f.user_id} className="border-b border-slate-50 last:border-0">
                     <td className="px-6 py-4 font-medium text-slate-700">
-                      {f.uvfin || f.uvfinId}
+                      {f.FacultyApproval?.uvfin ? (
+                        f.FacultyApproval.uvfin
+                      ) : (
+                        <span className="text-slate-400 font-normal italic">Pending</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold">
-                          {f.name?.charAt(0) ?? "F"}
+                        <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold uppercase">
+                          {f.full_name?.charAt(0) ?? "F"}
                         </div>
-                        <span className="font-medium text-slate-800">{f.name}</span>
+                        <span className="font-medium text-slate-800">{f.full_name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-600">{f.qualification}</td>
+                    <td className="px-6 py-4 text-slate-600">{f.qualification || "N/A"}</td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                          statusStyles[f.status?.toLowerCase()] || "bg-slate-100 text-slate-500"
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${
+                          statusStyles[f.FacultyApproval?.status?.toLowerCase()] || statusStyles.pending
                         }`}
                       >
-                        {f.status}
+                        {f.FacultyApproval?.status || "Pending"}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -220,9 +240,8 @@ export default function FacultyManagement({ setActiveTab }) {
                         </span>
                       ) : (
                         <button
-                          // 3. Changed from navigate() to setActiveTab()
                           onClick={() => setActiveTab("subject-allocation")}
-                          className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-500 hover:bg-red-100"
+                          className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
                         >
                           Allocate Subject
                         </button>
@@ -231,33 +250,32 @@ export default function FacultyManagement({ setActiveTab }) {
                     <td className="px-6 py-4 relative">
                       <button
                         onClick={() =>
-                          setOpenMenuId(openMenuId === (f.id || f.user_id) ? null : f.id || f.user_id)
+                          setOpenMenuId(openMenuId === f.user_id ? null : f.user_id)
                         }
-                        className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500"
+                        className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-colors"
                       >
                         <MoreHorizontal size={16} />
                       </button>
-                      {openMenuId === (f.id || f.user_id) && (
+                      {openMenuId === f.user_id && (
                         <div
                           ref={menuRef}
                           className="absolute right-6 z-10 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-lg py-1"
                         >
                           <button
                             onClick={() => {
-                              setViewId(f.id || f.user_id);
+                              setViewId(f.user_id);
                               setOpenMenuId(null);
                             }}
-                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
                           >
                             <Eye size={14} /> View Profile
                           </button>
                           <button
                             onClick={() => {
-                              // 4. Changed from navigate() to setActiveTab()
                               setActiveTab("subject-allocation");
                               setOpenMenuId(null);
                             }}
-                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
                           >
                             <BookOpen size={14} /> Allocate Subject
                           </button>
@@ -278,7 +296,7 @@ export default function FacultyManagement({ setActiveTab }) {
             <button
               disabled={page === 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
+              className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition-colors"
             >
               ‹
             </button>
@@ -286,8 +304,8 @@ export default function FacultyManagement({ setActiveTab }) {
               <button
                 key={p}
                 onClick={() => setPage(p)}
-                className={`h-8 w-8 flex items-center justify-center rounded-lg text-sm font-medium ${
-                  p === page ? "bg-blue-600 text-white" : "border border-slate-200 text-slate-600"
+                className={`h-8 w-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                  p === page ? "bg-blue-600 text-white" : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 {p}
@@ -296,7 +314,7 @@ export default function FacultyManagement({ setActiveTab }) {
             <button
               disabled={page === totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40"
+              className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition-colors"
             >
               ›
             </button>

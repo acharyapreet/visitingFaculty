@@ -5,24 +5,19 @@ import {
   BookOpen,
   ClipboardCheck,
   FileText,
-  BarChart2,
-  Settings,
   LogOut,
   GraduationCap,
 } from "lucide-react";
 
-// Changed 'to' paths to 'id' strings that match the switch cases in AdminDashboard.jsx
+// Removed 'Reports' and 'Settings' from the navigation
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
   { id: "faculty-management", label: "Faculty Management", icon: Users },
   { id: "subject-allocation", label: "Subject Allocation", icon: BookOpen },
   { id: "attendance-records", label: "Attendance Records", icon: ClipboardCheck },
   { id: "bill-generation", label: "Bill Generation", icon: FileText },
-  { id: "reports", label: "Reports", icon: BarChart2 },
-  { id: "settings", label: "Settings", icon: Settings },
 ];
 
-// Added our custom router props
 export default function Sidebar({ activeTab, setActiveTab, onSignOut }) {
   
   // Read from your unified session state instead of the old "adminUser" key
@@ -31,6 +26,8 @@ export default function Sidebar({ activeTab, setActiveTab, onSignOut }) {
     role: "Administrator",
     avatar: null,
   };
+
+// ... (keep the rest of your component exactly the same)
 
   return (
     <aside className="hidden md:flex md:flex-col w-64 shrink-0 h-screen sticky top-0 bg-white border-r border-slate-200">
