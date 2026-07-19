@@ -9,7 +9,6 @@ authRouter.post('/login', loginUser);
 authRouter.post('/logout', authMiddleware(), logoutUser);
 authRouter.post('/forgotPassword/', forgotPasswordController);
 authRouter.post('/resetPassword', resetPasswordController);
-authRouter.put('/resetPassword', resetPasswordController);
 authRouter.put('/changePassword', authMiddleware(),changePasswordController);
 authRouter.put('/update/:user_id', authMiddleware(),updateProfileController);
 module.exports = authRouter;

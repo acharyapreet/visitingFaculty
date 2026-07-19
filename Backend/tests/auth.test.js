@@ -417,7 +417,7 @@ describe('Auth Routes', () => {
         success: true,
         message: 'Password changed successfully.',
       });
-      expect(mockUserService.changePassword).toHaveBeenCalledWith(undefined, undefined, 'newpassword123');
+      expect(mockUserService.changePassword).toHaveBeenCalledWith(1, 'oldpassword123', 'newpassword123');
     });
 
     it('should return 400 if currentPassword or newPassword is missing', async () => {
@@ -505,6 +505,7 @@ describe('Auth Routes', () => {
       expect(res.body).toEqual({
         success: true,
         message: 'Profile updated successfully',
+        data: { message: 'Profile updated successfully' },
       });
       expect(mockUserService.updateProfile).toHaveBeenCalledWith('1', { full_name: 'Updated Name' });
     });

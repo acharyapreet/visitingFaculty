@@ -136,8 +136,10 @@ async function resetPasswordController(req, res) {
 
 async function changePasswordController(req, res) {
     try {
-        const { user_id, oldPassword, newPassword } = req.body;
-        const result = await changePassword(user_id, oldPassword, newPassword);
+        const { user_id, oldPassword, currentPassword, newPassword } = req.body;
+        const targetUserId = user_id || req.user_id;
+        const oldPwd = oldPassword || currentPassword;
+        const result = await changePassword(targetUserId, oldPwd, newPassword);
         return res.status(200).json({
             success: true,
             message: result.message
@@ -156,13 +158,14 @@ async function updateProfileController(req, res) {
         const result = await updateProfile(req.params.user_id, req.body);
         return res.status(200).json({
             success: true,
-            message: result.message
+            message: 'Profile updated successfully',
+            data: result
         });
     } catch (error) {
-        console.error('Change Password Controller Error:', error);
+        console.error('Update Profile Controller Error:', error);
         return res.status(error.statusCode || 500).json({
             success: false,
-            message: error.message || 'Failed to change password.'
+            message: error.message || 'Failed to update profile.'
         });
     }
 }

@@ -95,7 +95,7 @@ describe('Bill Routes Integration Tests', () => {
 
             expect(res.status).toBe(200);
             expect(res.body.success).toBe(true);
-            expect(res.body.date).toEqual(mockBill);
+            expect(res.body.data).toEqual(mockBill);
             expect(billService.getBillDetails).toHaveBeenCalledWith('1');
         });
 

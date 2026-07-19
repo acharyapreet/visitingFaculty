@@ -63,6 +63,13 @@ async function registerAdmin(adminData) {
 async function login(Details) {
     try {
         const { email, password } = Details || {};
+
+        if (!email || !password) {
+            const error = new Error('Email and password are required');
+            error.statusCode = 400;
+            throw error;
+        }
+
         const user = await User.findOne({
             where: { email }
         });
@@ -128,8 +135,19 @@ async function generatePasswordResetToken(email) {
         //secure random token generation
         const resetToken = crypto.randomBytes(20).toString('hex');
 
-        // PASSWORD_RESET_EXPIRE should be in milliseconds or parsed appropriately. Let's make it 1 hour default if not parsed.
-        const resetDuration = parseInt(process.env.PASSWORD_RESET_EXPIRE) || 3600000;
+        let resetDuration = 3600000;
+        const expireEnv = process.env.PASSWORD_RESET_EXPIRE;
+        if (expireEnv) {
+            if (typeof expireEnv === 'string' && expireEnv.endsWith('h')) {
+                resetDuration = parseInt(expireEnv) * 3600 * 1000;
+            } else if (typeof expireEnv === 'string' && expireEnv.endsWith('m')) {
+                resetDuration = parseInt(expireEnv) * 60 * 1000;
+            } else if (typeof expireEnv === 'string' && expireEnv.endsWith('s')) {
+                resetDuration = parseInt(expireEnv) * 1000;
+            } else {
+                resetDuration = parseInt(expireEnv) || 3600000;
+            }
+        }
         const resetExpire = new Date(Date.now() + resetDuration);
 
         await user.update({
@@ -204,11 +222,9 @@ async function changePassword(user_id, oldPassword, newPassword) {
         if(!isMatch){
             throw new Error('password does not match');
         }
-        await User.update({
+        await user.update({
             password_hash: newPassword
-        },{
-            where: {user_id}
-        })
+        });
         return { message: 'password changed successfully' };
     } catch (error) {
         console.log('error in changePassword in userService', error);
