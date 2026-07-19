@@ -91,7 +91,7 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
     setSubmitError('');
   };
 
-  const handleSubmit = async (event) => {
+const handleSubmit = async (event) => {
     event.preventDefault();
 
     const validationMessage = validateStepTwo();
@@ -109,7 +109,8 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
       email: formData.email.trim(),
       address: formData.address.trim(),
       qualification: formData.qualification.trim(),
-      aadhaar_no: formData.aadhaar_no.trim(),
+      // [Aadhaar Redacted] - Value included in payload for submission only
+      aadhaar_no: formData.aadhaar_no.trim(), 
       pan_card_no: formData.pan_card_no.trim().toUpperCase(),
       bank_name: formData.bank_name.trim(),
       account_no: formData.account_no.trim(),
@@ -139,11 +140,22 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
 
       setStep(3);
     } catch (error) {
-      setSubmitError(
-        error.response?.data?.message || 
-        error.message || 
-        'Unable to complete faculty registration.'
-      );
+      const errorMessage = error.response?.data?.message || error.message || '';
+      
+      // Specifically handle SQL duplicate entry errors
+      if (errorMessage.includes('ER_DUP_ENTRY')) {
+        if (errorMessage.includes('pan_card_no')) {
+          setSubmitError('This PAN Card is already registered. Please check your details.');
+        } else if (errorMessage.includes('email')) {
+          setSubmitError('This email address is already registered in our system.');
+        } else if (errorMessage.includes('aadhaar_no')) {
+          setSubmitError('This identification number is already registered.');
+        } else {
+          setSubmitError('This information is already registered. Please sign in.');
+        }
+      } else {
+        setSubmitError(errorMessage || 'Unable to complete faculty registration.');
+      }
     } finally {
       setIsSubmitting(false);
     }
