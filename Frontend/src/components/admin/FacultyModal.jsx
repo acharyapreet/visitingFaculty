@@ -54,18 +54,14 @@ const handleApproveSubmit = async () => {
     setActionLoading(true);
     try {
       // FIX: Changed faculty.email back to userId for the API call
-      await adminApi.approveFaculty(userId, uvfin);
-      
-      // SEND DATA TO DASHBOARD BANNER
-      if (onActionSuccess) {
-        onActionSuccess({
-          type: 'approve',
-          name: displayName,
-          // Keep faculty.email here so the banner still displays it correctly!
-          email: faculty?.email || "Unknown Email", 
-          uvfin: uvfin || 'Pending'
-        });
-      } 
+      await adminApi.approveFaculty(faculty.id || faculty.user_id, uvfin);
+      // Pass the data back to the parent!
+    onActionSuccess({
+      action: 'approved',
+      facultyName: faculty.name || faculty.full_name,
+      email: faculty.email,
+      uvfin: uvfin 
+    });
       onClose();
     } catch (err) {
       alert("Approval failed: " + (err.response?.data?.message || err.message || "Unknown Error"));
@@ -79,17 +75,15 @@ const handleApproveSubmit = async () => {
     
     setActionLoading(true);
     try {
-      // FIX: Changed faculty.email back to userId for the API call
-      await adminApi.rejectFaculty(userId, rejectReason);
+      // FIX: Changed 'remarks' to 'rejectReason' to match your state variable
+      await adminApi.rejectFaculty(faculty.id || faculty.user_id, rejectReason);
       
-      // SEND DATA TO DASHBOARD BANNER
-      if (onActionSuccess) {
-        onActionSuccess({
-          type: 'reject',
-          name: displayName,
-          email: faculty?.email || "Unknown Email"
-        });
-      }
+      // Pass the data back to the parent!
+      onActionSuccess({
+        action: 'rejected',
+        facultyName: faculty.name || faculty.full_name,
+        email: faculty.email
+      });
       onClose();
     } catch (err) {
       alert("Rejection failed: " + (err.response?.data?.message || err.message || "Unknown Error"));

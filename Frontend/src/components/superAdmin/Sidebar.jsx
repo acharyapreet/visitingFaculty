@@ -1,14 +1,57 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { ShieldCheck, ClipboardList, Users, Settings, LogOut } from "lucide-react";
+import axios from "axios";
 
 export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 3 }) {
   
-  // Moved inside the component so it can use the dynamic pendingCount prop
   const navItems = [
     { key: "pending", label: "Pending Approvals", icon: ClipboardList, badge: pendingCount },
     { key: "admins", label: "All Admins", icon: Users },
     { key: "settings", label: "Settings", icon: Settings }, 
   ];
+
+  // --- DYNAMIC NAME FETCHING ---
+  const [adminName, setAdminName] = useState("Super Admin");
+
+  useEffect(() => {
+    // Read the session when the sidebar loads
+    const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+    if (session.name) {
+      setAdminName(session.name);
+    }
+    
+    // Optional: Add a listener so it updates instantly without refreshing the page
+    // Note: This requires your Settings.jsx to dispatch a 'storage' event or custom event when saving.
+    const handleStorageChange = () => {
+      const updatedSession = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+      if (updatedSession.name) {
+        setAdminName(updatedSession.name);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+
+  // --- LOGOUT INTEGRATION ---
+  const handleLogout = async () => {
+    try {
+      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+      if (session.token) {
+        // Hit the backend route to invalidate the session token
+        await axios.post(
+          "http://localhost:5000/api/auth/logout",
+          {}, // empty body
+          { headers: { Authorization: `Bearer ${session.token}` } }
+        );
+      }
+    } catch (err) {
+      console.error("Backend logout failed, proceeding with local sign out", err);
+    } finally {
+      // Execute the frontend local cleanup & redirect regardless of backend response
+      if (onSignOut) onSignOut();
+    }
+  };
 
   return (
     <aside className="w-full md:w-[280px] shrink-0 bg-white border-r border-gray-200 flex flex-col justify-between min-h-screen">
@@ -81,17 +124,19 @@ export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 
             <ShieldCheck className="w-5 h-5 text-purple-600" />
           </div>
           <div>
+            {/* UPDATED: Dynamically rendering the name here */}
             <div className="text-gray-900 font-semibold text-sm leading-tight">
-              Super Admin
+              {adminName}
             </div>
             <div className="text-gray-400 text-xs leading-tight">
               System Administrator
             </div>
           </div>
         </div>
+        
         <button 
-          onClick={onSignOut} 
-          className="flex items-center gap-2 px-2 text-red-500 font-semibold text-sm hover:text-red-600"
+          onClick={handleLogout} 
+          className="flex items-center gap-2 px-2 text-red-500 font-semibold text-sm hover:text-red-600 w-full"
         >
           <LogOut className="w-4 h-4" />
           Sign Out

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Topbar from "./Topbar";
-import { Download, Printer } from "lucide-react";
+import { Download, Printer, ClipboardList } from "lucide-react"; // Added ClipboardList for the empty state
 import axios from "axios";
 
 const tabs = ["General", "Security", "Audit Log"];
@@ -16,13 +16,10 @@ const systemInfo = [
 export default function Settings() {
   // --- BULLETPROOF TAB MEMORY ---
   const [activeTab, setActiveTab] = useState(() => {
-    // Check if a tab was saved in the browser from a previous click
     const savedSettingsTab = localStorage.getItem("iipsSettingsTab");
-    // If it exists, use it. Otherwise, default to "General"
     return savedSettingsTab || "General";
   });
 
-  // Save the tab to the browser every time the user clicks a new one
   useEffect(() => {
     localStorage.setItem("iipsSettingsTab", activeTab);
   }, [activeTab]);
@@ -36,27 +33,104 @@ export default function Settings() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
+  const [passwords, setPasswords] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  
   // --- General Tab States ---
   const [profileData, setProfileData] = useState({
-    full_name: "Super Admin", 
-    email: "superadmin@davv.ac.in",
-    phone_number: "+91 73123 00000"
+    full_name: "", 
+    email: "",
+    phone_number: ""
   });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
-  // --- Profile Update Handler ---
+  // Pre-fill profile data from current session on load
+  useEffect(() => {
+    const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+    if (session) {
+      setProfileData({
+        full_name: session.name || session.full_name || "Super Admin",
+        email: session.email || "superadmin@davv.ac.in",
+        phone_number: session.phone_number || "+91 73123 00000"
+      });
+    }
+  }, []);
+
+// --- 1. PROFILE UPDATE HANDLER ---
   const handleProfileUpdate = async () => {
     setIsUpdatingProfile(true);
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
       
-      console.log("Payload sent to backend:", profileData);
-      alert("Profile updated successfully! (Note: Connect API to persist changes)");
+      // FIX: Added session.userId to catch the camelCase key
+      const currentUserId = session.userId || session.user_id || session.id; 
+      
+      if (!session.token || !currentUserId) {
+         throw new Error("No active session found. Please log in again.");
+      }
+
+      const response = await axios.put(
+        `http://localhost:5000/api/auth/update/${currentUserId}`,
+        profileData,
+        { headers: { Authorization: `Bearer ${session.token}` } }
+      );
+
+      if (response.data.success) {
+        alert("Profile updated successfully!");
+        session.name = profileData.full_name;
+        localStorage.setItem('iipsCurrentSession', JSON.stringify(session));
+      }
     } catch (err) {
       console.error("Error updating profile:", err);
-      alert("Failed to update profile.");
+      alert(err.response?.data?.message || err.message || "Failed to update profile.");
     } finally {
       setIsUpdatingProfile(false);
+    }
+  };
+
+// --- 2. CHANGE PASSWORD HANDLER ---
+  const handleChangePassword = async () => {
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      return alert("New passwords do not match!");
+    }
+    if (passwords.newPassword.length < 8) {
+      return alert("New password must be at least 8 characters.");
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+      
+      // FIX: Added session.userId to catch the camelCase key
+      const currentUserId = session.userId || session.user_id || session.id;
+
+      if (!session.token || !currentUserId) {
+        throw new Error("No active session found. Please log in again.");
+      }
+
+      const response = await axios.put(
+        `http://localhost:5000/api/auth/changePassword`,
+        {
+          user_id: currentUserId, // Backend still expects the snake_case 'user_id' in the body!
+          oldPassword: passwords.currentPassword,
+          newPassword: passwords.newPassword
+        },
+        { headers: { Authorization: `Bearer ${session.token}` } }
+      );
+
+      if (response.data.success) {
+        alert("Password changed successfully!");
+        setPasswords({ currentPassword: "", newPassword: "", confirmPassword: "" }); 
+      }
+    } catch (err) {
+      console.error("Error changing password:", err);
+      alert(err.response?.data?.message || err.message || "Failed to change password.");
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
@@ -64,6 +138,8 @@ export default function Settings() {
   const fetchAuditLogs = async () => {
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+      if (!session.token) return;
+
       const response = await axios.get("http://localhost:5000/api/super_admin/allAdmin", {
         headers: { 'Authorization': `Bearer ${session.token}` }
       });
@@ -200,17 +276,7 @@ export default function Settings() {
                   disabled={isUpdatingProfile}
                   className="bg-[#004DD2] hover:bg-[#003bb3] text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-md mt-2 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {isUpdatingProfile ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Updating...
-                    </>
-                  ) : (
-                    "Update Profile"
-                  )}
+                  {isUpdatingProfile ? "Updating..." : "Update Profile"}
                 </button>
               </div>
             </div>
@@ -231,17 +297,17 @@ export default function Settings() {
 
         {activeTab === "Security" && (
           <div className="flex flex-col lg:flex-row gap-6">
-            {/* Left Card: Change Password */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex-1 max-w-2xl">
               <h3 className="font-bold text-gray-900 mb-6">Change Password</h3>
               <div className="space-y-5">
                 
-                {/* Current Password */}
                 <div>
                   <label className="text-sm font-semibold text-gray-700 mb-2 block">Current Password</label>
                   <div className="relative">
                     <input 
                       type={showCurrentPassword ? "text" : "password"} 
+                      value={passwords.currentPassword}
+                      onChange={(e) => setPasswords({...passwords, currentPassword: e.target.value})}
                       placeholder="••••••••" 
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" 
                     />
@@ -255,12 +321,13 @@ export default function Settings() {
                   </div>
                 </div>
 
-                {/* New Password */}
                 <div>
                   <label className="text-sm font-semibold text-gray-700 mb-2 block">New Password</label>
                   <div className="relative">
                     <input 
                       type={showNewPassword ? "text" : "password"} 
+                      value={passwords.newPassword}
+                      onChange={(e) => setPasswords({...passwords, newPassword: e.target.value})}
                       placeholder="Minimum 8 characters" 
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" 
                     />
@@ -274,12 +341,13 @@ export default function Settings() {
                   </div>
                 </div>
 
-                {/* Confirm New Password */}
                 <div>
                   <label className="text-sm font-semibold text-gray-700 mb-2 block">Confirm New Password</label>
                   <div className="relative">
                     <input 
-                      type={showConfirmPassword ? "text" : "password"} 
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={passwords.confirmPassword}
+                      onChange={(e) => setPasswords({...passwords, confirmPassword: e.target.value})} 
                       placeholder="Re-enter password" 
                       className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" 
                     />
@@ -293,13 +361,16 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <button className="bg-[#004DD2] hover:bg-[#003bb3] text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-md">
-                  Change Password
+                <button 
+                  onClick={handleChangePassword}
+                  disabled={isUpdatingPassword}
+                  className="bg-[#004DD2] hover:bg-[#003bb3] text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isUpdatingPassword ? "Changing..." : "Change Password"}
                 </button>
               </div>
             </div>
 
-            {/* Right Card: Session & Access */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex-1 max-w-md h-fit">
               <h3 className="font-bold text-gray-900 mb-6">Session & Access</h3>
               <div className="space-y-6">
@@ -341,8 +412,17 @@ export default function Settings() {
             </div>
 
             <div className="overflow-x-auto">
+              {/* FIX: Beautiful Empty State if no logs exist */}
               {logs.length === 0 ? (
-                 <div className="py-10 text-center text-gray-500 text-sm">No audit logs available.</div>
+                <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200 mt-2">
+                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
+                    <ClipboardList className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h4 className="text-gray-900 font-semibold mb-1">No Audit Logs Found</h4>
+                  <p className="text-gray-500 text-sm max-w-sm">
+                    There are currently no records of admin approvals or rejections in the system.
+                  </p>
+                </div>
               ) : (
                 <table className="w-full text-left">
                   <thead>
@@ -360,7 +440,7 @@ export default function Settings() {
                     {filteredLogs.length > 0 ? filteredLogs.map((log, i) => {
                       const status = getLogStatus(log);
                       return (
-                        <tr key={log.user_id} className="border-b border-gray-50">
+                        <tr key={log.user_id || i} className="border-b border-gray-50">
                           <td className="py-4 text-gray-500">{i + 1}</td>
                           <td className="py-4">
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${

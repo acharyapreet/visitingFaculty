@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Mail, X } from "lucide-react"; // Added Mail and X icons
+import { ArrowRight } from "lucide-react"; // Removed Mail and X since they are in the Toast component now
+import NotificationToast from './NotificationToast';
 
 // Components
 import Sidebar from "./Sidebar";
@@ -7,7 +8,7 @@ import Topbar from "./Topbar";
 import PendingFacultyTable from "./PendingFacultyTable";
 import adminApi from "../../api/adminApi";
 
-// Her other pages
+// Other Pages
 import FacultyManagement from "./FacultyManagement";
 import SubjectAllocation from "./SubjectAllocation";
 import AttendanceRecords from "./AttendanceRecords";
@@ -29,8 +30,8 @@ export default function AdminDashboard({ onSignOut }) {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   
-  // NEW: Notification State
-  const [notification, setNotification] = useState(null);
+  // Notification Toast State
+  const [toastConfig, setToastConfig] = useState(null);
 
   const admin = JSON.parse(localStorage.getItem("iipsCurrentSession") || "{}") || { name: "Admin" };
 
@@ -57,13 +58,11 @@ export default function AdminDashboard({ onSignOut }) {
     }
   }, [fetchPending, activeTab]);
 
-  // NEW: Unified handler to refresh table and show banner
-  const handleActionSuccess = useCallback((actionData) => {
-    fetchPending();
-    if (actionData) {
-      setNotification(actionData);
-      // Auto-hide the toast after 6 seconds
-      setTimeout(() => setNotification(null), 6000);
+  // Unified handler to refresh table and show banner
+  const handleFacultyAction = useCallback((toastData) => {
+    fetchPending(); // Instantly refresh pending table so the user disappears from the queue
+    if (toastData) {
+      setToastConfig(toastData); // Show the toast with the data from the modal
     }
   }, [fetchPending]);
 
@@ -130,35 +129,19 @@ export default function AdminDashboard({ onSignOut }) {
               <PendingFacultyTable
                 faculty={filteredFaculty}
                 loading={loading}
-                onChanged={handleActionSuccess} // Passed the new handler here
+                onChanged={handleFacultyAction}
               />
             </div>
 
             {/* NOTIFICATION TOAST BANNER */}
-            {notification && (
-              <div className={`w-full rounded-[12px] p-4 flex items-center justify-between shadow-lg animate-in fade-in slide-in-from-bottom-4 ${
-                notification.type === 'approve' ? 'bg-[#009C5A]' : 'bg-[#F24822]'
-              } text-white`}>
-                <div className="flex items-center gap-3.5">
-                  <Mail size={24} className="opacity-90" strokeWidth={1.5} />
-                  <div>
-                    <p className="font-semibold text-[15px]">
-                      {notification.type === 'approve' 
-                        ? `Approved · User ID: ${notification.uvfin || 'Pending'}` 
-                        : `Rejected: Feedback Sent to ${notification.name}`}
-                    </p>
-                    <p className="text-[13px] opacity-90 mt-0.5 tracking-wide">
-                      · {notification.type === 'approve' ? 'Credentials' : 'Update'} emailed to {notification.email}
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setNotification(null)}
-                  className="p-1.5 hover:bg-white/20 rounded-full transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              </div>
+            {toastConfig && (
+              <NotificationToast 
+                action={toastConfig.action}
+                facultyName={toastConfig.facultyName}
+                email={toastConfig.email}
+                uvfin={toastConfig.uvfin}
+                onClose={() => setToastConfig(null)}
+              />
             )}
           </main>
         );

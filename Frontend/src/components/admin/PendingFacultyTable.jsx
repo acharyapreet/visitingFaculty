@@ -91,15 +91,15 @@ export default function PendingFacultyTable({ faculty = [], loading, onChanged }
         </table>
       </div>
 
-      {/* RENDER OUR REAL MODAL HERE */}
+     {/* RENDER OUR REAL MODAL HERE */}
       {modalConfig && (
         <FacultyModal 
           userId={modalConfig.userId}
           initialView={modalConfig.view} 
           onClose={() => setModalConfig(null)} 
-          onActionSuccess={() => {
+          onActionSuccess={(toastData) => { // <--- Catch the data here
             setModalConfig(null);
-            if (onChanged) onChanged();
+            if (onChanged) onChanged(toastData); // <--- Pass it up!
           }}
         />
       )}
