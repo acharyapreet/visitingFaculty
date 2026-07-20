@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { ClipboardCheck, ListChecks, Save, Trash2 } from "lucide-react";
+import { ClipboardCheck, ListChecks, Save, Trash2, Check, AlertTriangle, X } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
 import axios from "axios";
 
@@ -37,6 +37,12 @@ export default function SubjectAllocation() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
+  // --- STATE: Custom Modals ---
+  const [successModal, setSuccessModal] = useState(false);
+  const [errorModal, setErrorModal] = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
   const dropdownRef = useRef(null);
 
   const getAxiosConfig = () => {
@@ -56,7 +62,6 @@ export default function SubjectAllocation() {
     fetchCourses();
     fetchAllocations();
 
-    // Click outside handler for Faculty Dropdown
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowFacultyDropdown(false);
@@ -145,7 +150,7 @@ export default function SubjectAllocation() {
   }, [form.semester_id, form.course_id]);
 
   // ==========================================
-  // 4. FORM SUBMISSION
+  // 4. FORM SUBMISSION & DELETION
   // ==========================================
   const handleChange = (field) => (e) => {
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -165,7 +170,7 @@ export default function SubjectAllocation() {
       const payload = { ...form, section_id: form.section_id || null };
       await axios.post("http://localhost:5000/api/admin/allocations", payload, getAxiosConfig());
       
-      alert("Subject allocated successfully!");
+      setSuccessModal(true); // Trigger custom success modal
       setForm(emptyForm);
       setFacultySearch("");
       fetchAllocations();
@@ -176,13 +181,22 @@ export default function SubjectAllocation() {
     }
   };
 
-  const handleDelete = async (allocationId) => {
-    if (!window.confirm("Are you sure you want to remove this allocation?")) return;
+  const confirmDelete = (id) => {
+    setDeleteConfirmId(id); // Trigger custom delete modal
+  };
+
+  const executeDelete = async () => {
+    if (!deleteConfirmId) return;
+    setDeleting(true);
     try {
-      await axios.delete(`http://localhost:5000/api/admin/allocations/${allocationId}`, getAxiosConfig());
+      await axios.delete(`http://localhost:5000/api/admin/allocations/${deleteConfirmId}`, getAxiosConfig());
+      setDeleteConfirmId(null);
       fetchAllocations();
     } catch (err) {
-      alert("Failed to delete allocation.");
+      setDeleteConfirmId(null);
+      setErrorModal("Failed to delete allocation. Please try again.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -205,7 +219,7 @@ export default function SubjectAllocation() {
   useEffect(() => setPage(1), [search]);
 
   return (
-    <main className="p-4 sm:p-6 w-full">
+    <main className="p-4 sm:p-6 w-full relative">
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Subject Allocation</h1>
@@ -223,7 +237,6 @@ export default function SubjectAllocation() {
           </div>
 
           <div className="space-y-4">
-            
             {/* Faculty Smart Dropdown */}
             <div ref={dropdownRef}>
               <Field label="Select Faculty (Name or ID)">
@@ -238,7 +251,7 @@ export default function SubjectAllocation() {
                     }}
                     onFocus={() => setShowFacultyDropdown(true)}
                     placeholder="Select..."
-                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                   />
                   {showFacultyDropdown && facultyOptions.length > 0 && (
                     <ul className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
@@ -261,12 +274,11 @@ export default function SubjectAllocation() {
               </Field>
             </div>
 
-            {/* Form Fields matching the old layout order */}
             <Field label="Course Name">
               <select
                 value={form.course_id}
                 onChange={handleChange("course_id")}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
               >
                 <option value="">Select Course</option>
                 {courses.map((c) => (
@@ -281,7 +293,7 @@ export default function SubjectAllocation() {
                   value={form.semester_id}
                   onChange={handleChange("semester_id")}
                   disabled={!form.course_id || semesters.length === 0}
-                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-400 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                 >
                   <option value="">Select Sem</option>
                   {semesters.map((s) => (
@@ -290,22 +302,36 @@ export default function SubjectAllocation() {
                 </select>
               </Field>
 
-              <Field label="Academic Session">
-                <input
-                  value={form.academic_year}
-                  onChange={handleChange("academic_year")}
-                  placeholder="2024-25"
-                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-blue-500"
-                />
+              <Field label="Section">
+                <select
+                  value={form.section_id}
+                  onChange={handleChange("section_id")}
+                  disabled={!form.course_id || sections.length === 0}
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                >
+                  <option value="">{sections.length === 0 ? "N/A" : "Select Section"}</option>
+                  {sections.map((sec) => (
+                    <option key={sec.section_id} value={sec.section_id}>Section {sec.section_name}</option>
+                  ))}
+                </select>
               </Field>
             </div>
+
+            <Field label="Academic Session">
+              <input
+                value={form.academic_year}
+                onChange={handleChange("academic_year")}
+                placeholder="2024-25"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+              />
+            </Field>
 
             <Field label="Subject Code">
               <select
                 value={form.subject_id}
                 onChange={handleChange("subject_id")}
                 disabled={!form.semester_id || subjects.length === 0}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white disabled:bg-slate-50 focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white disabled:bg-slate-50 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
               >
                 <option value="">Select Code</option>
                 {subjects.map((sub) => (
@@ -319,7 +345,7 @@ export default function SubjectAllocation() {
                 value={form.subject_id}
                 onChange={handleChange("subject_id")}
                 disabled={!form.semester_id || subjects.length === 0}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white disabled:bg-slate-50 focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white disabled:bg-slate-50 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
               >
                 <option value="">Select Subject</option>
                 {subjects.map((sub) => (
@@ -332,7 +358,7 @@ export default function SubjectAllocation() {
               <select
                 value={form.session_type}
                 onChange={handleChange("session_type")}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
               >
                 <option value="">Select...</option>
                 {TYPES.map((t) => (
@@ -345,7 +371,7 @@ export default function SubjectAllocation() {
               <select
                 value={form.rate_per_hour}
                 onChange={handleChange("rate_per_hour")}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
               >
                 <option value="">Select Rate...</option>
                 {RATES.map((r) => (
@@ -359,7 +385,7 @@ export default function SubjectAllocation() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#0b57d0] text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#0b57d0] text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors shadow-sm"
             >
               <Save size={16} />
               {submitting ? "Assigning..." : "Assign Subject"}
@@ -381,7 +407,7 @@ export default function SubjectAllocation() {
               placeholder="Search allocations..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="px-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:border-blue-500 w-48"
+              className="px-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all w-48"
             />
           </div>
 
@@ -446,7 +472,7 @@ export default function SubjectAllocation() {
                       </td>
                       <td className="px-5 py-3 text-right">
                         <button 
-                          onClick={() => handleDelete(a.allocation_id)}
+                          onClick={() => confirmDelete(a.allocation_id)}
                           className="p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-md transition-colors"
                           title="Revoke Allocation"
                         >
@@ -463,7 +489,7 @@ export default function SubjectAllocation() {
             <button
               disabled={page === 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50"
+              className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition-colors"
             >
               ‹
             </button>
@@ -471,7 +497,7 @@ export default function SubjectAllocation() {
               <button
                 key={p}
                 onClick={() => setPage(p)}
-                className={`h-8 w-8 flex items-center justify-center rounded-lg text-sm font-medium ${
+                className={`h-8 w-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
                   p === page ? "bg-[#0b57d0] text-white" : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -481,18 +507,96 @@ export default function SubjectAllocation() {
             <button
               disabled={page === totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50"
+              className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition-colors"
             >
               ›
             </button>
           </div>
         </div>
       </div>
+
+      {/* --- CUSTOM MODALS --- */}
+
+      {/* Success Modal */}
+      {successModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden scale-100 animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="h-14 w-14 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4">
+                <Check size={28} strokeWidth={2.5} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Subject Allocated!</h3>
+              <p className="text-slate-500 text-sm">The faculty member has been successfully assigned to this subject.</p>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center">
+              <button 
+                onClick={() => setSuccessModal(false)} 
+                className="w-full px-6 py-2.5 bg-[#0b57d0] text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden scale-100 animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="h-14 w-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle size={28} strokeWidth={2.5} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Remove Allocation?</h3>
+              <p className="text-slate-500 text-sm">Are you sure you want to revoke this subject assignment? This action cannot be undone.</p>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <button 
+                onClick={() => setDeleteConfirmId(null)} 
+                disabled={deleting}
+                className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={executeDelete} 
+                disabled={deleting}
+                className="px-5 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {deleting ? "Removing..." : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {errorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden scale-100 animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="h-14 w-14 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-4">
+                <X size={28} strokeWidth={2.5} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Action Failed</h3>
+              <p className="text-slate-500 text-sm">{errorModal}</p>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center">
+              <button 
+                onClick={() => setErrorModal("")} 
+                className="w-full px-6 py-2.5 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
 
-// Reverted Field component back to original style
 function Field({ label, children }) {
   return (
     <div>
