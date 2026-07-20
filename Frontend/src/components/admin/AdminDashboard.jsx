@@ -84,7 +84,7 @@ export default function AdminDashboard({ onSignOut }) {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'faculty-management': return <FacultyManagement />;
+      case 'faculty-management': return <FacultyManagement setActiveTab={setActiveTab} />;
       case 'subject-allocation': return <SubjectAllocation />;
       case 'attendance-records': return <AttendanceRecords />;
       case 'bill-generation': return <BillGeneration />;

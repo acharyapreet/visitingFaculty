@@ -12,21 +12,32 @@ import {
 } from "lucide-react";
 import adminApi from "../../api/adminApi";
 import LoadingSpinner from "./LoadingSpinner";
+import axios from "axios";
 
-export default function FacultyModal({ userId, onClose, onActionSuccess ,initialView = "profile" }) {
+export default function FacultyModal({ userId, onClose, onActionSuccess, initialView = "profile" }) {
   const [faculty, setFaculty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
-  // Navigation State to switch between Profile, Approve, and Reject views
-  const [currentView, setCurrentView] = useState(initialView); // "profile" | "approve" | "reject"
+  // Navigation State
+  const [currentView, setCurrentView] = useState(initialView); 
   
-
-  // Action States
+  // Action States (Approvals & Rejections)
   const [uvfin, setUvfin] = useState("");
-  const [checks, setChecks] = useState({ docs: false, head: false });
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+
+  // New Action States (Approved Faculty specific)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [showUvfinInput, setShowUvfinInput] = useState(false);
+  const [newUvfin, setNewUvfin] = useState("");
+  const [uvfinLoading, setUvfinLoading] = useState(false);
+
+  // Helper to fetch Auth Token
+  const getAuthHeaders = () => {
+    const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+    return { Authorization: `Bearer ${session.token}` };
+  };
 
   useEffect(() => {
     let active = true;
@@ -48,20 +59,11 @@ export default function FacultyModal({ userId, onClose, onActionSuccess ,initial
 
   const displayName = faculty?.full_name || faculty?.name || "Unknown Faculty";
 
-const handleApproveSubmit = async () => {
-    if (!checks.docs || !checks.head) return alert("Please confirm all pre-approval checks.");
-    
+  const handleApproveSubmit = async () => {
     setActionLoading(true);
     try {
-      // FIX: Changed faculty.email back to userId for the API call
       await adminApi.approveFaculty(faculty.id || faculty.user_id, uvfin);
-      // Pass the data back to the parent!
-    onActionSuccess({
-      action: 'approved',
-      facultyName: faculty.name || faculty.full_name,
-      email: faculty.email,
-      uvfin: uvfin 
-    });
+      onActionSuccess && onActionSuccess({ action: 'approved' });
       onClose();
     } catch (err) {
       alert("Approval failed: " + (err.response?.data?.message || err.message || "Unknown Error"));
@@ -72,23 +74,60 @@ const handleApproveSubmit = async () => {
 
   const handleRejectSubmit = async () => {
     if (!rejectReason.trim()) return alert("Please provide a reason for rejection.");
-    
     setActionLoading(true);
     try {
-      // FIX: Changed 'remarks' to 'rejectReason' to match your state variable
       await adminApi.rejectFaculty(faculty.id || faculty.user_id, rejectReason);
-      
-      // Pass the data back to the parent!
-      onActionSuccess({
-        action: 'rejected',
-        facultyName: faculty.name || faculty.full_name,
-        email: faculty.email
-      });
+      onActionSuccess && onActionSuccess({ action: 'rejected' });
       onClose();
     } catch (err) {
       alert("Rejection failed: " + (err.response?.data?.message || err.message || "Unknown Error"));
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // --- NEW HANDLERS: TOGGLE STATUS & UPDATE UVFIN ---
+  
+  const handleToggleStatus = async () => {
+    setIsUpdatingStatus(true);
+    try {
+      const action = faculty.is_active ? "deactivate" : "activate";
+      const facultyId = faculty.id || faculty.user_id;
+      
+      await axios.put(`http://localhost:5000/api/account-status/admin/faculty/${facultyId}/${action}`, {}, {
+        headers: getAuthHeaders()
+      });
+      
+      setFaculty(prev => ({ ...prev, is_active: !prev.is_active }));
+      onActionSuccess && onActionSuccess({ action: 'status_changed' });
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update account status.");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleUpdateUvfin = async () => {
+    if (!newUvfin.trim()) return;
+    setUvfinLoading(true);
+    try {
+      const facultyId = faculty.id || faculty.user_id;
+      await axios.put(`http://localhost:5000/api/admin/updateFaculty/${facultyId}`, { uvfin: newUvfin }, {
+        headers: getAuthHeaders()
+      });
+      
+      // Update local state gracefully 
+      setFaculty(prev => ({
+        ...prev,
+        uvfin: newUvfin,
+        FacultyApproval: { ...prev.FacultyApproval, uvfin: newUvfin }
+      }));
+      setShowUvfinInput(false);
+      onActionSuccess && onActionSuccess({ action: 'uvfin_updated' });
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to assign UVFIN.");
+    } finally {
+      setUvfinLoading(false);
     }
   };
 
@@ -140,7 +179,6 @@ const handleApproveSubmit = async () => {
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="text-[14px] font-semibold text-[#141B2B]">Assign UVFIN ID</label>
-                {/* THIS HAS BEEN CHANGED TO OPTIONAL */}
                 <span className="bg-slate-100 text-[#585F6C] text-[10px] font-bold px-2 py-0.5 rounded">OPTIONAL</span>
               </div>
               <div className="relative">
@@ -159,30 +197,6 @@ const handleApproveSubmit = async () => {
                 This unique identifier will be used for all academic and financial records.
               </p>
             </div>
-
-            <div className="border border-[#C3C5D8] rounded-[12px] p-5">
-              <h4 className="text-[14px] font-semibold text-[#141B2B] mb-3">Pre-approval Checks</h4>
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <input 
-                    type="checkbox" 
-                    checked={checks.docs}
-                    onChange={(e) => setChecks({ ...checks, docs: e.target.checked })}
-                    className="w-4 h-4 text-[#004DD2] rounded border-[#C3C5D8] focus:ring-[#004DD2]"
-                  />
-                  <span className="text-[14px] text-[#585F6C] group-hover:text-[#141B2B] transition-colors">Identity documents verified</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <input 
-                    type="checkbox" 
-                    checked={checks.head}
-                    onChange={(e) => setChecks({ ...checks, head: e.target.checked })}
-                    className="w-4 h-4 text-[#004DD2] rounded border-[#C3C5D8] focus:ring-[#004DD2]"
-                  />
-                  <span className="text-[14px] text-[#585F6C] group-hover:text-[#141B2B] transition-colors">Departmental head endorsement confirmed</span>
-                </label>
-              </div>
-            </div>
           </div>
 
           <div className="flex gap-3 p-6 pt-0">
@@ -194,7 +208,7 @@ const handleApproveSubmit = async () => {
             </button>
             <button 
               onClick={handleApproveSubmit}
-              disabled={actionLoading || !checks.docs || !checks.head}
+              disabled={actionLoading}
               className="flex-1 px-4 py-2.5 bg-[#004DD2] hover:bg-blue-700 text-white rounded-[8px] text-[14px] font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
             >
               Submit Approval <Check size={16} />
@@ -273,6 +287,12 @@ const handleApproveSubmit = async () => {
   // --------------------------------------------------------
   // VIEW 3: MAIN PROFILE VIEW (Default)
   // --------------------------------------------------------
+  
+  // Calculate specific conditions for UI rendering
+  const isPending = (!faculty?.is_approved || faculty?.status === 'pending');
+  const isApproved = (faculty?.is_approved || faculty?.status === 'approved' || faculty?.FacultyApproval?.status === 'approved');
+  const missingUvfin = isApproved && !faculty?.FacultyApproval?.uvfin && !faculty?.uvfin;
+  
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#141B2B]/40 backdrop-blur-sm p-4">
       <div className="bg-[#FFFFFF] w-full max-w-[540px] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -280,7 +300,9 @@ const handleApproveSubmit = async () => {
         <div className="flex items-center justify-between px-7 py-5 border-b border-[#C3C5D8] shrink-0 z-10">
           <div className="flex items-center gap-3">
             <ShieldCheck size={24} className="text-[#004DD2]" />
-            <h2 className="text-[18px] font-semibold text-[#141B2B]">Approve Faculty Registration</h2>
+            <h2 className="text-[18px] font-semibold text-[#141B2B]">
+              {isApproved ? "Faculty Profile & Actions" : "Approve Faculty Registration"}
+            </h2>
           </div>
           <button 
             onClick={onClose} 
@@ -301,6 +323,12 @@ const handleApproveSubmit = async () => {
                 <div className="mb-6">
                   <p className="text-[11px] font-semibold text-[#585F6C] uppercase tracking-wide mb-1">Faculty Member</p>
                   <h3 className="text-[20px] font-bold text-[#141B2B] capitalize">Prof. {displayName}</h3>
+                  
+                  {isApproved && (faculty?.FacultyApproval?.uvfin || faculty?.uvfin) && (
+                    <p className="text-[13px] font-semibold text-[#004DD2] mt-1">
+                      UVFIN: {faculty?.FacultyApproval?.uvfin || faculty?.uvfin}
+                    </p>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-2 gap-y-5">
@@ -318,9 +346,15 @@ const handleApproveSubmit = async () => {
                   </div>
                   <div>
                     <p className="text-[11px] font-semibold text-[#585F6C] uppercase tracking-wide mb-1">Status</p>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-[#FFEDD5] text-[#92400E]">
-                      Pending Verification
-                    </span>
+                    {isPending ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-[#FFEDD5] text-[#92400E]">
+                        Pending Verification
+                      </span>
+                    ) : (
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold ${faculty?.is_active ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                        {faculty?.is_active ? 'Active Account' : 'Inactive Account'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -394,22 +428,83 @@ const handleApproveSubmit = async () => {
           )}
         </div>
 
-        {!loading && !error && (!faculty?.is_approved || faculty?.status === 'pending') && (
-          <div className="border-t border-[#C3C5D8] bg-[#FFFFFF] p-5 px-7 shrink-0 rounded-b-2xl">
-            <div className="flex gap-4">
-              <button 
-                onClick={() => setCurrentView("approve")}
-                className="px-6 py-2.5 bg-[#004DD2] hover:bg-blue-700 text-[#FFFFFF] font-semibold rounded-[8px] text-[14px] flex items-center gap-2 transition-colors"
-              >
-                <CheckCircle2 size={18} /> Approve Profile
-              </button>
-              <button 
-                onClick={() => setCurrentView("reject")}
-                className="px-6 py-2.5 bg-[#FFFFFF] border border-[#BA1A1A] hover:bg-red-50 text-[#BA1A1A] font-semibold rounded-[8px] text-[14px] flex items-center gap-2 transition-colors"
-              >
-                <XCircle size={18} /> Reject & Feedback
-              </button>
-            </div>
+        {/* --- FOOTER: PENDING ACTIONS --- */}
+        {!loading && !error && isPending && (
+          <div className="border-t border-[#C3C5D8] bg-[#FFFFFF] p-5 px-7 shrink-0 rounded-b-2xl flex gap-4">
+            <button 
+              onClick={() => setCurrentView("approve")}
+              className="px-6 py-2.5 bg-[#004DD2] hover:bg-blue-700 text-[#FFFFFF] font-semibold rounded-[8px] text-[14px] flex items-center gap-2 transition-colors"
+            >
+              <CheckCircle2 size={18} /> Approve Profile
+            </button>
+            <button 
+              onClick={() => setCurrentView("reject")}
+              className="px-6 py-2.5 bg-[#FFFFFF] border border-[#BA1A1A] hover:bg-red-50 text-[#BA1A1A] font-semibold rounded-[8px] text-[14px] flex items-center gap-2 transition-colors"
+            >
+              <XCircle size={18} /> Reject & Feedback
+            </button>
+          </div>
+        )}
+
+        {/* --- FOOTER: APPROVED ACTIONS (STATUS & UVFIN) --- */}
+        {!loading && !error && isApproved && (
+          <div className="border-t border-[#C3C5D8] bg-[#F8F9FA] p-5 px-7 shrink-0 rounded-b-2xl flex flex-wrap items-center justify-between gap-4">
+            
+            {/* Status Toggle Button */}
+            <button 
+              onClick={handleToggleStatus}
+              disabled={isUpdatingStatus}
+              className={`px-5 py-2.5 rounded-[8px] text-[14px] font-semibold flex items-center gap-2 transition-colors ${
+                faculty?.is_active 
+                  ? "bg-white border border-[#BA1A1A] text-[#BA1A1A] hover:bg-red-50" 
+                  : "bg-white border border-[#16A34A] text-[#16A34A] hover:bg-green-50"
+              }`}
+            >
+              {isUpdatingStatus ? (
+                <LoadingSpinner size="sm" />
+              ) : faculty?.is_active ? (
+                <XCircle size={18} /> 
+              ) : (
+                <CheckCircle2 size={18} />
+              )}
+              {faculty?.is_active ? "Deactivate Faculty" : "Activate Faculty"}
+            </button>
+
+            {/* Optional UVFIN Addition */}
+            {missingUvfin && (
+              showUvfinInput ? (
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text" 
+                    value={newUvfin} 
+                    onChange={e => setNewUvfin(e.target.value)} 
+                    placeholder="Enter UVFIN..."
+                    autoFocus
+                    className="w-36 px-3 py-2 border border-[#C3C5D8] rounded-[6px] text-[13px] font-medium focus:outline-none focus:border-[#004DD2]"
+                  />
+                  <button 
+                    onClick={handleUpdateUvfin}
+                    disabled={uvfinLoading || !newUvfin.trim()}
+                    className="px-4 py-2 bg-[#004DD2] text-white text-[13px] font-medium rounded-[6px] hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    {uvfinLoading ? "Saving..." : "Save"}
+                  </button>
+                  <button 
+                    onClick={() => { setShowUvfinInput(false); setNewUvfin(""); }}
+                    className="p-1.5 text-[#585F6C] hover:bg-slate-200 rounded-md transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => setShowUvfinInput(true)}
+                  className="px-5 py-2.5 bg-[#004DD2] hover:bg-blue-700 text-[#FFFFFF] font-semibold rounded-[8px] text-[14px] flex items-center gap-2 transition-colors"
+                >
+                  <Briefcase size={16} /> Assign UVFIN
+                </button>
+              )
+            )}
           </div>
         )}
       </div>
