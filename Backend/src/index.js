@@ -47,7 +47,9 @@ const PORT = process.env.PORT || 5000;
   try {
     await sequelize.authenticate();
     console.log('Database connected');
-    await sequelize.sync({ alter: true });
+    // alter:{drop:false} — add/modify columns but NEVER drop FKs or constraints.
+    // This prevents "constraint does not exist" errors on PostgreSQL during hot-reload.
+    await sequelize.sync({ alter: { drop: false } });
     console.log('Database models synced');
 
     // Seed super admin

@@ -32,6 +32,58 @@ const resolveUserId = async (facultyId) => {
     return user.user_id;
 };
 // ==========================
+// Helper: Flatten a raw Attendance Sequelize record
+// Extracts Subject, Course, Semester, Section from nested Allocation
+// ==========================
+const flattenAttendance = (item) => {
+    const alloc = item.Allocation || {};
+    const user  = item.User  || null;
+    return {
+        // --- Core attendance fields ---
+        attendance_id:   item.attendance_id,
+        attendance_date: item.attendance_date,
+        start_time:      item.start_time,
+        end_time:        item.end_time,
+        hours:           item.hours,
+        status:          item.status,
+        remarks:         item.remarks,
+        month:           item.month,
+        year:            item.year,
+
+        // --- Faculty (only present in admin queries) ---
+        ...(user ? {
+            user_id:   user.user_id,
+            full_name: user.full_name,
+            email:     user.email,
+            uvfin:     user.uvfin
+        } : {}),
+
+        // --- Allocation ---
+        allocation_id:   alloc.allocation_id   ?? null,
+        session_type:    alloc.session_type    ?? null,
+        rate_per_hour:   alloc.rate_per_hour   ?? null,
+
+        // --- Course ---
+        course_id:       alloc.Course?.course_id       ?? null,
+        course_name:     alloc.Course?.course_name     ?? null,
+        course_code:     alloc.Course?.course_code     ?? null,
+
+        // --- Semester ---
+        semester_id:     alloc.Semester?.semester_id   ?? null,
+        semester_number: alloc.Semester?.semester_number ?? null,
+
+        // --- Section ---
+        section_id:      alloc.Section?.section_id     ?? null,
+        section_name:    alloc.Section?.section_name   ?? null,
+
+        // --- Subject ---
+        subject_id:      alloc.Subject?.subject_id     ?? null,
+        subject_code:    alloc.Subject?.subject_code   ?? null,
+        subject_name:    alloc.Subject?.subject_name   ?? null
+    };
+};
+
+// ==========================
 // Mark Attendance
 // ==========================
 
@@ -41,9 +93,15 @@ const markAttendance = async (attendanceData) => {
 
         const {
             user_id,
-            allocation_id,
+            course_id,
+            semester_id,
+            subject_id,
             attendance_date,
+            start_time,
+            end_time,
             hours,
+            remarks,
+            status,
             month,
             year
         } = attendanceData;
@@ -51,15 +109,23 @@ const markAttendance = async (attendanceData) => {
         const numericUserId = await resolveUserId(user_id);
 
         // ==========================
-        // Check Allocation Exists
+        // Find Allocation from course + semester + subject
+        // The frontend sends course_id, semester_id, subject_id
+        // We look up the matching allocation for this faculty
         // ==========================
+
+        const whereClause = {
+            user_id: numericUserId,
+            is_active: true
+        };
+
+        if (subject_id)  whereClause.subject_id  = subject_id;
+        if (course_id)   whereClause.course_id    = course_id;
+        if (semester_id) whereClause.semester_id  = semester_id;
 
         const allocation = await Allocation.findOne({
 
-            where: {
-                allocation_id,
-                user_id: numericUserId
-            },
+            where: whereClause,
 
             include: [
                 {
@@ -73,18 +139,22 @@ const markAttendance = async (attendanceData) => {
                 {
                     model: Course,
                     attributes: [
-                        "course_name"
+                        "course_id",
+                        "course_name",
+                        "course_code"
                     ]
                 },
                 {
                     model: Semester,
                     attributes: [
+                        "semester_id",
                         "semester_number"
                     ]
                 },
                 {
                     model: Section,
                     attributes: [
+                        "section_id",
                         "section_name"
                     ]
                 }
@@ -94,26 +164,30 @@ const markAttendance = async (attendanceData) => {
 
         if (!allocation) {
             throw new Error(
-                "Invalid allocation. Subject is not assigned to this faculty."
+                "No active allocation found for this faculty with the given course, semester, and subject."
             );
         }
 
+        const resolvedAllocationId = allocation.allocation_id;
+
         // ==========================
         // Duplicate Attendance Check
+        // (allow multiple sessions on same date if start_time differs)
         // ==========================
 
         const existingAttendance = await Attendance.findOne({
 
             where: {
-                allocation_id,
-                attendance_date
+                allocation_id: resolvedAllocationId,
+                attendance_date,
+                start_time
             }
 
         });
 
         if (existingAttendance) {
             throw new Error(
-                "Attendance already submitted for this subject on this date."
+                "Attendance already submitted for this subject at this time on this date."
             );
         }
 
@@ -124,15 +198,56 @@ const markAttendance = async (attendanceData) => {
         const newAttendance = await Attendance.create({
 
             user_id: numericUserId,
-            allocation_id,
+            allocation_id: resolvedAllocationId,
             attendance_date,
+            start_time,
+            end_time,
             hours,
+            remarks: remarks || null,
+            status: status || 'Pending',
             month,
             year
 
         });
 
-        return newAttendance;
+        // ==========================
+        // Return flat, enriched response
+        // ==========================
+
+        return {
+            attendance_id:   newAttendance.attendance_id,
+            attendance_date: newAttendance.attendance_date,
+            start_time:      newAttendance.start_time,
+            end_time:        newAttendance.end_time,
+            hours:           newAttendance.hours,
+            status:          newAttendance.status,
+            remarks:         newAttendance.remarks,
+            month:           newAttendance.month,
+            year:            newAttendance.year,
+
+            // Allocation details — flat for easy frontend use
+            allocation_id:   resolvedAllocationId,
+            session_type:    allocation.session_type,
+            rate_per_hour:   allocation.rate_per_hour,
+
+            // Course
+            course_id:       allocation.Course   ? allocation.Course.course_id       : null,
+            course_name:     allocation.Course   ? allocation.Course.course_name     : null,
+            course_code:     allocation.Course   ? allocation.Course.course_code     : null,
+
+            // Semester
+            semester_id:     allocation.Semester ? allocation.Semester.semester_id   : null,
+            semester_number: allocation.Semester ? allocation.Semester.semester_number : null,
+
+            // Section
+            section_id:      allocation.Section  ? allocation.Section.section_id     : null,
+            section_name:    allocation.Section  ? allocation.Section.section_name   : null,
+
+            // Subject
+            subject_id:      allocation.Subject  ? allocation.Subject.subject_id     : null,
+            subject_code:    allocation.Subject  ? allocation.Subject.subject_code   : null,
+            subject_name:    allocation.Subject  ? allocation.Subject.subject_name   : null
+        };
 
     } catch (error) {
 
@@ -141,6 +256,9 @@ const markAttendance = async (attendanceData) => {
     }
 
 };
+
+
+
 
 //Daily Attendance
 
@@ -179,7 +297,8 @@ const getDailyAttendance = async (facultyId) => {
                             model: Course,
                             attributes: [
                                 "course_id",
-                                "course_name"
+                                "course_name",
+                                "course_code"
                             ]
                         },
                         {
@@ -217,7 +336,7 @@ const getDailyAttendance = async (facultyId) => {
             attendanceDate: today,
             totalClasses,
             totalHours,
-            data: attendance
+            data: attendance.map(flattenAttendance)
         };
 
     } catch (error) {
@@ -268,7 +387,8 @@ const getWeeklyAttendance = async (facultyId) => {
                             model: Course,
                             attributes: [
                                 "course_id",
-                                "course_name"
+                                "course_name",
+                                "course_code"
                             ]
                         },
                         {
@@ -318,7 +438,7 @@ const getWeeklyAttendance = async (facultyId) => {
             daysAbsent,
             totalClasses,
             totalHours,
-            data: attendance
+            data: attendance.map(flattenAttendance)
         };
 
     } catch (error) {
@@ -370,7 +490,8 @@ const getMonthlyAttendance = async (
                             model: Course,
                             attributes: [
                                 "course_id",
-                                "course_name"
+                                "course_name",
+                                "course_code"
                             ]
                         },
                         {
@@ -417,22 +538,14 @@ const getMonthlyAttendance = async (
         );
 
         return {
-
             month,
             year,
-
             workingDays,
-
             daysPresent,
-
             daysAbsent,
-
             totalClasses,
-
             totalHours,
-
-            data: attendance
-
+            data: attendance.map(flattenAttendance)
         };
 
     } catch (error) {
@@ -483,7 +596,8 @@ const getAttendanceHistory = async (facultyId) => {
                             model: Course,
                             attributes: [
                                 "course_id",
-                                "course_name"
+                                "course_name",
+                                "course_code"
                             ]
                         },
                         {
@@ -522,15 +636,10 @@ const getAttendanceHistory = async (facultyId) => {
         ).size;
 
         return {
-
             totalClasses,
-
             totalHours,
-
             daysPresent,
-
-            data: attendance
-
+            data: attendance.map(flattenAttendance)
         };
 
     } catch (error) {
@@ -541,10 +650,298 @@ const getAttendanceHistory = async (facultyId) => {
 
 };
 
+// ==========================
+// Admin: Get All Attendance (with filters)
+// filters: { facultyId, month, year, status }
+// ==========================
+const getAdminAttendance = async (filters = {}) => {
+
+    try {
+
+        const whereClause = {};
+
+        if (filters.month)  whereClause.month  = filters.month;
+        if (filters.year)   whereClause.year   = filters.year;
+        if (filters.status) whereClause.status = filters.status;
+
+        if (filters.facultyId) {
+            const numericUserId = await resolveUserId(filters.facultyId);
+            whereClause.user_id = numericUserId;
+        }
+
+        const attendance = await Attendance.findAll({
+
+            where: whereClause,
+
+            include: [
+                {
+                    model: User,
+                    attributes: [
+                        "user_id",
+                        "full_name",
+                        "email",
+                        "uvfin"
+                    ]
+                },
+                {
+                    model: Allocation,
+                    attributes: [
+                        "allocation_id",
+                        "session_type",
+                        "rate_per_hour"
+                    ],
+                    include: [
+                        {
+                            model: Subject,
+                            attributes: [
+                                "subject_id",
+                                "subject_code",
+                                "subject_name"
+                            ]
+                        },
+                        {
+                            model: Course,
+                            attributes: [
+                                "course_id",
+                                "course_name"
+                            ]
+                        },
+                        {
+                            model: Semester,
+                            attributes: [
+                                "semester_id",
+                                "semester_number"
+                            ]
+                        },
+                        {
+                            model: Section,
+                            attributes: [
+                                "section_id",
+                                "section_name"
+                            ]
+                        }
+                    ]
+                }
+            ],
+
+            order: [
+                ["attendance_date", "DESC"],
+                ["start_time", "DESC"]
+            ]
+
+        });
+
+        return {
+            totalRecords: attendance.length,
+            data: attendance.map(flattenAttendance)
+        };
+
+    } catch (error) {
+
+        throw error;
+
+    }
+
+};
+
+// ==========================
+// Admin: Verify / Update Attendance Status
+// ==========================
+const verifyAttendance = async (attendanceId, status, remarks) => {
+
+    try {
+
+        const attendance = await Attendance.findByPk(attendanceId);
+
+        if (!attendance) {
+            throw new Error("Attendance record not found.");
+        }
+
+        const validStatuses = ['Present', 'Absent', 'Pending'];
+        if (!validStatuses.includes(status)) {
+            throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}.`);
+        }
+
+        await attendance.update({
+            status,
+            remarks: remarks !== undefined ? remarks : attendance.remarks
+        });
+
+        return attendance;
+
+    } catch (error) {
+
+        throw error;
+
+    }
+
+};
+
+// ==========================
+// Get Faculty Allocations
+// Returns all active subjects assigned to the faculty with
+// full Course, Semester, Section, Subject info.
+// Used by the frontend to populate the "Mark Attendance" form.
+// ==========================
+const getFacultyAllocations = async (facultyId) => {
+
+    try {
+
+        const numericUserId = await resolveUserId(facultyId);
+
+        const allocations = await Allocation.findAll({
+
+            where: {
+                user_id: numericUserId,
+                is_active: true
+            },
+
+            include: [
+                {
+                    model: Course,
+                    attributes: [
+                        "course_id",
+                        "course_name",
+                        "course_code"
+                    ]
+                },
+                {
+                    model: Semester,
+                    attributes: [
+                        "semester_id",
+                        "semester_number"
+                    ]
+                },
+                {
+                    model: Section,
+                    attributes: [
+                        "section_id",
+                        "section_name"
+                    ]
+                },
+                {
+                    model: Subject,
+                    attributes: [
+                        "subject_id",
+                        "subject_code",
+                        "subject_name"
+                    ]
+                }
+            ],
+
+            order: [
+                ["allocation_id", "ASC"]
+            ]
+
+        });
+
+        // Flatten into a clean, easy-to-use shape for the frontend
+        const result = allocations.map(a => ({
+            allocation_id:   a.allocation_id,
+            session_type:    a.session_type,
+            rate_per_hour:   a.rate_per_hour,
+            academic_year:   a.academic_year,
+            course_id:       a.Course   ? a.Course.course_id       : null,
+            course_name:     a.Course   ? a.Course.course_name     : null,
+            course_code:     a.Course   ? a.Course.course_code     : null,
+            semester_id:     a.Semester ? a.Semester.semester_id   : null,
+            semester_number: a.Semester ? a.Semester.semester_number : null,
+            section_id:      a.Section  ? a.Section.section_id     : null,
+            section_name:    a.Section  ? a.Section.section_name   : null,
+            subject_id:      a.Subject  ? a.Subject.subject_id     : null,
+            subject_code:    a.Subject  ? a.Subject.subject_code   : null,
+            subject_name:    a.Subject  ? a.Subject.subject_name   : null
+        }));
+
+        return {
+            faculty_id: numericUserId,
+            total: result.length,
+            allocations: result
+        };
+
+    } catch (error) {
+
+        throw error;
+
+    }
+
+};
+const getAttendanceByIdService = async (attendanceId) => {
+
+    const record = await Attendance.findByPk(attendanceId, {
+        include: [
+            {
+                model: User,
+                attributes: ["user_id", "full_name", "email", "uvfin"]
+            },
+            {
+                model: Allocation,
+                attributes: ["allocation_id", "session_type", "rate_per_hour"],
+                include: [
+                    { model: Course, attributes: ["course_id", "course_name", "course_code"] },
+                    { model: Semester, attributes: ["semester_id", "semester_number"] },
+                    { model: Section, attributes: ["section_id", "section_name"] },
+                    { model: Subject, attributes: ["subject_id", "subject_code", "subject_name"] }
+                ]
+            }
+        ]
+    });
+
+    if (!record) return null;
+
+    // Flatten for consistent output
+    return {
+        attendance_id:   record.attendance_id,
+        attendance_date: record.attendance_date,
+        start_time:      record.start_time,
+        end_time:        record.end_time,
+        hours:           record.hours,
+        status:          record.status,
+        remarks:         record.remarks,
+        month:           record.month,
+        year:            record.year,
+
+        // User
+        user_id:         record.User ? record.User.user_id : null,
+        full_name:       record.User ? record.User.full_name : null,
+        email:           record.User ? record.User.email : null,
+        uvfin:           record.User ? record.User.uvfin : null,
+
+        // Allocation details
+        allocation_id:   record.Allocation ? record.Allocation.allocation_id : null,
+        session_type:    record.Allocation ? record.Allocation.session_type : null,
+        rate_per_hour:   record.Allocation ? record.Allocation.rate_per_hour : null,
+
+        // Course
+        course_id:       record.Allocation?.Course ? record.Allocation.Course.course_id : null,
+        course_name:     record.Allocation?.Course ? record.Allocation.Course.course_name : null,
+        course_code:     record.Allocation?.Course ? record.Allocation.Course.course_code : null,
+
+        // Semester
+        semester_id:     record.Allocation?.Semester ? record.Allocation.Semester.semester_id : null,
+        semester_number: record.Allocation?.Semester ? record.Allocation.Semester.semester_number : null,
+
+        // Section
+        section_id:      record.Allocation?.Section ? record.Allocation.Section.section_id : null,
+        section_name:    record.Allocation?.Section ? record.Allocation.Section.section_name : null,
+
+        // Subject
+        subject_id:      record.Allocation?.Subject ? record.Allocation.Subject.subject_id : null,
+        subject_code:    record.Allocation?.Subject ? record.Allocation.Subject.subject_code : null,
+        subject_name:    record.Allocation?.Subject ? record.Allocation.Subject.subject_name : null
+    };
+
+};
+
+
 module.exports = {
     markAttendance,
     getDailyAttendance,
     getWeeklyAttendance,
     getMonthlyAttendance,
-    getAttendanceHistory
+    getAttendanceHistory,
+    getAdminAttendance,
+    verifyAttendance,
+    getFacultyAllocations,
+    getAttendanceByIdService
 };

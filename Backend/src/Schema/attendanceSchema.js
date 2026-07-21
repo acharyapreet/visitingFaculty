@@ -8,10 +8,10 @@ const Attendance = sequelize.define('Attendance', {
         autoIncrement: true
     },
     user_id: {
-        type: DataTypes.INTEGER(30),
+        type: DataTypes.INTEGER,
         allowNull: false,
         references: { model: 'users', key: 'user_id' }
-    }, 
+    },
     allocation_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -21,9 +21,29 @@ const Attendance = sequelize.define('Attendance', {
         type: DataTypes.DATEONLY,
         allowNull: false
     },
+    start_time: {
+        type: DataTypes.TIME,
+        allowNull: false
+    },
+    end_time: {
+        type: DataTypes.TIME,
+        allowNull: false
+    },
     hours: {
         type: DataTypes.DECIMAL(5, 2),
         allowNull: false
+    },
+    remarks: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    status: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        defaultValue: 'Pending',
+        validate: {
+            isIn: [['Present', 'Absent', 'Pending']]
+        }
     },
     month: {
         type: DataTypes.STRING(10),
