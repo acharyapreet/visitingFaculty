@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Topbar from "./Topbar";
-import { Download, Printer, ClipboardList } from "lucide-react"; // Added ClipboardList for the empty state
+import { Download, Printer, ClipboardList, CheckCircle2, XCircle, X } from "lucide-react"; // Added icons for Toast
 import axios from "axios";
 
 const tabs = ["General", "Security", "Audit Log"];
@@ -25,6 +25,18 @@ export default function Settings() {
   }, [activeTab]);
   // ------------------------------
 
+  // --- CUSTOM TOAST NOTIFICATION STATE ---
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    // Auto-hide after 3.5 seconds
+    setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 3500);
+  };
+  // ---------------------------------------
+
   const [auditFilter, setAuditFilter] = useState("Select...");
   const [logs, setLogs] = useState([]);
 
@@ -48,14 +60,14 @@ export default function Settings() {
   });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
-  // Pre-fill profile data from current session on load
+  // Pre-fill profile data from current session on load, leaving empty if no data exists
   useEffect(() => {
     const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-    if (session) {
+    if (session && Object.keys(session).length > 0) {
       setProfileData({
-        full_name: session.name || session.full_name || "Super Admin",
-        email: session.email || "superadmin@davv.ac.in",
-        phone_number: session.phone_number || "+91 73123 00000"
+        full_name: session.name || session.full_name || "",
+        email: session.email || "",
+        phone_number: session.phone_number || ""
       });
     }
   }, []);
@@ -66,7 +78,6 @@ export default function Settings() {
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
       
-      // FIX: Added session.userId to catch the camelCase key
       const currentUserId = session.userId || session.user_id || session.id; 
       
       if (!session.token || !currentUserId) {
@@ -80,13 +91,13 @@ export default function Settings() {
       );
 
       if (response.data.success) {
-        alert("Profile updated successfully!");
+        showToast("Profile updated successfully!", "success");
         session.name = profileData.full_name;
         localStorage.setItem('iipsCurrentSession', JSON.stringify(session));
       }
     } catch (err) {
       console.error("Error updating profile:", err);
-      alert(err.response?.data?.message || err.message || "Failed to update profile.");
+      showToast(err.response?.data?.message || err.message || "Failed to update profile.", "error");
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -94,18 +105,20 @@ export default function Settings() {
 
 // --- 2. CHANGE PASSWORD HANDLER ---
   const handleChangePassword = async () => {
+    if (!passwords.currentPassword || !passwords.newPassword || !passwords.confirmPassword) {
+      return showToast("Please fill in all password fields.", "error");
+    }
     if (passwords.newPassword !== passwords.confirmPassword) {
-      return alert("New passwords do not match!");
+      return showToast("New passwords do not match!", "error");
     }
     if (passwords.newPassword.length < 8) {
-      return alert("New password must be at least 8 characters.");
+      return showToast("New password must be at least 8 characters.", "error");
     }
 
     setIsUpdatingPassword(true);
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
       
-      // FIX: Added session.userId to catch the camelCase key
       const currentUserId = session.userId || session.user_id || session.id;
 
       if (!session.token || !currentUserId) {
@@ -115,7 +128,7 @@ export default function Settings() {
       const response = await axios.put(
         `http://localhost:5000/api/auth/changePassword`,
         {
-          user_id: currentUserId, // Backend still expects the snake_case 'user_id' in the body!
+          user_id: currentUserId,
           oldPassword: passwords.currentPassword,
           newPassword: passwords.newPassword
         },
@@ -123,12 +136,12 @@ export default function Settings() {
       );
 
       if (response.data.success) {
-        alert("Password changed successfully!");
+        showToast("Password changed successfully!", "success");
         setPasswords({ currentPassword: "", newPassword: "", confirmPassword: "" }); 
       }
     } catch (err) {
       console.error("Error changing password:", err);
-      alert(err.response?.data?.message || err.message || "Failed to change password.");
+      showToast(err.response?.data?.message || err.message || "Failed to change password.", "error");
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -203,6 +216,32 @@ export default function Settings() {
         }
       `}</style>
 
+      {/* --- FLOATING TOAST NOTIFICATION --- */}
+      {toast.show && (
+        <div className={`fixed top-6 right-6 z-[9999] flex items-center gap-3 px-4 py-3.5 rounded-xl shadow-xl border animate-in slide-in-from-top-4 fade-in duration-300 ${
+          toast.type === "success" 
+            ? "bg-white border-green-100 text-green-800" 
+            : "bg-white border-red-100 text-red-800"
+        }`}>
+          {toast.type === "success" ? (
+            <div className="bg-green-100 text-green-600 rounded-full p-1">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+          ) : (
+            <div className="bg-red-100 text-red-600 rounded-full p-1">
+              <XCircle className="w-5 h-5" />
+            </div>
+          )}
+          <p className="text-sm font-semibold pr-4">{toast.message}</p>
+          <button 
+            onClick={() => setToast({ ...toast, show: false })} 
+            className="text-gray-400 hover:text-gray-600 transition-colors ml-auto"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       <div className="no-print">
         <Topbar 
             title="Settings" 
@@ -249,7 +288,8 @@ export default function Settings() {
                   <input 
                     value={profileData.full_name} 
                     onChange={(e) => setProfileData({ ...profileData, full_name: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" 
+                    placeholder="Enter full name"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400" 
                   />
                 </div>
                 
@@ -258,7 +298,8 @@ export default function Settings() {
                   <input 
                     value={profileData.email} 
                     onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" 
+                    placeholder="Enter email address"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400" 
                   />
                 </div>
                 
@@ -267,7 +308,8 @@ export default function Settings() {
                   <input 
                     value={profileData.phone_number} 
                     onChange={(e) => setProfileData({ ...profileData, phone_number: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" 
+                    placeholder="Enter mobile number"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400" 
                   />
                 </div>
                 
@@ -412,7 +454,6 @@ export default function Settings() {
             </div>
 
             <div className="overflow-x-auto">
-              {/* FIX: Beautiful Empty State if no logs exist */}
               {logs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200 mt-2">
                   <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">

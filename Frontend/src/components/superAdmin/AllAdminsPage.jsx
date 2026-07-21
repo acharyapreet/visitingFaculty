@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from "react";
 import Topbar from "./Topbar";
-import { Users, UserCheck, ClipboardList, Download, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Users, UserCheck, ClipboardList, Download, ChevronLeft, ChevronRight, Loader2, Eye, CheckCircle, X, AlertCircle } from "lucide-react";
 import axios from "axios";
 
-// Add onNavigate prop to handle Topbar badge clicks
 export default function AllAdminsPage({ onNavigate }) {
   const [admins, setAdmins] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState(""); // State for search
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const recordsPerPage = 5;
+
+  // Modal & Action states
+  const [selectedAdmin, setSelectedAdmin] = useState(null);
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
 
   useEffect(() => {
     fetchAllAdmins();
@@ -27,46 +34,109 @@ export default function AllAdminsPage({ onNavigate }) {
     }
   };
 
+  // --- TOGGLE ACTIVE/INACTIVE STATUS ---
+  const handleToggleStatus = async () => {
+    if (!selectedAdmin) return;
+    setIsTogglingStatus(true);
+    
+    try {
+      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+      // Default to true if is_active is undefined in your DB schema
+      const currentlyActive = selectedAdmin.is_active !== false; 
+      const action = currentlyActive ? 'deactivate' : 'activate';
+      const targetId = selectedAdmin.user_id;
+
+      await axios.put(
+        `http://localhost:5000/api/account-status/super_admin/admin/${targetId}/${action}`, 
+        {}, 
+        { headers: { 'Authorization': `Bearer ${session.token}` } }
+      );
+
+      // Instantly update the local state so the UI reflects the change without a full reload
+      const updatedAdmin = { ...selectedAdmin, is_active: !currentlyActive };
+      setSelectedAdmin(updatedAdmin);
+      setAdmins(admins.map(a => a.user_id === targetId ? updatedAdmin : a));
+
+    } catch (err) {
+      console.error(`Error trying to ${selectedAdmin.is_active !== false ? 'deactivate' : 'activate'} admin:`, err);
+      alert("Failed to update admin account status.");
+    } finally {
+      setIsTogglingStatus(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? dateString : date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
   // Filter admins based on the search term
   const filteredAdmins = admins.filter(admin => {
     if (!searchTerm) return true;
     const adminName = admin.full_name || "";
-    return adminName.toLowerCase().includes(searchTerm.toLowerCase());
+    const adminEmail = admin.email || "";
+    return adminName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+           adminEmail.toLowerCase().includes(searchTerm.toLowerCase());
   });
+
+  // Pagination Logic
+  const indexOfLastRecord = currentPage * recordsPerPage;
+  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
+  const currentRecords = filteredAdmins.slice(indexOfFirstRecord, indexOfLastRecord);
+  const totalPages = Math.ceil(filteredAdmins.length / recordsPerPage);
+
+  // Modal Handlers
+  const openModal = (admin) => {
+    setSelectedAdmin(admin);
+  };
+
+  const closeModal = () => {
+    setSelectedAdmin(null);
+  };
 
   // --- CSV Export Logic ---
   const exportToCSV = () => {
-    const headers = ["Name", "Email", "User ID", "Department", "Role", "Status"];
+    const headers = ["Name", "Email", "Department", "Approved On", "Role", "Status"];
     
-    // Export only the filtered list
     const csvContent = [
       headers.join(","),
-      ...filteredAdmins.map(a => [a.full_name, a.email, a.user_id, a.department, a.role, a.status].join(","))
+      ...filteredAdmins.map(a => [
+        a.full_name, 
+        a.email, 
+        a.department || "N/A", 
+        formatDate(a.updated_at || a.created_at), 
+        "Admin",
+        a.is_active !== false ? "Active" : "Inactive"
+      ].join(","))
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `admins_list_${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}.csv`;
+    a.download = `approved_admins_list_${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}.csv`;
     a.click();
   };
 
   // Calculate Stats Dynamically based on TOTAL fetched admins
   const totalAdmins = admins.length;
-  const activeAdmins = admins.filter(a => a.status === 'approved' || a.is_approved).length;
-  const pendingAdmins = admins.filter(a => a.status === 'pending').length;
+  const activeAdmins = admins.filter(a => a.is_active !== false).length;
+  const pendingAdmins = 0; // Since this endpoint only fetches approved, this is 0 visually.
 
   return (
-    <div className="flex-1 bg-gray-50 min-h-screen">
+    <div className="flex-1 bg-gray-50 min-h-screen relative overflow-hidden">
       <Topbar 
         title="All Admin Accounts" 
         subtitle="Active and approved VFM System administrators"
-        onPendingClick={() => onNavigate("pending")} // Navigates to pending page
-        onSearch={(value) => setSearchTerm(value)} // Updates search state
+        onPendingClick={() => onNavigate("pending")} 
+        onSearch={(value) => {
+          setSearchTerm(value);
+          setCurrentPage(1); // Reset to page 1 on search
+        }} 
       />
       
-      <div className="px-8 py-8">
+      <div className="px-8 py-8 pb-24">
         <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-1">All Admin Accounts</h1>
@@ -74,7 +144,7 @@ export default function AllAdminsPage({ onNavigate }) {
           </div>
           <button 
             onClick={exportToCSV}
-            className="flex items-center gap-2 border border-gray-200 rounded-full px-5 py-2.5 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 border border-gray-200 rounded-full px-5 py-2.5 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm"
           >
             <Download className="w-4 h-4" /> Export
           </button>
@@ -89,48 +159,71 @@ export default function AllAdminsPage({ onNavigate }) {
 
         {/* Table card */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <div className="overflow-x-auto min-h-[300px]">
+          <div className="overflow-x-auto min-h-[400px]">
             {isLoading ? (
-              <div className="flex justify-center py-20"><Loader2 className="animate-spin w-8 h-8 text-purple-600" /></div>
+              <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                <Loader2 className="animate-spin w-8 h-8 text-[#004DD2] mb-3" />
+                Loading records...
+              </div>
             ) : (
               <table className="w-full text-left">
                 <thead>
-                  <tr className="text-xs font-semibold text-gray-400 border-b border-gray-100">
+                  <tr className="text-xs font-semibold text-gray-400 border-b border-gray-100 uppercase tracking-wider">
                     <th className="py-3 pr-4">ADMIN NAME</th>
-                    <th className="py-3 pr-4">USER ID</th>
-                    <th className="py-3 pr-4">DEPARTMENT</th>
+                    <th className="py-3 pr-4">APPROVED ON</th>
+                    <th className="py-3 pr-4">ROLE</th>
                     <th className="py-3 pr-4">STATUS</th>
+                    <th className="py-3 pr-4">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAdmins.length > 0 ? (
-                    filteredAdmins.map((a) => (
-                      <tr key={a.user_id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
-                        <td className="py-4 pr-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-semibold text-sm uppercase">
-                              {a.full_name ? a.full_name[0] : 'A'}
+                  {currentRecords.length > 0 ? (
+                    currentRecords.map((a) => {
+                      const isActive = a.is_active !== false;
+                      return (
+                        <tr key={a.user_id || a.email} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors align-middle">
+                          <td className="py-4 pr-4">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm uppercase shrink-0 ${isActive ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-500'}`}>
+                                {a.full_name ? a.full_name[0] : 'A'}
+                              </div>
+                              <div>
+                                <div className={`font-semibold text-sm ${isActive ? 'text-gray-900' : 'text-gray-500 line-through decoration-gray-300'}`}>
+                                  {a.full_name || "Unknown"}
+                                </div>
+                                <div className="text-gray-400 text-xs">{a.email || "No email provided"}</div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="font-semibold text-gray-900 text-sm">{a.full_name}</div>
-                              <div className="text-gray-400 text-xs">{a.email}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-4 pr-4 text-purple-600 font-semibold text-sm">{a.user_id}</td>
-                        <td className="py-4 pr-4 text-gray-700 text-sm">{a.department || 'N/A'}</td>
-                        <td className="py-4 pr-4">
-                          <span className={`text-xs font-semibold px-3 py-1 rounded-full capitalize ${
-                            a.status === 'approved' || a.is_approved ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
-                          }`}>
-                            {a.status || (a.is_approved ? 'approved' : 'pending')}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td className="py-4 pr-4 text-gray-700 text-sm font-medium">
+                            {formatDate(a.updated_at || a.created_at)}
+                          </td>
+                          <td className="py-4 pr-4">
+                            <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200 inline-block">
+                              Admin
+                            </span>
+                          </td>
+                          <td className="py-4 pr-4">
+                            <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border inline-block ${
+                              isActive ? 'bg-green-50 text-green-600 border-green-200' : 'bg-slate-100 text-slate-500 border-slate-200'
+                            }`}>
+                              {isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="py-4 pr-4">
+                            <button 
+                              onClick={() => openModal(a)}
+                              className="flex items-center gap-1.5 text-gray-500 text-sm font-medium hover:text-gray-900 transition-colors bg-white border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 shadow-sm"
+                            >
+                              <Eye className="w-4 h-4" /> Details
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan="4" className="py-12 text-center text-gray-500 text-sm">
+                      <td colSpan="5" className="py-16 text-center text-gray-500 text-sm">
                         No administrators found matching "{searchTerm}".
                       </td>
                     </tr>
@@ -139,8 +232,134 @@ export default function AllAdminsPage({ onNavigate }) {
               </table>
             )}
           </div>
+          
+          {/* Functional Pagination Bar */}
+          {!isLoading && filteredAdmins.length > 0 && (
+            <div className="mt-6 border-t border-gray-100 pt-4 flex items-center justify-between">
+              <div className="text-sm text-gray-400">
+                Showing {indexOfFirstRecord + 1} to {Math.min(indexOfLastRecord, filteredAdmins.length)} of {filteredAdmins.length} records
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="flex gap-1">
+                  {[...Array(totalPages)].map((_, i) => (
+                    <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-7 h-7 rounded-full text-xs font-bold transition-colors ${ currentPage === i + 1 ? "bg-[#004DD2] text-white" : "text-gray-500 hover:bg-gray-100" }`}>
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* --- DETAILS MODAL --- */}
+      {selectedAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <div className="flex items-start justify-between p-6 border-b border-gray-100">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Admin Application Details</h2>
+                <p className="text-sm text-gray-500 mt-1">Ref: {selectedAdmin.user_id || 'AR00X'} - Submitted {formatDate(selectedAdmin.created_at || selectedAdmin.submitted_date)}</p>
+              </div>
+              <button onClick={closeModal} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <p className="text-xs text-gray-400 mb-1">Full Name</p>
+                  <p className="text-sm font-semibold text-gray-900">{selectedAdmin.full_name || 'Unknown'}</p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <p className="text-xs text-gray-400 mb-1">Email Address</p>
+                  <p className="text-sm font-semibold text-gray-900">{selectedAdmin.email || 'Unknown'}</p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <p className="text-xs text-gray-400 mb-1">Mobile</p>
+                  <p className="text-sm font-semibold text-gray-900">{selectedAdmin.phone_number || 'Unknown'}</p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <p className="text-xs text-gray-400 mb-1">Designation</p>
+                  <p className="text-sm font-semibold text-gray-900">Admin</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{selectedAdmin.department || 'N/A'}</p>
+                </div>
+              </div>
+
+              {/* DYNAMIC STATUS BOX based on Active/Inactive */}
+              {selectedAdmin.is_active !== false ? (
+                <div className="mb-6 border-2 border-green-200 bg-green-50/30 rounded-xl p-4 flex items-center gap-4 shadow-sm">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-green-100 text-green-600">
+                    <CheckCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5 text-green-600">
+                      Active Admin
+                    </p>
+                    <p className="text-sm font-bold text-[#1F2937]">
+                      {selectedAdmin.full_name || 'Admin Candidate'}
+                    </p>
+                    <p className="text-[10px] mt-0.5 font-medium text-green-600">
+                      This admin account is active and has full portal access.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-6 border-2 border-slate-200 bg-slate-50/50 rounded-xl p-4 flex items-center gap-4 shadow-sm">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-slate-200 text-slate-500">
+                    <AlertCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5 text-slate-500">
+                      Inactive Admin
+                    </p>
+                    <p className="text-sm font-bold text-[#1F2937]">
+                      {selectedAdmin.full_name || 'Admin Candidate'}
+                    </p>
+                    <p className="text-[10px] mt-0.5 font-medium text-slate-500">
+                      This admin account is deactivated. Portal access is currently restricted.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+              
+              <button 
+                onClick={handleToggleStatus}
+                disabled={isTogglingStatus}
+                className={`px-5 py-2.5 text-sm font-semibold rounded-full transition-colors flex items-center gap-2 border bg-white shadow-sm disabled:opacity-50 ${
+                  selectedAdmin.is_active !== false 
+                    ? 'border-red-200 text-red-600 hover:bg-red-50' 
+                    : 'border-green-200 text-green-600 hover:bg-green-50'
+                }`}
+              >
+                {isTogglingStatus && <Loader2 className="w-4 h-4 animate-spin" />}
+                {!isTogglingStatus && (selectedAdmin.is_active !== false ? <AlertCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />)}
+                {selectedAdmin.is_active !== false ? "Deactivate Account" : "Activate Account"}
+              </button>
+
+              <button 
+                onClick={closeModal}
+                className="px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                Close
+              </button>
+
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
