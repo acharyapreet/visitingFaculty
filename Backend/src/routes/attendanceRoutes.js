@@ -2,94 +2,106 @@ const express = require("express");
 const router  = express.Router();
 
 const {
-    markAttendanceController,
-    getDailyAttendanceController,
-    getWeeklyAttendanceController,
-    getMonthlyAttendanceController,
-    attendanceHistoryController,
-    getAdminAttendanceController,
-    verifyAttendanceController,
-    getFacultyAllocationsController,
-    getAttendanceByIdStrictController,
-    getAttendanceByIdController
+    // ── Mark (write) controllers ────────────────────────────────
+    markAttendanceController,          // POST /               (generic / legacy)
+    markDailyAttendanceController,     // POST /mark/daily
+    markWeeklyAttendanceController,    // POST /mark/weekly
+    markMonthlyAttendanceController,   // POST /mark/monthly
+
+    // ── View (read) controllers ─────────────────────────────────
+    getDailyAttendanceController,      // GET  /daily/:facultyId?date=
+    getWeeklyAttendanceController,     // GET  /weekly/:facultyId?date=
+    getMonthlyAttendanceController,    // GET  /monthly/:facultyId?month=&year=
+    attendanceHistoryController,       // GET  /history/:facultyId
+
+    // ── Faculty utility ─────────────────────────────────────────
+    getFacultyAllocationsController,   // GET  /my-allocations/:facultyId
+
+    // ── Admin ────────────────────────────────────────────────────
+    getAdminAttendanceController,      // GET  /admin
+    verifyAttendanceController,        // PATCH /verify/:attendanceId
+
+    // ── Record lookup ────────────────────────────────────────────
+    getAttendanceByIdStrictController, // GET  /record/:attendanceId
+    getAttendanceByIdController        // GET  /:attendanceId  (smart)
 } = require("../controller/attendanceController");
 
 // ============================================================
-// Faculty Routes
+// ■  FACULTY — MARK ATTENDANCE  (Write / POST)
 // ============================================================
 
-// POST   /attendance/         — Mark attendance (with start_time, end_time, remarks, status)
-router.post(
-    "/",
-    markAttendanceController
-);
+// Generic mark (supports attendance_period in body; defaults to 'daily')
+// POST /api/attendance/
+router.post("/", markAttendanceController);
 
-// GET    /attendance/daily/:facultyId
-router.get(
-    "/daily/:facultyId",
-    getDailyAttendanceController
-);
-
-// GET    /attendance/weekly/:facultyId
-router.get(
-    "/weekly/:facultyId",
-    getWeeklyAttendanceController
-);
-
-// GET    /attendance/monthly/:facultyId?month=&year=
-router.get(
-    "/monthly/:facultyId",
-    getMonthlyAttendanceController
-);
-
-// GET    /attendance/history/:facultyId
-router.get(
-    "/history/:facultyId",
-    attendanceHistoryController
-);
-
-// GET    /attendance/my-allocations/:facultyId
-// Returns all active subjects allocated to this faculty
-// (with Course, Semester, Section, Subject details)
-// Use this to populate the Mark Attendance form dropdown
-router.get(
-    "/my-allocations/:facultyId",
-    getFacultyAllocationsController
-);
+// ── Period-specific mark endpoints ──────────────────────────
+//
+// POST /api/attendance/mark/daily
+//   Mark attendance for a single day.
+//   attendance_date defaults to today if omitted.
+//
+// POST /api/attendance/mark/weekly
+//   Mark attendance for a date within a week.
+//   week_number is auto-calculated from attendance_date if omitted.
+//
+// POST /api/attendance/mark/monthly
+//   Mark attendance for a date within a month.
+//   month + year are REQUIRED.
+//
+router.post("/mark/daily",   markDailyAttendanceController);
+router.post("/mark/weekly",  markWeeklyAttendanceController);
+router.post("/mark/monthly", markMonthlyAttendanceController);
 
 // ============================================================
-// Admin Routes
+// ■  FACULTY — VIEW ATTENDANCE  (Read / GET)
 // ============================================================
 
-// GET    /attendance/admin?facultyId=&month=&year=&status=
-// Admin can filter all attendance records
-router.get(
-    "/admin",
-    getAdminAttendanceController
-);
+// GET /api/attendance/daily/:facultyId?date=YYYY-MM-DD
+//   date optional — defaults to today
+router.get("/daily/:facultyId",   getDailyAttendanceController);
 
-// GET    /attendance/record/:attendanceId
-// Fetch a single attendance record by its numeric attendance_id
-// Example: GET /api/attendance/record/42
-router.get(
-    "/record/:attendanceId",
-    getAttendanceByIdStrictController
-);
+// GET /api/attendance/weekly/:facultyId?date=YYYY-MM-DD
+//   date optional — defaults to the current week
+router.get("/weekly/:facultyId",  getWeeklyAttendanceController);
 
-// PATCH  /attendance/verify/:attendanceId
-// Admin verifies/updates an attendance record's status
-// IMPORTANT: must be registered BEFORE the wildcard /:attendanceId
-router.patch(
-    "/verify/:attendanceId",
-    verifyAttendanceController
-);
+// GET /api/attendance/monthly/:facultyId?month=July&year=2026
+//   month + year REQUIRED
+router.get("/monthly/:facultyId", getMonthlyAttendanceController);
 
-// GET    /attendance/:attendanceId
-// Generic lookup: numeric  => single attendance record
-//                 non-numeric => faculty attendance history (by uvfin / user_id)
-router.get(
-    "/:attendanceId",
-    getAttendanceByIdController
-);
+// GET /api/attendance/history/:facultyId
+//   Full attendance history (all dates, all subjects)
+router.get("/history/:facultyId", attendanceHistoryController);
+
+// GET /api/attendance/my-allocations/:facultyId
+//   Returns all active subjects allocated to this faculty.
+//   Use to populate the Mark Attendance form dropdown.
+router.get("/my-allocations/:facultyId", getFacultyAllocationsController);
+
+// ============================================================
+// ■  ADMIN  (Read + Verify)
+// ============================================================
+
+// GET /api/attendance/admin
+//   Filters: ?facultyId=  ?month=  ?year=  ?status=  ?attendance_period=
+router.get("/admin", getAdminAttendanceController);
+
+// GET /api/attendance/record/:attendanceId
+//   Strict numeric lookup — 400 if non-numeric, 404 if not found
+// NOTE: must be registered BEFORE /:attendanceId (wildcard) to avoid conflict
+router.get("/record/:attendanceId", getAttendanceByIdStrictController);
+
+// PATCH /api/attendance/verify/:attendanceId
+//   Admin verifies/updates a record's status
+// NOTE: must be registered BEFORE /:attendanceId (wildcard)
+router.patch("/verify/:attendanceId", verifyAttendanceController);
+
+// ============================================================
+// ■  SMART LOOKUP  (must be LAST — wildcard catch-all)
+// ============================================================
+
+// GET /api/attendance/:attendanceId
+//   numeric  → single attendance record
+//   text     → faculty attendance history (uvfin or user_id string)
+router.get("/:attendanceId", getAttendanceByIdController);
 
 module.exports = router;

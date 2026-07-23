@@ -53,6 +53,22 @@ const Attendance = sequelize.define('Attendance', {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    // ── NEW: attendance period type ────────────────────────────────────────────
+    // 'daily'   → faculty marked attendance for a single day
+    // 'weekly'  → faculty marked attendance for a week range
+    // 'monthly' → faculty marked attendance for an entire month
+    attendance_period: {
+        type: DataTypes.ENUM('daily', 'weekly', 'monthly'),
+        allowNull: false,
+        defaultValue: 'daily',
+        comment: 'Granularity at which the faculty submitted this attendance record'
+    },
+    // ── NEW: ISO week number (1-53) — populated only for weekly submissions ────
+    week_number: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        comment: 'ISO week number (1-53) when attendance_period = weekly'
+    },
     entered_date: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
