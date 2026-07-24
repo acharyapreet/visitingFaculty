@@ -43,7 +43,8 @@ const UVFINBlocks = ({ uvfin }) => {
   );
 };
 
-export default function ViewBill() {
+// Accept an optional facultyUserId prop for Admin viewing
+export default function ViewBill({ facultyUserId }) {
   const [records, setRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showFilter, setShowFilter] = useState(false);
@@ -73,6 +74,43 @@ export default function ViewBill() {
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const years = [2024, 2025, 2026, 2027];
 
+  // 1. Fetch static profile data using the new API
+  const fetchFacultyProfile = async () => {
+    try {
+      const sessionStr = localStorage.getItem('iipsCurrentSession');
+      if (!sessionStr) return;
+      
+      const session = JSON.parse(sessionStr);
+      // Use the provided prop for admins, otherwise default to logged-in user
+      const targetId = facultyUserId || session.userId;
+
+      const response = await axios.get(`http://localhost:5000/api/admin/faculty/${targetId}`, {
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      });
+
+      if (response.data.success) {
+        const data = response.data.data;
+        setFacultyInfo(prev => ({
+          ...prev,
+          name: data.full_name || prev.name,
+          email: data.email || prev.email,
+          mobile: data.phone_number || prev.mobile,
+          address: data.address || prev.address,
+          qualification: data.qualification || prev.qualification,
+          aadhaar: data.aadhaar_no || prev.aadhaar,
+          account: data.account_no || prev.account,
+          bankName: data.bank_name || prev.bankName,
+          ifsc: data.ifsc_code || prev.ifsc,
+          pan: data.pan_card_no || prev.pan,
+          uvfin: data.uvfin || prev.uvfin,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching faculty profile:", error);
+    }
+  };
+
+  // 2. Fetch the attendance records
   const fetchMonthlyBill = async () => {
     setIsLoading(true);
     setShowFilter(false);
@@ -81,22 +119,7 @@ export default function ViewBill() {
       if (!sessionStr) return;
       
       const session = JSON.parse(sessionStr);
-      const targetId = session.userId;
-
-      setFacultyInfo(prev => ({ 
-        ...prev, 
-        name: session.fullName || session.name || "Visiting Faculty",
-        uvfin: session.uvfin || "",
-        email: session.email || "",
-        address: session.address || "",
-        mobile: session.mobile || "",
-        qualification: session.qualification || "",
-        bankName: session.bankName || "",
-        account: session.account || "",
-        ifsc: session.ifsc || "",
-        pan: session.pan || "",
-        aadhaar: session.aadhaar || ""
-      }));
+      const targetId = facultyUserId || session.userId;
 
       const response = await axios.get(`http://localhost:5000/api/attendance/monthly/${targetId}?month=${selectedMonth}&year=${selectedYear}`, {
         headers: { 'Authorization': `Bearer ${session.token}` }
@@ -106,6 +129,7 @@ export default function ViewBill() {
         const data = response.data.data || [];
         setRecords(data);
         
+        // Update dynamic academic info based on the first record found
         if (data.length > 0) {
           setFacultyInfo(prev => ({
             ...prev,
@@ -122,9 +146,15 @@ export default function ViewBill() {
     }
   };
 
+  // Run profile fetch once on mount or if the viewed faculty member changes
+  useEffect(() => {
+    fetchFacultyProfile();
+  }, [facultyUserId]);
+
+  // Run records fetch when dates or viewed user changes
   useEffect(() => {
     fetchMonthlyBill();
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, facultyUserId]);
 
   const aggregatedRecords = useMemo(() => {
     const grouped = {};
@@ -182,17 +212,9 @@ export default function ViewBill() {
           @media print {
             @page { size: A4; margin: 10mm; }
             
-            /* 1. Hide everything on the entire website by default */
-            body * {
-              visibility: hidden;
-            }
+            body * { visibility: hidden; }
+            #printable-bill, #printable-bill * { visibility: visible; }
             
-            /* 2. Make ONLY the printable bill and its contents visible */
-            #printable-bill, #printable-bill * {
-              visibility: visible;
-            }
-            
-            /* 3. Position the bill perfectly at the top-left of the page */
             #printable-bill {
               position: absolute;
               left: 0;
@@ -275,7 +297,6 @@ export default function ViewBill() {
 
         <div className="mt-6 flex flex-col gap-6 lg:flex-row print:mt-0 print:block">
           
-          {/* Main Document Viewer - Notice the ID added here for the print CSS */}
           <div id="printable-bill" className="flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print:overflow-visible mx-auto max-w-[210mm]">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-32 text-slate-500 print-hide">
@@ -297,13 +318,11 @@ export default function ViewBill() {
                 <div className={`mx-auto w-full min-h-[297mm] bg-white text-black print:block ${billPage === 1 ? 'block' : 'hidden'}`}>
                   <div className="text-[13px] leading-relaxed p-6">
                     
-                    {/* FIXED LAYOUT Header Section */}
                     <div className="relative mb-6 flex items-center justify-center min-h-[5rem]">
                       <div className="absolute left-0 top-1/2 -translate-y-1/2 h-20 w-20">
                         <img src={davvLogo} alt="DAVV Logo" className="h-full w-full object-contain grayscale" />
                       </div>
                       
-                      {/* px-24 ensures text never slides under the logo, forcing it to wrap safely if needed */}
                       <div className="text-center w-full px-24">
                         <p className="font-bold underline underline-offset-4 text-sm tracking-wide">ANNEXURE -IV</p>
                         <h1 className="mt-2 text-xl font-bold uppercase tracking-tight">DEVI AHILYA VISHWAVIDYALAYA, INDORE</h1>
@@ -330,30 +349,32 @@ export default function ViewBill() {
                     <div className="mb-6 space-y-4 text-[14px]">
                       <div className="flex items-end gap-2">
                         <span className="w-16 shrink-0 font-medium">Name</span>
-                        <span className="flex-1 border-b border-black pb-0.5 text-center font-semibold">
+                        <span className="flex-1 border-b border-black pb-0.5 text-left pl-2 font-semibold">
                           {facultyInfo.name}
                         </span>
                       </div>
                       <div className="flex items-end gap-2">
                         <span className="w-16 shrink-0 font-medium">Address</span>
-                        <span className="flex-1 border-b border-black pb-0.5 text-center font-semibold">
+                        <span className="flex-1 border-b border-black pb-0.5 text-left pl-2 font-semibold">
                           {facultyInfo.address || "\u00A0"}
                         </span>
                       </div>
                       <div className="flex items-end gap-4">
                         <div className="flex flex-1 items-end gap-2">
                           <span className="shrink-0 font-medium">Mob No.</span>
-                          <span className="flex-1 border-b border-black pb-0.5 text-center font-semibold">
+                          <span className="flex-1 border-b border-black pb-0.5 text-left pl-2 font-semibold">
                             {facultyInfo.mobile || "\u00A0"}
                           </span>
                         </div>
                         <div className="flex flex-1 items-end gap-2">
                           <span className="shrink-0 font-medium">Qualification</span>
-                          <span className="flex-1 border-b border-black pb-0.5 text-center font-semibold">
+                          <span className="flex-1 border-b border-black pb-0.5 text-left pl-2 font-semibold">
                             {facultyInfo.qualification || "\u00A0"}
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Leave your Date/Month row exactly as it is below this! */}
                       <div className="flex items-end justify-between gap-2 text-[13px]">
                         <div className="flex items-end gap-2">
                           <span className="font-medium">Month</span>
@@ -445,7 +466,7 @@ export default function ViewBill() {
                           <p>A/c No. <span className="border-b border-black inline-block w-48">{facultyInfo.account}</span></p>
                           <p>Bank Name <span className="border-b border-black inline-block w-44">{facultyInfo.bankName}</span><br/><span className="text-[10px] font-normal italic">(State bank of India Compulsory)</span></p>
                           <p>IFSC Code <span className="border-b border-black inline-block w-44">{facultyInfo.ifsc}</span></p>
-                          <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{facultyInfo.aadhaar ? "[Aadhaar Redacted]" : ""}</span></p>
+                          <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{facultyInfo.aadhaar}</span></p>
                         </div>
                         
                         <div className="mt-20 flex flex-col items-center font-bold text-[14px]">
@@ -483,7 +504,6 @@ export default function ViewBill() {
                       <UVFINBlocks uvfin={facultyInfo.uvfin} />
                     </div>
 
-                    {/* FIXED LAYOUT Header Section */}
                     <div className="relative mb-8 flex items-center justify-center min-h-[5rem]">
                       <div className="absolute left-0 top-1/2 -translate-y-1/2 h-20 w-20">
                         <img src={davvLogo} alt="DAVV Logo" className="h-full w-full object-contain grayscale" />
@@ -532,12 +552,6 @@ export default function ViewBill() {
                             <td className="border border-black p-2.5 text-left pl-4 font-semibold">{r.subject_name}</td>
                             <td className="border border-black p-2.5">{r.session_type || 'Theory'}</td>
                             <td className="border border-black p-2.5 font-bold">{parseFloat(r.hours)}</td>
-                          </tr>
-                        ))}
-                        {[...Array(Math.max(0, 5 - records.length))].map((_, i) => (
-                          <tr key={`empty-att-${i}`}>
-                            <td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td>
-                            <td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td>
                           </tr>
                         ))}
                       </tbody>
