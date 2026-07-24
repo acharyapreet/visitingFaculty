@@ -111,13 +111,14 @@ export default function FacultyDashboard({ onSignOut }) {
   const [isLoading, setIsLoading] = useState(true);
   
   const [facultyInfo, setFacultyInfo] = useState({
+    id: null,
     name: "Loading...",
+    role: "Faculty",
     month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
     session: "2026-27"
   });
 
-  // Fetch allocation data on mount
-  // Fetch allocation data on mount
+  // Fetch data on mount
   useEffect(() => {
     const fetchDashboardData = async () => {
       setIsLoading(true);
@@ -129,10 +130,7 @@ export default function FacultyDashboard({ onSignOut }) {
         }
 
         const session = JSON.parse(sessionStr);
-        
-        // Use the exact 'userId' key we saw in Local Storage
         const targetId = session.userId;
-        const targetName = session.fullName || session.name || "Visiting Faculty";
 
         if (!targetId) {
           console.error("No userId found in session!");
@@ -140,21 +138,50 @@ export default function FacultyDashboard({ onSignOut }) {
           return;
         }
 
+        // 1. Fetch Profile Details to get accurate Name/Role
+        let finalName = session.fullName || session.name || "Visiting Faculty";
+        let finalRole = session.role || "Faculty";
+
+        try {
+          const profileRes = await axios.get(`http://localhost:5000/api/admin/faculty/${targetId}`, {
+            headers: { 'Authorization': `Bearer ${session.token}` }
+          });
+          
+          if (profileRes.data.success) {
+            const data = profileRes.data.data;
+            finalName = data.full_name;
+            finalRole = data.role ? data.role.charAt(0).toUpperCase() + data.role.slice(1) : finalRole;
+
+            // Format with "Prof." if it doesn't already have a title
+            if (!finalName.toLowerCase().startsWith("dr.") && !finalName.toLowerCase().startsWith("prof.")) {
+              finalName = "Prof. " + finalName;
+            }
+          }
+        } catch (profileErr) {
+          console.error("Could not fetch profile details", profileErr);
+          // Fallback title formatting if API fails
+          if (finalName !== "Visiting Faculty" && !finalName.toLowerCase().startsWith("dr.") && !finalName.toLowerCase().startsWith("prof.")) {
+            finalName = "Prof. " + finalName;
+          }
+        }
+
         setFacultyInfo(prev => ({ 
           ...prev, 
           id: targetId,
-          name: targetName 
+          name: finalName,
+          role: finalRole
         }));
 
-        const response = await axios.get(`http://localhost:5000/api/attendance/my-allocations/${targetId}`, {
+        // 2. Fetch Allocations
+        const allocRes = await axios.get(`http://localhost:5000/api/attendance/my-allocations/${targetId}`, {
           headers: { 'Authorization': `Bearer ${session.token}` }
         });
 
-        if (response.data.success) {
-          if (response.data.allocations && response.data.allocations.length > 0) {
-            setFacultyInfo(prev => ({ ...prev, session: response.data.allocations[0].academic_year || prev.session }));
+        if (allocRes.data.success) {
+          if (allocRes.data.allocations && allocRes.data.allocations.length > 0) {
+            setFacultyInfo(prev => ({ ...prev, session: allocRes.data.allocations[0].academic_year || prev.session }));
           }
-          setAllocatedSubjects(response.data.allocations || []);
+          setAllocatedSubjects(allocRes.data.allocations || []);
         }
       } catch (error) {
         console.error("Error fetching dashboard allocations:", error);
@@ -186,7 +213,10 @@ export default function FacultyDashboard({ onSignOut }) {
       <Sidebar 
         onNavigate={setActiveTab} 
         currentView={activeTab} 
-        onSignOut={onSignOut} 
+        onSignOut={onSignOut}
+        // Pass dynamic data as props so it stays synced
+        facultyName={facultyInfo.name}
+        facultyRole={facultyInfo.role}
       />
       
       <div className="flex flex-1 flex-col min-w-0">
