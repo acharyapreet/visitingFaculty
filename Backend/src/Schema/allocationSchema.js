@@ -37,6 +37,8 @@ const Allocation = sequelize.define('Allocation', {
         allowNull: false
     },
     rate_per_hour: {
+        // Fixed rates: '200' (Practical) | '400' (Theory standard) | '800' (Theory senior)
+        // Stored as ENUM string — always parse with Number() before arithmetic
         type: DataTypes.ENUM('200', '400', '800'),
         allowNull: false
     },

@@ -80,6 +80,13 @@ class AllocationService {
             throw new Error('All required fields (Faculty, Course, Semester, Subject, Type, Rate, Academic Year) must be provided.');
         }
 
+        // rate_per_hour is stored as ENUM('200', '400', '800') — validate before DB insert
+        const VALID_RATES = ['200', '400', '800'];
+        const rateStr = String(rate_per_hour);
+        if (!VALID_RATES.includes(rateStr)) {
+            throw new Error(`Invalid rate_per_hour: "${rate_per_hour}". Allowed values are: ${VALID_RATES.join(', ')}.`);
+        }
+
         const allocation = await Allocation.create({
             user_id,
             course_id,
@@ -87,7 +94,7 @@ class AllocationService {
             section_id: section_id || null,
             subject_id,
             session_type,
-            rate_per_hour,
+            rate_per_hour: rateStr,   // always store as string to match ENUM type
             academic_year,
             created_by: adminUserId,
             is_active: true

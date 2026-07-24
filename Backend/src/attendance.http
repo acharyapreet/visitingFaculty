@@ -1,15 +1,622 @@
-### Mark Attendance
-POST http://localhost:5000/api/attendance
+### ============================================================
+### ATTENDANCE MODULE — Complete API Reference & Test File
+### Base URL : http://localhost:5000/api/attendance
+###
+### facultyId   = numeric user_id  OR  uvfin string (e.g. "VF-2024-001")
+### attendance_id = numeric primary key of the attendance table
+###
+### attendance_period values: "daily" | "weekly" | "monthly"
+###   ▸ daily   → faculty submits for a single day
+###   ▸ weekly  → faculty submits for a date within a week
+###   ▸ monthly → faculty submits for a date within a month
+###
+### Every record in `data[]` returns FLAT fields:
+###   subject_id, subject_code, subject_name
+###   course_id,  course_name,  course_code
+###   semester_id, semester_number
+###   section_id,  section_name
+###   allocation_id, session_type, rate_per_hour
+###   attendance_period, week_number
+### ============================================================
+
+
+# ╔══════════════════════════════════════════════════════════╗
+# ║           SECTION 1 — MARK ATTENDANCE (POST)            ║
+# ╚══════════════════════════════════════════════════════════╝
+
+### ----------------------------------------------------------
+### 1A. GENERIC — POST /api/attendance/
+###     Accepts any attendance_period in body (defaults 'daily')
+###     Also supports bulk array in the same request.
+### ----------------------------------------------------------
+
+### 1A-i. Single record (daily, explicit period)
+POST http://localhost:5000/api/attendance/
 Content-Type: application/json
 
 {
-    "user_id": "TEMP-123456",
-    "allocation_id": 1,
-    "attendance_date": "2026-07-11",
-    "hours": 2.5,
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "attendance_date": "2026-07-23",
+    "start_time": "09:00:00",
+    "end_time": "10:00:00",
+    "hours": 1,
+    "month": "July",
+    "year": 2026,
+    "attendance_period": "daily",
+    "status": "Pending",
+    "remarks": "Regular lecture"
+}
+
+###
+
+### 1A-ii. Single record using uvfin as user_id
+POST http://localhost:5000/api/attendance/
+Content-Type: application/json
+
+{
+    "user_id": "VF-2024-001",
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "attendance_date": "2026-07-23",
+    "start_time": "11:00:00",
+    "end_time": "12:00:00",
+    "hours": 1,
+    "month": "July",
+    "year": 2026,
+    "attendance_period": "daily"
+}
+
+###
+
+### 1A-iii. Bulk array (two records at once)
+POST http://localhost:5000/api/attendance/
+Content-Type: application/json
+
+[
+    {
+        "user_id": 3,
+        "course_id": 1,
+        "semester_id": 2,
+        "subject_id": 5,
+        "attendance_date": "2026-07-23",
+        "start_time": "09:00:00",
+        "end_time": "10:00:00",
+        "hours": 1,
+        "month": "July",
+        "year": 2026,
+        "attendance_period": "daily"
+    },
+    {
+        "user_id": 3,
+        "course_id": 1,
+        "semester_id": 2,
+        "subject_id": 6,
+        "attendance_date": "2026-07-23",
+        "start_time": "11:00:00",
+        "end_time": "12:00:00",
+        "hours": 1,
+        "month": "July",
+        "year": 2026,
+        "attendance_period": "daily"
+    }
+]
+
+###
+
+
+### ----------------------------------------------------------
+### 1B. DAILY — POST /api/attendance/mark/daily
+###     attendance_date defaults to TODAY if omitted.
+###     month + year are auto-derived from the date.
+### ----------------------------------------------------------
+
+### 1B-i. Mark today's attendance (attendance_date omitted → auto today)
+POST http://localhost:5000/api/attendance/mark/daily
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "start_time": "09:00:00",
+    "end_time": "10:00:00",
+    "hours": 1,
+    "status": "Pending",
+    "remarks": "Morning lecture"
+}
+
+###
+
+### 1B-ii. Mark a specific date's attendance
+POST http://localhost:5000/api/attendance/mark/daily
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "attendance_date": "2026-07-22",
+    "start_time": "14:00:00",
+    "end_time": "15:00:00",
+    "hours": 1,
+    "month": "July",
+    "year": 2026,
+    "status": "Pending",
+    "remarks": "Afternoon session"
+}
+
+###
+
+### 1B-iii. Bulk daily records (array)
+POST http://localhost:5000/api/attendance/mark/daily
+Content-Type: application/json
+
+[
+    {
+        "user_id": 3,
+        "course_id": 1,
+        "semester_id": 2,
+        "subject_id": 5,
+        "attendance_date": "2026-07-21",
+        "start_time": "09:00:00",
+        "end_time": "10:00:00",
+        "hours": 1
+    },
+    {
+        "user_id": 3,
+        "course_id": 1,
+        "semester_id": 2,
+        "subject_id": 6,
+        "attendance_date": "2026-07-21",
+        "start_time": "11:00:00",
+        "end_time": "12:00:00",
+        "hours": 1
+    }
+]
+
+###
+
+
+### ----------------------------------------------------------
+### 1C. WEEKLY — POST /api/attendance/mark/weekly
+###     week_number is auto-calculated from attendance_date if omitted.
+###     month + year are auto-derived from attendance_date if omitted.
+### ----------------------------------------------------------
+
+### 1C-i. Single weekly record (week_number auto-calculated)
+POST http://localhost:5000/api/attendance/mark/weekly
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "attendance_date": "2026-07-21",
+    "start_time": "09:00:00",
+    "end_time": "10:00:00",
+    "hours": 1,
+    "status": "Pending",
+    "remarks": "Week 30 lecture"
+}
+
+###
+
+### 1C-ii. Weekly with explicit week_number
+POST http://localhost:5000/api/attendance/mark/weekly
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "attendance_date": "2026-07-21",
+    "start_time": "11:00:00",
+    "end_time": "12:00:00",
+    "hours": 1,
+    "week_number": 30,
     "month": "July",
     "year": 2026
 }
 
-### Daily Attendance
-GET http://localhost:5000/api/attendance/daily/TEMP-123456
+###
+
+### 1C-iii. Bulk weekly records
+POST http://localhost:5000/api/attendance/mark/weekly
+Content-Type: application/json
+
+[
+    {
+        "user_id": 3,
+        "course_id": 1,
+        "semester_id": 2,
+        "subject_id": 5,
+        "attendance_date": "2026-07-20",
+        "start_time": "09:00:00",
+        "end_time": "10:00:00",
+        "hours": 1
+    },
+    {
+        "user_id": 3,
+        "course_id": 1,
+        "semester_id": 2,
+        "subject_id": 6,
+        "attendance_date": "2026-07-22",
+        "start_time": "14:00:00",
+        "end_time": "15:00:00",
+        "hours": 1
+    }
+]
+
+###
+
+
+### ----------------------------------------------------------
+### 1D. MONTHLY — POST /api/attendance/mark/monthly
+###     month + year are REQUIRED.
+### ----------------------------------------------------------
+
+### 1D-i. Single monthly record
+POST http://localhost:5000/api/attendance/mark/monthly
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "attendance_date": "2026-07-10",
+    "start_time": "09:00:00",
+    "end_time": "10:00:00",
+    "hours": 1,
+    "month": "July",
+    "year": 2026,
+    "status": "Pending",
+    "remarks": "Mid-month lecture"
+}
+
+###
+
+### 1D-ii. Monthly with uvfin
+POST http://localhost:5000/api/attendance/mark/monthly
+Content-Type: application/json
+
+{
+    "user_id": "VF-2024-001",
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "attendance_date": "2026-07-15",
+    "start_time": "14:00:00",
+    "end_time": "15:00:00",
+    "hours": 1,
+    "month": "July",
+    "year": 2026
+}
+
+###
+
+### 1D-iii. Bulk monthly records
+POST http://localhost:5000/api/attendance/mark/monthly
+Content-Type: application/json
+
+[
+    {
+        "user_id": 3,
+        "course_id": 1,
+        "semester_id": 2,
+        "subject_id": 5,
+        "attendance_date": "2026-07-01",
+        "start_time": "09:00:00",
+        "end_time": "10:00:00",
+        "hours": 1,
+        "month": "July",
+        "year": 2026
+    },
+    {
+        "user_id": 3,
+        "course_id": 1,
+        "semester_id": 2,
+        "subject_id": 6,
+        "attendance_date": "2026-07-02",
+        "start_time": "11:00:00",
+        "end_time": "12:00:00",
+        "hours": 1,
+        "month": "July",
+        "year": 2026
+    },
+    {
+        "user_id": 3,
+        "course_id": 1,
+        "semester_id": 2,
+        "subject_id": 5,
+        "attendance_date": "2026-07-03",
+        "start_time": "14:00:00",
+        "end_time": "15:00:00",
+        "hours": 1,
+        "month": "July",
+        "year": 2026
+    }
+]
+
+###
+
+
+# ╔══════════════════════════════════════════════════════════╗
+# ║       SECTION 2 — VIEW DAILY ATTENDANCE (GET)           ║
+# ╚══════════════════════════════════════════════════════════╝
+
+### 2A. Today's attendance — by numeric user_id
+GET http://localhost:5000/api/attendance/daily/3
+
+###
+
+### 2B. Today's attendance — by uvfin
+GET http://localhost:5000/api/attendance/daily/VF-2024-001
+
+###
+
+### 2C. Specific date — by numeric user_id
+GET http://localhost:5000/api/attendance/daily/3?date=2026-07-21
+
+###
+
+### 2D. Specific date — by uvfin
+GET http://localhost:5000/api/attendance/daily/VF-2024-001?date=2026-07-21
+
+###
+
+
+# ╔══════════════════════════════════════════════════════════╗
+# ║       SECTION 3 — VIEW WEEKLY ATTENDANCE (GET)          ║
+# ╚══════════════════════════════════════════════════════════╝
+
+### 3A. Current week — by numeric user_id (no date → uses today)
+GET http://localhost:5000/api/attendance/weekly/3
+
+###
+
+### 3B. Current week — by uvfin
+GET http://localhost:5000/api/attendance/weekly/VF-2024-001
+
+###
+
+### 3C. Specific week containing a date — by user_id
+###     Returns Mon-Sun range of the ISO week containing 2026-07-21
+GET http://localhost:5000/api/attendance/weekly/3?date=2026-07-21
+
+###
+
+### 3D. Specific week — by uvfin
+GET http://localhost:5000/api/attendance/weekly/VF-2024-001?date=2026-07-21
+
+###
+
+
+# ╔══════════════════════════════════════════════════════════╗
+# ║      SECTION 4 — VIEW MONTHLY ATTENDANCE (GET)          ║
+# ╚══════════════════════════════════════════════════════════╝
+
+### 4A. Monthly by numeric user_id
+GET http://localhost:5000/api/attendance/monthly/3?month=July&year=2026
+
+###
+
+### 4B. Monthly by uvfin
+GET http://localhost:5000/api/attendance/monthly/VF-2024-001?month=July&year=2026
+
+###
+
+### 4C. Different month/year
+GET http://localhost:5000/api/attendance/monthly/3?month=June&year=2026
+
+###
+
+
+# ╔══════════════════════════════════════════════════════════╗
+# ║           SECTION 5 — ATTENDANCE HISTORY (GET)          ║
+# ╚══════════════════════════════════════════════════════════╝
+
+### 5A. Full history by numeric user_id
+GET http://localhost:5000/api/attendance/history/3
+
+###
+
+### 5B. Full history by uvfin
+GET http://localhost:5000/api/attendance/history/VF-2024-001
+
+###
+
+
+# ╔══════════════════════════════════════════════════════════╗
+# ║         SECTION 6 — MY ALLOCATIONS / SUBJECTS (GET)     ║
+# ╚══════════════════════════════════════════════════════════╝
+
+### 6A. Get faculty allocations (to populate mark-attendance form)
+GET http://localhost:5000/api/attendance/my-allocations/3
+
+###
+
+### 6B. By uvfin
+GET http://localhost:5000/api/attendance/my-allocations/VF-2024-001
+
+###
+
+
+# ╔══════════════════════════════════════════════════════════╗
+# ║       SECTION 7 — SINGLE RECORD LOOKUP (GET)            ║
+# ╚══════════════════════════════════════════════════════════╝
+
+### 7A. Strict lookup by attendance_id  (400 if non-numeric, 404 if missing)
+GET http://localhost:5000/api/attendance/record/1
+
+###
+
+### 7B. Another strict lookup
+GET http://localhost:5000/api/attendance/record/42
+
+###
+
+### 7C. Smart lookup — numeric → single record
+GET http://localhost:5000/api/attendance/1
+
+###
+
+### 7D. Smart lookup — text → faculty history
+GET http://localhost:5000/api/attendance/VF-2024-001
+
+###
+
+
+# ╔══════════════════════════════════════════════════════════╗
+# ║             SECTION 8 — ADMIN ENDPOINTS                 ║
+# ╚══════════════════════════════════════════════════════════╝
+
+### 8A. Get ALL attendance (no filters)
+GET http://localhost:5000/api/attendance/admin
+
+###
+
+### 8B. Filter by facultyId (numeric)
+GET http://localhost:5000/api/attendance/admin?facultyId=3
+
+###
+
+### 8C. Filter by uvfin
+GET http://localhost:5000/api/attendance/admin?facultyId=VF-2024-001
+
+###
+
+### 8D. Filter by month + year
+GET http://localhost:5000/api/attendance/admin?month=July&year=2026
+
+###
+
+### 8E. Filter by status
+GET http://localhost:5000/api/attendance/admin?status=Pending
+
+###
+
+### 8F. Filter by attendance_period (new!)
+GET http://localhost:5000/api/attendance/admin?attendance_period=daily
+
+###
+
+### 8G. Filter by attendance_period = weekly
+GET http://localhost:5000/api/attendance/admin?attendance_period=weekly
+
+###
+
+### 8H. Filter by attendance_period = monthly
+GET http://localhost:5000/api/attendance/admin?attendance_period=monthly
+
+###
+
+### 8I. Combine multiple filters
+GET http://localhost:5000/api/attendance/admin?facultyId=3&month=July&year=2026&status=Pending&attendance_period=daily
+
+###
+
+
+# ╔══════════════════════════════════════════════════════════╗
+# ║        SECTION 9 — ADMIN VERIFY / APPROVE (PATCH)       ║
+# ╚══════════════════════════════════════════════════════════╝
+
+### 9A. Approve (mark as Present)
+PATCH http://localhost:5000/api/attendance/verify/1
+Content-Type: application/json
+
+{
+    "status": "Present",
+    "remarks": "Verified by admin"
+}
+
+###
+
+### 9B. Mark as Absent
+PATCH http://localhost:5000/api/attendance/verify/1
+Content-Type: application/json
+
+{
+    "status": "Absent",
+    "remarks": "Faculty was absent on this date"
+}
+
+###
+
+### 9C. Reset to Pending
+PATCH http://localhost:5000/api/attendance/verify/1
+Content-Type: application/json
+
+{
+    "status": "Pending"
+}
+
+###
+
+
+# ╔══════════════════════════════════════════════════════════╗
+# ║           SECTION 10 — VALIDATION / ERROR TESTS         ║
+# ╚══════════════════════════════════════════════════════════╝
+
+### 10A. Missing required fields (daily) → expect 400
+POST http://localhost:5000/api/attendance/mark/daily
+Content-Type: application/json
+
+{
+    "user_id": 3
+}
+
+###
+
+### 10B. Missing month+year (monthly) → expect 400
+POST http://localhost:5000/api/attendance/mark/monthly
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "attendance_date": "2026-07-10",
+    "start_time": "09:00:00",
+    "end_time": "10:00:00",
+    "hours": 1
+}
+
+###
+
+### 10C. Non-numeric attendance_id (strict) → expect 400
+GET http://localhost:5000/api/attendance/record/abc
+
+###
+
+### 10D. Non-existent attendance_id (strict) → expect 404
+GET http://localhost:5000/api/attendance/record/999999
+
+###
+
+### 10E. Faculty not found → expect 500
+GET http://localhost:5000/api/attendance/daily/INVALID-ID
+
+###
+
+### 10F. Verify without status → expect 400
+PATCH http://localhost:5000/api/attendance/verify/1
+Content-Type: application/json
+
+{}
+
+###
+
+### 10G. Monthly filter missing month → still returns results filtered by year only
+GET http://localhost:5000/api/attendance/monthly/3?year=2026
+
+###

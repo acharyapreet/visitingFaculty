@@ -33,6 +33,21 @@ const resolveUserId = async (facultyId) => {
 };
 
 // ==========================
+// Helper: auto-calculate hours from HH:MM:SS start/end times
+// Matches the "Total Hours (Auto Calculated)" field in the Figma List View.
+// Returns a DECIMAL(5,2) compatible float, e.g. 1.5 for 90 minutes.
+// ==========================
+const calcHours = (start_time, end_time) => {
+    const toMinutes = (t) => {
+        const [h, m] = String(t).split(':').map(Number);
+        return h * 60 + (m || 0);
+    };
+    const diff = toMinutes(end_time) - toMinutes(start_time);
+    if (diff <= 0) throw new Error('end_time must be after start_time.');
+    return parseFloat((diff / 60).toFixed(2));
+};
+
+// ==========================
 // Helper: get ISO week number for a given Date
 // ==========================
 const getISOWeekNumber = (date) => {
@@ -75,7 +90,7 @@ const flattenAttendance = (item) => {
         attendance_date:   item.attendance_date,
         start_time:        item.start_time,
         end_time:          item.end_time,
-        hours:             item.hours,
+        hours:             Number(item.hours),
         status:            item.status,
         remarks:           item.remarks,
         month:             item.month,
@@ -94,7 +109,8 @@ const flattenAttendance = (item) => {
         // --- Allocation ---
         allocation_id:   alloc.allocation_id   ?? null,
         session_type:    alloc.session_type    ?? null,
-        rate_per_hour:   alloc.rate_per_hour   ?? null,
+        // rate_per_hour is ENUM('200','400','800') — always return as Number
+        rate_per_hour:   alloc.rate_per_hour != null ? Number(alloc.rate_per_hour) : null,
 
         // --- Course ---
         course_id:       alloc.Course?.course_id       ?? null,
@@ -118,29 +134,52 @@ const flattenAttendance = (item) => {
 
 // ==========================
 // Helper: find active allocation for a faculty + course/semester/subject
+//
+// Accepts:
+//   allocation_id  (optional) — pass it directly from the frontend to skip the
+//                               course/semester/subject lookup entirely. Fastest path.
+//   course_id      (optional) — used for lookup when allocation_id is unknown
+//   semester_id    (optional) — used for lookup
+//   section_id     (optional) — used for lookup; matches the "Section" toggle in the Figma form
+//   subject_id     (optional) — used for lookup
 // ==========================
-const findAllocation = async (numericUserId, { course_id, semester_id, subject_id }) => {
-    const whereClause = {
-        user_id: numericUserId,
-        is_active: true
-    };
-    if (subject_id)  whereClause.subject_id  = subject_id;
+const findAllocation = async (numericUserId, { allocation_id, course_id, semester_id, section_id, subject_id }) => {
+    const includeBlock = [
+        { model: Subject,  attributes: ["subject_id", "subject_code", "subject_name"] },
+        { model: Course,   attributes: ["course_id", "course_name", "course_code"] },
+        { model: Semester, attributes: ["semester_id", "semester_number"] },
+        { model: Section,  attributes: ["section_id", "section_name"] }
+    ];
+
+    // ── Fast path: allocation_id provided directly from the frontend ────────────
+    if (allocation_id) {
+        const allocation = await Allocation.findOne({
+            where: { allocation_id, user_id: numericUserId, is_active: true },
+            include: includeBlock
+        });
+        if (!allocation) {
+            throw new Error(
+                `No active allocation found with allocation_id=${allocation_id} for this faculty.`
+            );
+        }
+        return allocation;
+    }
+
+    // ── Lookup path: match by course / semester / section / subject ─────────────
+    const whereClause = { user_id: numericUserId, is_active: true };
     if (course_id)   whereClause.course_id   = course_id;
     if (semester_id) whereClause.semester_id = semester_id;
+    if (section_id)  whereClause.section_id  = section_id;  // Figma: Section A / B toggle
+    if (subject_id)  whereClause.subject_id  = subject_id;
 
     const allocation = await Allocation.findOne({
         where: whereClause,
-        include: [
-            { model: Subject,  attributes: ["subject_id", "subject_code", "subject_name"] },
-            { model: Course,   attributes: ["course_id", "course_name", "course_code"] },
-            { model: Semester, attributes: ["semester_id", "semester_number"] },
-            { model: Section,  attributes: ["section_id", "section_name"] }
-        ]
+        include: includeBlock
     });
 
     if (!allocation) {
         throw new Error(
-            "No active allocation found for this faculty with the given course, semester, and subject."
+            "No active allocation found for this faculty with the given course, semester, section, and subject."
         );
     }
 
@@ -155,7 +194,7 @@ const buildAttendanceResult = (newAttendance, allocation) => ({
     attendance_date:   newAttendance.attendance_date,
     start_time:        newAttendance.start_time,
     end_time:          newAttendance.end_time,
-    hours:             newAttendance.hours,
+    hours:             Number(newAttendance.hours),
     status:            newAttendance.status,
     remarks:           newAttendance.remarks,
     month:             newAttendance.month,
@@ -164,9 +203,10 @@ const buildAttendanceResult = (newAttendance, allocation) => ({
     week_number:       newAttendance.week_number ?? null,
 
     // Allocation details — flat for easy frontend use
+    // rate_per_hour is ENUM string ('200'/'400'/'800') — cast to Number
     allocation_id:     allocation.allocation_id,
     session_type:      allocation.session_type,
-    rate_per_hour:     allocation.rate_per_hour,
+    rate_per_hour:     Number(allocation.rate_per_hour),
 
     // Course
     course_id:         allocation.Course   ? allocation.Course.course_id       : null,
@@ -213,7 +253,7 @@ const _insertAttendanceRow = async ({
     attendance_date,
     start_time,
     end_time,
-    hours,
+    hours,              // optional — auto-calculated from start_time/end_time if omitted
     remarks,
     status,
     month,
@@ -221,6 +261,12 @@ const _insertAttendanceRow = async ({
     attendance_period,  // 'daily' | 'weekly' | 'monthly'
     week_number         // null unless weekly
 }) => {
+    // Auto-calculate hours from start/end if not provided by the client.
+    // Matches the "Total Hours (Auto Calculated)" display in the Figma List View.
+    const finalHours = (hours !== undefined && hours !== null && hours !== '')
+        ? parseFloat(hours)
+        : calcHours(start_time, end_time);
+
     // Duplicate check: same allocation + date + start_time
     const existing = await Attendance.findOne({
         where: { allocation_id: allocation.allocation_id, attendance_date, start_time }
@@ -231,15 +277,22 @@ const _insertAttendanceRow = async ({
         );
     }
 
+    // Default status per period:
+    //   'Marked'  → faculty confirmed the class happened   (calendar toggle)
+    //   'Pending' → admin not yet verified
+    // The Figma shows "Marked" / "Cancelled" on the form status toggle.
+    // We store whatever the faculty sends; admin later sets Present/Absent.
+    const finalStatus = status || 'Marked';
+
     const newAttendance = await Attendance.create({
         user_id:           numericUserId,
         allocation_id:     allocation.allocation_id,
         attendance_date,
         start_time,
         end_time,
-        hours,
+        hours:             finalHours,
         remarks:           remarks || null,
-        status:            status  || 'Pending',
+        status:            finalStatus,
         month,
         year,
         attendance_period,
@@ -257,8 +310,10 @@ const markAttendance = async (attendanceData) => {
     try {
         const {
             user_id,
+            allocation_id,
             course_id,
             semester_id,
+            section_id,
             subject_id,
             attendance_date,
             start_time,
@@ -273,7 +328,7 @@ const markAttendance = async (attendanceData) => {
         } = attendanceData;
 
         const numericUserId = await resolveUserId(user_id);
-        const allocation    = await findAllocation(numericUserId, { course_id, semester_id, subject_id });
+        const allocation    = await findAllocation(numericUserId, { allocation_id, course_id, semester_id, section_id, subject_id });
 
         return await _insertAttendanceRow({
             numericUserId,
@@ -310,26 +365,28 @@ const markDailyAttendance = async (attendanceData) => {
     try {
         const {
             user_id,
+            allocation_id,      // optional — pass to skip course/subject lookup
             course_id,
             semester_id,
+            section_id,         // optional — matches the Section toggle in the Figma form
             subject_id,
             start_time,
             end_time,
-            hours,
+            hours,              // optional — auto-calculated from start_time/end_time
             remarks,
-            status
+            status              // optional — defaults to 'Marked' in _insertAttendanceRow
         } = attendanceData;
 
-        // Default date → today
+        // Default date → today (Figma List View shows today's date pre-filled)
         const today = attendanceData.attendance_date
             || new Date().toISOString().split("T")[0];
 
-        const dateObj = new Date(today);
+        const dateObj   = new Date(today);
         const monthName = dateObj.toLocaleString('en-US', { month: 'long' });
-        const year = attendanceData.year || dateObj.getFullYear();
+        const year      = attendanceData.year || dateObj.getFullYear();
 
         const numericUserId = await resolveUserId(user_id);
-        const allocation    = await findAllocation(numericUserId, { course_id, semester_id, subject_id });
+        const allocation    = await findAllocation(numericUserId, { allocation_id, course_id, semester_id, section_id, subject_id });
 
         return await _insertAttendanceRow({
             numericUserId,
@@ -367,24 +424,27 @@ const markWeeklyAttendance = async (attendanceData) => {
     try {
         const {
             user_id,
+            allocation_id,      // optional — direct allocation bypass
             course_id,
             semester_id,
+            section_id,         // optional — Section A / B toggle from Figma calendar panel
             subject_id,
-            attendance_date,
+            attendance_date,    // the specific date clicked on the Figma calendar
             start_time,
             end_time,
-            hours,
+            hours,              // optional — auto-calculated from start_time/end_time
             remarks,
-            status
+            status              // optional — Figma toggle: 'Marked' | 'Cancelled'
         } = attendanceData;
 
         const dateObj   = new Date(attendance_date);
         const monthName = dateObj.toLocaleString('en-US', { month: 'long' });
         const year      = attendanceData.year || dateObj.getFullYear();
+        // Auto-calculate week_number from the clicked date (ISO week)
         const weekNum   = attendanceData.week_number || getISOWeekNumber(dateObj);
 
         const numericUserId = await resolveUserId(user_id);
-        const allocation    = await findAllocation(numericUserId, { course_id, semester_id, subject_id });
+        const allocation    = await findAllocation(numericUserId, { allocation_id, course_id, semester_id, section_id, subject_id });
 
         return await _insertAttendanceRow({
             numericUserId,
@@ -421,21 +481,23 @@ const markMonthlyAttendance = async (attendanceData) => {
     try {
         const {
             user_id,
+            allocation_id,      // optional — direct allocation bypass
             course_id,
             semester_id,
+            section_id,         // optional — Section toggle from Figma calendar right-panel
             subject_id,
-            attendance_date,
+            attendance_date,    // the specific date clicked on the Figma calendar grid
             start_time,
             end_time,
-            hours,
-            month,
-            year,
+            hours,              // optional — auto-calculated from start_time/end_time
+            month,              // REQUIRED for monthly — e.g. "December"
+            year,               // REQUIRED for monthly — e.g. 2024
             remarks,
-            status
+            status              // optional — Figma toggle: 'Marked' | 'Cancelled'
         } = attendanceData;
 
         const numericUserId = await resolveUserId(user_id);
-        const allocation    = await findAllocation(numericUserId, { course_id, semester_id, subject_id });
+        const allocation    = await findAllocation(numericUserId, { allocation_id, course_id, semester_id, section_id, subject_id });
 
         return await _insertAttendanceRow({
             numericUserId,
@@ -652,7 +714,8 @@ const verifyAttendance = async (attendanceId, status, remarks) => {
             throw new Error("Attendance record not found.");
         }
 
-        const validStatuses = ['Present', 'Absent', 'Pending'];
+        // All valid status values (admin verifies Marked → Present/Absent/Pending)
+        const validStatuses = ['Present', 'Absent', 'Pending', 'Marked', 'Cancelled'];
         if (!validStatuses.includes(status)) {
             throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}.`);
         }
@@ -691,7 +754,8 @@ const getFacultyAllocations = async (facultyId) => {
         const result = allocations.map(a => ({
             allocation_id:   a.allocation_id,
             session_type:    a.session_type,
-            rate_per_hour:   a.rate_per_hour,
+            // rate_per_hour is ENUM string ('200'/'400'/'800') — return as Number
+            rate_per_hour:   Number(a.rate_per_hour),
             academic_year:   a.academic_year,
             course_id:       a.Course   ? a.Course.course_id       : null,
             course_name:     a.Course   ? a.Course.course_name     : null,
@@ -744,7 +808,7 @@ const getAttendanceByIdService = async (attendanceId) => {
         attendance_date:   record.attendance_date,
         start_time:        record.start_time,
         end_time:          record.end_time,
-        hours:             record.hours,
+        hours:             Number(record.hours),
         status:            record.status,
         remarks:           record.remarks,
         month:             record.month,
@@ -759,9 +823,10 @@ const getAttendanceByIdService = async (attendanceId) => {
         uvfin:     record.User ? record.User.uvfin     : null,
 
         // Allocation
-        allocation_id:   record.Allocation ? record.Allocation.allocation_id : null,
-        session_type:    record.Allocation ? record.Allocation.session_type  : null,
-        rate_per_hour:   record.Allocation ? record.Allocation.rate_per_hour : null,
+        // rate_per_hour is ENUM string ('200'/'400'/'800') — cast to Number
+        allocation_id:   record.Allocation ? record.Allocation.allocation_id             : null,
+        session_type:    record.Allocation ? record.Allocation.session_type              : null,
+        rate_per_hour:   record.Allocation ? Number(record.Allocation.rate_per_hour)     : null,
 
         // Course
         course_id:       record.Allocation?.Course   ? record.Allocation.Course.course_id   : null,

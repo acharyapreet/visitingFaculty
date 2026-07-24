@@ -32,8 +32,14 @@ const adminApi = {
   allocateSubject: (data) => api.post("/admin/allocateSubject", data).then((r) => r.data),
 
   // --- Attendance ---
-  getAttendanceByFaculty: (query) =>
-    api.get(`/admin/attendance/${query}`).then((r) => r.data),
+  // GET /api/attendance/admin?facultyId=&month=&year=&status=
+  getAdminAttendance: (params) =>
+    api.get("/attendance/admin", { params }).then((r) => r.data),
+
+  // PATCH /api/attendance/verify/:attendanceId
+  // body: { status: 'Present'|'Absent'|'Pending', remarks? }
+  verifyAttendance: (attendanceId, data) =>
+    api.patch(`/attendance/verify/${attendanceId}`, data).then((r) => r.data),
 
   // --- Billing ---
   generateBill: (data) => api.post("/admin/generateBill", data).then((r) => r.data),

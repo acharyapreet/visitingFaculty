@@ -17,10 +17,14 @@ const {
 // ■  HELPERS
 // ============================================================
 
-// Validates fields required for EVERY attendance record
+// ── Required fields for GENERIC POST /api/attendance/ ─────────────────────
+// attendance_date is required for generic + weekly + monthly;
+// hours is now OPTIONAL (auto-calculated in service from start_time / end_time).
 const REQUIRED_MARK_FIELDS = [
     'user_id', 'course_id', 'semester_id', 'subject_id',
-    'attendance_date', 'start_time', 'end_time', 'hours'
+    'attendance_date', 'start_time', 'end_time'
+    // hours  → optional; auto-calculated from start_time / end_time
+    // section_id → optional; used for precise allocation lookup
 ];
 
 const validateMarkBody = (item, index = null) => {
@@ -72,27 +76,42 @@ const markAttendanceController = async (req, res) => {
 // ============================================================
 // ■  DAILY: POST /api/attendance/mark/daily
 //    Faculty marks attendance for today (or a specific date).
-//    `attendance_date` is optional — defaults to today.
+//    `attendance_date` is optional — defaults to today (pre-filled in Figma List View).
 //
 //    Required body fields:
-//      user_id, course_id, semester_id, subject_id
-//      start_time, end_time, hours
+//      user_id
+//      course_id, semester_id, subject_id
+//        └─ OR ─┘ allocation_id  (direct, skips lookup)
+//      start_time, end_time
 //    Optional:
 //      attendance_date  (defaults to today)
+//      section_id       (for precise lookup when faculty has multiple sections)
+//      hours            (auto-calculated from start_time / end_time if omitted)
 //      month, year      (auto-derived from date if omitted)
-//      remarks, status
+//      status           ('Marked' default | 'Cancelled')
+//      remarks
 // ============================================================
 const markDailyAttendanceController = async (req, res) => {
     try {
         const isArray = Array.isArray(req.body);
         const items   = isArray ? req.body : [req.body];
 
-        const DAILY_REQUIRED = ['user_id', 'course_id', 'semester_id', 'subject_id',
-                                'start_time', 'end_time', 'hours'];
+        // Required fields for daily (attendance_date optional — defaults to today)
+        const DAILY_REQUIRED = ['user_id', 'start_time', 'end_time'];
+        // Must have EITHER allocation_id OR (course_id + semester_id + subject_id)
+        const needsLookup = (item) => !item.allocation_id;
 
         for (let i = 0; i < items.length; i++) {
             const item    = items[i];
             const missing = DAILY_REQUIRED.filter(f => !item[f]);
+
+            // If no allocation_id, also require course/semester/subject for lookup
+            if (needsLookup(item)) {
+                ['course_id', 'semester_id', 'subject_id'].forEach(f => {
+                    if (!item[f]) missing.push(f);
+                });
+            }
+
             if (missing.length > 0) {
                 return res.status(400).json({
                     success: false,
@@ -123,25 +142,49 @@ const markDailyAttendanceController = async (req, res) => {
 
 // ============================================================
 // ■  WEEKLY: POST /api/attendance/mark/weekly
-//    Faculty marks attendance for a specific date within a week.
-//    `week_number` is auto-calculated from `attendance_date` if omitted.
+//    Faculty marks a class session for a date within a specific week.
+//    The calendar panel on the Figma Grid View sends this when the faculty
+//    clicks a date, fills the right-panel form, and hits Submit Attendance.
 //
 //    Required body fields:
-//      user_id, course_id, semester_id, subject_id
-//      attendance_date, start_time, end_time, hours
+//      user_id
+//      course_id, semester_id, subject_id
+//        └─ OR ─┘ allocation_id  (direct, skips lookup)
+//      attendance_date  (the date clicked on the Figma calendar)
+//      start_time, end_time
 //    Optional:
-//      week_number  (auto-calculated if omitted)
-//      month, year  (auto-derived from date if omitted)
-//      remarks, status
+//      section_id     (Section A / B toggle in Figma right-panel)
+//      hours          (auto-calculated from start_time / end_time)
+//      week_number    (auto-calculated from attendance_date if omitted)
+//      month, year    (auto-derived from attendance_date if omitted)
+//      status         ('Marked' default | 'Cancelled')
+//      remarks
 // ============================================================
 const markWeeklyAttendanceController = async (req, res) => {
     try {
         const isArray = Array.isArray(req.body);
         const items   = isArray ? req.body : [req.body];
 
+        // attendance_date is required for weekly (it is the clicked calendar date)
+        const WEEKLY_REQUIRED = ['user_id', 'attendance_date', 'start_time', 'end_time'];
+        const needsLookup = (item) => !item.allocation_id;
+
         for (let i = 0; i < items.length; i++) {
-            const err = validateMarkBody(items[i], isArray ? i : null);
-            if (err) return res.status(400).json({ success: false, message: err });
+            const item    = items[i];
+            const missing = WEEKLY_REQUIRED.filter(f => !item[f]);
+
+            if (needsLookup(item)) {
+                ['course_id', 'semester_id', 'subject_id'].forEach(f => {
+                    if (!item[f]) missing.push(f);
+                });
+            }
+
+            if (missing.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `${isArray ? `record[${i}]: ` : ''}Missing required fields: ${missing.join(', ')}`
+                });
+            }
         }
 
         const results = [];
@@ -166,31 +209,47 @@ const markWeeklyAttendanceController = async (req, res) => {
 
 // ============================================================
 // ■  MONTHLY: POST /api/attendance/mark/monthly
-//    Faculty marks attendance for a specific date within a month.
+//    Faculty marks a class session for a date within a month.
+//    This is the Figma Grid/Calendar View — faculty clicks a date on the
+//    monthly calendar, fills the right-panel form, and hits Submit Attendance.
 //
 //    Required body fields:
-//      user_id, course_id, semester_id, subject_id
-//      attendance_date, start_time, end_time, hours
-//      month, year
+//      user_id
+//      course_id, semester_id, subject_id
+//        └─ OR ─┘ allocation_id  (direct, skips lookup)
+//      attendance_date  (the date clicked on the Figma calendar)
+//      start_time, end_time
+//      month            (e.g. "December"  — drives calendar grouping)
+//      year             (e.g. 2024)
 //    Optional:
-//      remarks, status
+//      section_id     (Section A / B toggle in Figma right-panel)
+//      hours          (auto-calculated from start_time / end_time)
+//      status         ('Marked' default | 'Cancelled')
+//      remarks
 // ============================================================
 const markMonthlyAttendanceController = async (req, res) => {
     try {
         const isArray = Array.isArray(req.body);
         const items   = isArray ? req.body : [req.body];
 
-        for (let i = 0; i < items.length; i++) {
-            const item   = items[i];
-            const err    = validateMarkBody(item, isArray ? i : null);
-            if (err) return res.status(400).json({ success: false, message: err });
+        // attendance_date, month and year are required for monthly
+        const MONTHLY_REQUIRED = ['user_id', 'attendance_date', 'start_time', 'end_time', 'month', 'year'];
+        const needsLookup = (item) => !item.allocation_id;
 
-            // month + year are mandatory for monthly period
-            const missing2 = ['month', 'year'].filter(f => !item[f]);
-            if (missing2.length > 0) {
+        for (let i = 0; i < items.length; i++) {
+            const item    = items[i];
+            const missing = MONTHLY_REQUIRED.filter(f => !item[f]);
+
+            if (needsLookup(item)) {
+                ['course_id', 'semester_id', 'subject_id'].forEach(f => {
+                    if (!item[f]) missing.push(f);
+                });
+            }
+
+            if (missing.length > 0) {
                 return res.status(400).json({
                     success: false,
-                    message: `${isArray ? `record[${i}]: ` : ''}month and year are required for monthly attendance.`
+                    message: `${isArray ? `record[${i}]: ` : ''}Missing required fields: ${missing.join(', ')}`
                 });
             }
         }
@@ -361,7 +420,7 @@ const verifyAttendanceController = async (req, res) => {
         if (!status) {
             return res.status(400).json({
                 success: false,
-                message: "status is required (Present | Absent | Pending)."
+                message: "status is required. Allowed values: Present | Absent | Pending | Marked | Cancelled"
             });
         }
 

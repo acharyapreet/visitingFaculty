@@ -42,7 +42,10 @@ const Attendance = sequelize.define('Attendance', {
         allowNull: false,
         defaultValue: 'Pending',
         validate: {
-            isIn: [['Present', 'Absent', 'Pending']]
+            // Present / Absent / Pending  → admin-side statuses (verify flow)
+            // Marked                      → faculty submitted a class (calendar "Marked" toggle)
+            // Cancelled                   → faculty marked a class as cancelled (calendar "Cancelled" toggle)
+            isIn: [['Present', 'Absent', 'Pending', 'Marked', 'Cancelled']]
         }
     },
     month: {
