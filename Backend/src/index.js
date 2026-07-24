@@ -40,7 +40,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/account-status', accountStatusRoutes);
 
 const sequelize = require('./config/database');
-const { User } = require('./Schema');
+const { User, Subject } = require('./Schema');
 const PORT = process.env.PORT || 5000;
 
 (async () => {
@@ -71,15 +71,21 @@ const PORT = process.env.PORT || 5000;
     });
     console.log('Super Admin seeded successfully');
 
-    const { importSubjectsFromCSV } = require("./utils/csvImporter");
-    const { seedSubjects } = require("./utils/seedSubjects");
-    
-    // Attempt CSV import if file exists, else use standard seed
-    const csvResult = await importSubjectsFromCSV();
-    if (!csvResult.success) {
-      await seedSubjects();
+    // Attempt CSV import if database is empty, else skip to save startup time
+    const subjectCount = await Subject.count();
+    if (subjectCount > 0) {
+      console.log(`Database already has ${subjectCount} subjects. Skipping startup CSV import.`);
+    } else {
+      console.log("Database has no subjects. Running CSV import...");
+      const { importSubjectsFromCSV } = require("./utils/csvImporter");
+      const { seedSubjects } = require("./utils/seedSubjects");
+      
+      const csvResult = await importSubjectsFromCSV();
+      if (!csvResult.success) {
+        await seedSubjects();
+      }
+      console.log("Subject database initialized successfully");
     }
-    console.log("Subject database initialized successfully");
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
