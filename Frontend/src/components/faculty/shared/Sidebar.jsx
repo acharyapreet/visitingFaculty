@@ -8,7 +8,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 const navItems = [
   { view: "dashboard", label: "Dashboard", icon: LayoutGrid },
@@ -41,33 +41,18 @@ function NavItems({ onNavigate, currentView, onClose }) {
   );
 }
 
-export default function Sidebar({ onNavigate, currentView = "dashboard", onSignOut }) {
+// Added facultyName and facultyRole as props
+export default function Sidebar({ onNavigate, currentView = "dashboard", onSignOut, facultyName = "Loading...", facultyRole = "Faculty" }) {
   const [open, setOpen] = useState(false);
-  const [facultyName, setFacultyName] = useState("Loading...");
-  const [facultyRole, setFacultyRole] = useState("Faculty");
-
-  // Fetch the dynamic user data on mount
-  useEffect(() => {
-    const sessionStr = localStorage.getItem('iipsCurrentSession');
-    if (sessionStr) {
-      try {
-        const session = JSON.parse(sessionStr);
-        // Uses fullName if available, otherwise falls back to their User ID
-        setFacultyName(session.fullName || "Visiting Faculty");
-        if (session.role) {
-          setFacultyRole(session.role.charAt(0).toUpperCase() + session.role.slice(1));
-        }
-      } catch (e) {
-        console.error("Error parsing session data", e);
-      }
-    }
-  }, []);
 
   // Dynamically calculate initials from the fetched name
+  // Filters out titles like "Dr." or "Prof." before grabbing the first letters
   const initials = facultyName
     .replace("Dr. ", "")
     .replace("Prof. ", "")
+    .replace("Visiting ", "") // Strips "Visiting" just in case the fallback triggers
     .split(" ")
+    .filter(Boolean)
     .map((w) => w[0])
     .join("")
     .substring(0, 2)

@@ -61,54 +61,91 @@ const defaultCourseMeta = {
  * @param {Object} options - { csvText, filePath }
  */
 async function importSubjectsFromCSV(options = {}) {
+    // Load all existing database records to construct caches
+    const coursesList = await Course.findAll();
+    const courseMap = new Map(coursesList.map(c => [c.course_code, c]));
+
+    const semestersList = await Semester.findAll();
+    const semesterMap = new Map(semestersList.map(s => [`${s.course_id}_${s.semester_number}`, s]));
+
+    const sectionsList = await Section.findAll();
+    const sectionMap = new Map(sectionsList.map(sec => [`${sec.course_id}_${sec.section_name}`, sec]));
+
+    const subjectsList = await Subject.findAll();
+    const subjectMap = new Map(subjectsList.map(sub => [`${sub.course_id}_${sub.semester_id}_${sub.subject_code.trim().toLowerCase()}`, sub]));
+
+    // Helper functions to get or create cached objects
+    async function getOrCreateCourse(code, meta) {
+        if (courseMap.has(code)) {
+            const course = courseMap.get(code);
+            const updates = {};
+            if (meta.program_incharge && course.program_incharge !== meta.program_incharge) {
+                updates.program_incharge = meta.program_incharge;
+            }
+            if (meta.name && course.course_name !== meta.name) {
+                updates.course_name = meta.name;
+            }
+            if (meta.semCount && course.total_semesters !== meta.semCount) {
+                updates.total_semesters = meta.semCount;
+            }
+            if (Object.keys(updates).length > 0) {
+                await course.update(updates);
+            }
+            return course;
+        }
+
+        const course = await Course.create({
+            course_code: code,
+            course_name: meta.name,
+            program_incharge: meta.program_incharge || null,
+            total_semesters: meta.semCount,
+            is_active: true
+        });
+        courseMap.set(code, course);
+        return course;
+    }
+
+    async function ensureSemester(courseId, semesterNumber) {
+        const key = `${courseId}_${semesterNumber}`;
+        if (semesterMap.has(key)) {
+            return semesterMap.get(key);
+        }
+
+        const sem = await Semester.create({
+            course_id: courseId,
+            semester_number: semesterNumber,
+            is_active: true
+        });
+        semesterMap.set(key, sem);
+        return sem;
+    }
+
+    async function ensureSection(courseId, sectionName) {
+        const key = `${courseId}_${sectionName}`;
+        if (sectionMap.has(key)) {
+            return sectionMap.get(key);
+        }
+
+        const sec = await Section.create({
+            course_id: courseId,
+            section_name: sectionName,
+            is_active: true
+        });
+        sectionMap.set(key, sec);
+        return sec;
+    }
+
     // 0. Always sync default courses and program incharges
     for (const [code, meta] of Object.entries(defaultCourseMeta)) {
-        let [course, created] = await Course.findOrCreate({
-            where: { course_code: code },
-            defaults: {
-                course_code: code,
-                course_name: meta.name,
-                program_incharge: meta.program_incharge || null,
-                total_semesters: meta.semCount,
-                is_active: true
-            }
-        });
-
-        const updates = {};
-        if (meta.program_incharge && course.program_incharge !== meta.program_incharge) {
-            updates.program_incharge = meta.program_incharge;
-        }
-        if (meta.name && course.course_name !== meta.name) {
-            updates.course_name = meta.name;
-        }
-        if (meta.semCount && course.total_semesters !== meta.semCount) {
-            updates.total_semesters = meta.semCount;
-        }
-        if (Object.keys(updates).length > 0) {
-            await course.update(updates);
-        }
+        const course = await getOrCreateCourse(code, meta);
 
         for (let s = 1; s <= meta.semCount; s++) {
-            await Semester.findOrCreate({
-                where: { course_id: course.course_id, semester_number: s },
-                defaults: {
-                    course_id: course.course_id,
-                    semester_number: s,
-                    is_active: true
-                }
-            });
+            await ensureSemester(course.course_id, s);
         }
 
         if (meta.sections && meta.sections.length > 0) {
             for (const secName of meta.sections) {
-                await Section.findOrCreate({
-                    where: { course_id: course.course_id, section_name: secName },
-                    defaults: {
-                        course_id: course.course_id,
-                        section_name: secName,
-                        is_active: true
-                    }
-                });
+                await ensureSection(course.course_id, secName);
             }
         }
     }
@@ -175,68 +212,43 @@ async function importSubjectsFromCSV(options = {}) {
         // 1. Get or create Course
         const meta = defaultCourseMeta[cleanCourseCode] || { name: cleanCourseCode, semCount: Math.max(10, semNum), sections: [] };
         
-        let [course] = await Course.findOrCreate({
-            where: { course_code: cleanCourseCode },
-            defaults: {
-                course_code: cleanCourseCode,
-                course_name: meta.name,
-                program_incharge: meta.program_incharge || null,
-                total_semesters: meta.semCount,
-                is_active: true
-            }
-        });
+        const course = await getOrCreateCourse(cleanCourseCode, meta);
 
         // Ensure semesters for course exist up to semCount
-        for (let s = 1; s <= Math.max(meta.semCount, semNum); s++) {
-            await Semester.findOrCreate({
-                where: { course_id: course.course_id, semester_number: s },
-                defaults: {
-                    course_id: course.course_id,
-                    semester_number: s,
-                    is_active: true
-                }
-            });
+        const targetSemCount = Math.max(meta.semCount, semNum);
+        for (let s = 1; s <= targetSemCount; s++) {
+            await ensureSemester(course.course_id, s);
         }
 
         // Ensure sections exist if meta specifies sections
         if (meta.sections && meta.sections.length > 0) {
             for (const secName of meta.sections) {
-                await Section.findOrCreate({
-                    where: { course_id: course.course_id, section_name: secName },
-                    defaults: {
-                        course_id: course.course_id,
-                        section_name: secName,
-                        is_active: true
-                    }
-                });
+                await ensureSection(course.course_id, secName);
             }
         }
 
         // 2. Find Semester record
-        const semester = await Semester.findOne({
-            where: { course_id: course.course_id, semester_number: semNum }
-        });
+        const semKey = `${course.course_id}_${semNum}`;
+        const semester = semesterMap.get(semKey);
         if (!semester) continue;
 
         // 3. Upsert Subject
-        const existingSubject = await Subject.findOne({
-            where: {
-                course_id: course.course_id,
-                semester_id: semester.semester_id,
-                subject_code: cleanSubCode
-            }
-        });
+        const subKey = `${course.course_id}_${semester.semester_id}_${cleanSubCode.toLowerCase()}`;
+        const existingSubject = subjectMap.get(subKey);
 
         if (!existingSubject) {
-            await Subject.create({
+            const newSub = await Subject.create({
                 subject_code: cleanSubCode,
                 subject_name: cleanSubName,
                 course_id: course.course_id,
                 semester_id: semester.semester_id,
                 is_active: true
             });
+            subjectMap.set(subKey, newSub);
         } else {
-            await existingSubject.update({ subject_name: cleanSubName });
+            if (existingSubject.subject_name !== cleanSubName) {
+                await existingSubject.update({ subject_name: cleanSubName });
+            }
         }
 
         countImported++;

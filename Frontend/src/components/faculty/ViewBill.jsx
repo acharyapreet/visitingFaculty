@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Download, ChevronDown, ChevronLeft, ChevronRight, Loader2, Calendar } from "lucide-react";
+import { Download, ChevronDown, Loader2, Calendar, FileText, TableProperties } from "lucide-react";
 import axios from "axios";
 import PageHeader from "./shared/PageHeader";
+
+// Import the logo correctly for Vite/React
+import davvLogo from "../../assets/image.png";
 
 // Helper function to convert numbers to words (Indian Rupee Format)
 function convertAmountToWords(amount) {
@@ -26,29 +29,88 @@ function convertAmountToWords(amount) {
   return str.trim() + " Rupees Only";
 }
 
-export default function ViewBill() {
+// Component to render UVFIN in boxes
+const UVFINBlocks = ({ uvfin }) => {
+  const chars = (uvfin || "").padEnd(15, " ").split("").slice(0, 15);
+  return (
+    <div className="flex">
+      {chars.map((c, i) => (
+        <div key={i} className="flex h-5 w-5 items-center justify-center border border-black text-xs font-bold uppercase sm:h-6 sm:w-6">
+          {c.trim()}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Accept an optional facultyUserId prop for Admin viewing
+export default function ViewBill({ facultyUserId }) {
   const [records, setRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showFilter, setShowFilter] = useState(false);
+  const [billPage, setBillPage] = useState(1);
   
-  // Date selection states
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(currentDate.toLocaleString('default', { month: 'long' }));
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   
-  // Faculty info extracted from session / records
   const [facultyInfo, setFacultyInfo] = useState({
     name: "Visiting Faculty",
-    uvfin: "N/A",
+    uvfin: "",
     email: "",
-    course: "N/A",
-    semester: "N/A",
-    session: "2026-27"
+    course: "",
+    semester: "",
+    session: "2026-27",
+    address: "",
+    mobile: "",
+    qualification: "",
+    bankName: "",
+    account: "",
+    ifsc: "",
+    pan: "",
+    aadhaar: ""
   });
 
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const years = [2024, 2025, 2026, 2027];
 
+  // 1. Fetch static profile data using the new API
+  const fetchFacultyProfile = async () => {
+    try {
+      const sessionStr = localStorage.getItem('iipsCurrentSession');
+      if (!sessionStr) return;
+      
+      const session = JSON.parse(sessionStr);
+      // Use the provided prop for admins, otherwise default to logged-in user
+      const targetId = facultyUserId || session.userId;
+
+      const response = await axios.get(`http://localhost:5000/api/admin/faculty/${targetId}`, {
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      });
+
+      if (response.data.success) {
+        const data = response.data.data;
+        setFacultyInfo(prev => ({
+          ...prev,
+          name: data.full_name || prev.name,
+          email: data.email || prev.email,
+          mobile: data.phone_number || prev.mobile,
+          address: data.address || prev.address,
+          qualification: data.qualification || prev.qualification,
+          aadhaar: data.aadhaar_no || prev.aadhaar,
+          account: data.account_no || prev.account,
+          bankName: data.bank_name || prev.bankName,
+          ifsc: data.ifsc_code || prev.ifsc,
+          pan: data.pan_card_no || prev.pan,
+          uvfin: data.uvfin || prev.uvfin,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching faculty profile:", error);
+    }
+  };
+
+  // 2. Fetch the attendance records
   const fetchMonthlyBill = async () => {
     setIsLoading(true);
     setShowFilter(false);
@@ -57,15 +119,7 @@ export default function ViewBill() {
       if (!sessionStr) return;
       
       const session = JSON.parse(sessionStr);
-      const targetId = session.userId;
-
-      // Set basic info from session
-      setFacultyInfo(prev => ({ 
-        ...prev, 
-        name: session.fullName || session.name || "Visiting Faculty",
-        uvfin: session.uvfin || "Pending",
-        email: session.email || ""
-      }));
+      const targetId = facultyUserId || session.userId;
 
       const response = await axios.get(`http://localhost:5000/api/attendance/monthly/${targetId}?month=${selectedMonth}&year=${selectedYear}`, {
         headers: { 'Authorization': `Bearer ${session.token}` }
@@ -75,7 +129,7 @@ export default function ViewBill() {
         const data = response.data.data || [];
         setRecords(data);
         
-        // Extract dynamically from the first record if available
+        // Update dynamic academic info based on the first record found
         if (data.length > 0) {
           setFacultyInfo(prev => ({
             ...prev,
@@ -92,60 +146,114 @@ export default function ViewBill() {
     }
   };
 
+  // Run profile fetch once on mount or if the viewed faculty member changes
+  useEffect(() => {
+    fetchFacultyProfile();
+  }, [facultyUserId]);
+
+  // Run records fetch when dates or viewed user changes
   useEffect(() => {
     fetchMonthlyBill();
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, facultyUserId]);
 
-  // Derived calculations
+  const aggregatedRecords = useMemo(() => {
+    const grouped = {};
+    records.forEach(r => {
+      const key = `${r.course_name}_${r.semester_number}_${r.subject_code}_${r.rate_per_hour}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          program: r.course_name || facultyInfo.course,
+          semester: r.semester_number ? `Semester ${r.semester_number}` : facultyInfo.semester,
+          subject: `${r.subject_name} (${r.subject_code})`,
+          rate: parseFloat(r.rate_per_hour || 0),
+          dates: [],
+          totalHrs: 0,
+          amount: 0
+        };
+      }
+      
+      const d = new Date(r.attendance_date);
+      const formattedDate = isNaN(d.getTime()) ? r.attendance_date : d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const hrs = parseFloat(r.hours);
+      
+      grouped[key].dates.push(`${formattedDate} (${hrs} Hrs)`);
+      grouped[key].totalHrs += hrs;
+      grouped[key].amount += (hrs * grouped[key].rate);
+    });
+    return Object.values(grouped);
+  }, [records, facultyInfo.course, facultyInfo.semester]);
+
   const totalAmount = useMemo(() => {
-    return records.reduce((sum, r) => {
-      const hrs = parseFloat(r.hours) || 0;
-      const rate = parseFloat(r.rate_per_hour) || 0;
-      return sum + (hrs * rate);
-    }, 0);
-  }, [records]);
+    return aggregatedRecords.reduce((sum, r) => sum + r.amount, 0);
+  }, [aggregatedRecords]);
+
+  const totalHours = useMemo(() => {
+    return aggregatedRecords.reduce((sum, r) => sum + r.totalHrs, 0);
+  }, [aggregatedRecords]);
 
   const amountInWords = convertAmountToWords(totalAmount);
+  const submissionDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-  // Formatting helpers
   const formatDate = (dateStr) => {
     if (!dateStr) return "-";
     const d = new Date(dateStr);
     return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  // Generate a mock bill number based on month/year/id for preview consistency
-  const billNo = `IIPS/VF/${selectedYear}/${selectedMonth.substring(0,3).toUpperCase()}/${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
-  const submissionDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const handleDownloadPDF = () => {
+    window.print();
+  };
 
   return (
-    <div className="pb-12">
-      <PageHeader
-        title="View Bill"
-        subtitle="Official DAVV remuneration bill"
-        right={
-          <>
+    <div className="pb-12 print:pb-0 print:bg-white">
+      {/* FOOLPROOF PRINT CSS INJECTION */}
+      <style>
+        {`
+          @media print {
+            @page { size: A4; margin: 10mm; }
+            
+            body * { visibility: hidden; }
+            #printable-bill, #printable-bill * { visibility: visible; }
+            
+            #printable-bill {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100%;
+              border: none !important;
+              box-shadow: none !important;
+            }
+
+            body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .print-hide { display: none !important; }
+            .print-force-break { page-break-before: always; }
+          }
+        `}
+      </style>
+
+      <div className="print-hide">
+        <PageHeader
+          title="View Bill"
+          subtitle="Official DAVV remuneration bill"
+          right={
             <span className="flex items-center gap-1.5 rounded-full bg-[#004DD2]/10 px-3 py-1.5 text-xs font-semibold text-[#004DD2]">
               <span className="h-1.5 w-1.5 rounded-full bg-[#004DD2]" /> PREVIEW MODE
             </span>
-            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600">
-              {selectedMonth.substring(0, 3)} {selectedYear}
-            </span>
-          </>
-        }
-      />
+          }
+        />
+      </div>
 
-      <div className="px-4 py-6 sm:px-8">
-        <div className="flex flex-wrap items-center justify-between gap-3 relative">
+      <div className="px-4 py-6 sm:px-8 print:p-0">
+        <div className="relative flex flex-wrap items-center justify-between gap-3 print-hide">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Bill Preview</h2>
+            <h2 className="text-lg font-bold text-slate-900">Document Preview</h2>
             <p className="mt-0.5 text-sm text-slate-500">Review the generated document before downloading.</p>
           </div>
           
           <div className="relative">
             <button 
               onClick={() => setShowFilter(!showFilter)}
-              className="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
             >
               <Calendar className="h-4 w-4" /> 
               {selectedMonth} {selectedYear}
@@ -153,24 +261,24 @@ export default function ViewBill() {
             </button>
 
             {showFilter && (
-              <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-slate-200 bg-white p-4 shadow-xl z-10">
+              <div className="absolute right-0 top-full z-10 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 mb-1 block">Month</label>
+                    <label className="mb-1 block text-xs font-semibold text-slate-500">Month</label>
                     <select 
                       value={selectedMonth}
                       onChange={(e) => setSelectedMonth(e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 p-2 text-sm focus:border-[#004DD2] focus:ring-1 focus:ring-[#004DD2] outline-none"
+                      className="w-full rounded-lg border border-slate-300 p-2 text-sm outline-none focus:border-[#004DD2] focus:ring-1 focus:ring-[#004DD2]"
                     >
                       {months.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 mb-1 block">Year</label>
+                    <label className="mb-1 block text-xs font-semibold text-slate-500">Year</label>
                     <select 
                       value={selectedYear}
                       onChange={(e) => setSelectedYear(Number(e.target.value))}
-                      className="w-full rounded-lg border border-slate-300 p-2 text-sm focus:border-[#004DD2] focus:ring-1 focus:ring-[#004DD2] outline-none"
+                      className="w-full rounded-lg border border-slate-300 p-2 text-sm outline-none focus:border-[#004DD2] focus:ring-1 focus:ring-[#004DD2]"
                     >
                       {years.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
@@ -187,154 +295,315 @@ export default function ViewBill() {
           </div>
         </div>
 
-        {/* Bill document */}
-        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-              <Loader2 className="animate-spin h-8 w-8 text-[#004DD2] mb-3" />
-              <p>Generating bill document...</p>
-            </div>
-          ) : records.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-500 text-center">
-              <div className="h-16 w-16 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center mb-4">
-                <Calendar className="h-8 w-8 text-slate-400" />
+        <div className="mt-6 flex flex-col gap-6 lg:flex-row print:mt-0 print:block">
+          
+          <div id="printable-bill" className="flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print:overflow-visible mx-auto max-w-[210mm]">
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-32 text-slate-500 print-hide">
+                <Loader2 className="mb-3 h-8 w-8 animate-spin text-[#004DD2]" />
+                <p>Generating official document...</p>
               </div>
-              <p className="text-lg font-semibold text-slate-900">No Attendance Records Found</p>
-              <p className="mt-1">You have no marked attendance for {selectedMonth} {selectedYear}.</p>
-            </div>
-          ) : (
-            <div className="mx-auto max-w-3xl border border-slate-200 p-5 sm:p-10">
-              <div className="text-center">
-                <p className="text-lg font-semibold text-slate-900">देवी अहिल्या विश्वविद्यालय, इंदौर</p>
-                <p className="mt-1 text-lg font-bold tracking-tight text-slate-900">
-                  DEVI AHILYA VISHWAVIDYALAYA, INDORE
-                </p>
-                <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-                  Established by M.P. Govt. Act No. 22/1964 · NAAC Grade A+ · Category I University
-                </p>
+            ) : records.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-32 text-center text-slate-500 print-hide">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-slate-100 bg-slate-50">
+                  <Calendar className="h-8 w-8 text-slate-400" />
+                </div>
+                <p className="text-lg font-semibold text-slate-900">No Attendance Records Found</p>
+                <p className="mt-1">You have no marked attendance for {selectedMonth} {selectedYear}.</p>
               </div>
+            ) : (
+              <div className="p-4 sm:p-8 print:p-0">
+                
+                {/* --- PAGE 1: ANNEXURE IV --- */}
+                <div className={`mx-auto w-full min-h-[297mm] bg-white text-black print:block ${billPage === 1 ? 'block' : 'hidden'}`}>
+                  <div className="text-[13px] leading-relaxed p-6">
+                    
+                    <div className="relative mb-6 flex items-center justify-center min-h-[5rem]">
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 h-20 w-20">
+                        <img src={davvLogo} alt="DAVV Logo" className="h-full w-full object-contain grayscale" />
+                      </div>
+                      
+                      <div className="text-center w-full px-24">
+                        <p className="font-bold underline underline-offset-4 text-sm tracking-wide">ANNEXURE -IV</p>
+                        <h1 className="mt-2 text-xl font-bold uppercase tracking-tight">DEVI AHILYA VISHWAVIDYALAYA, INDORE</h1>
+                        <p className="mt-1 font-semibold text-[15px] leading-relaxed">
+                          Department/School/Centre <span className="border-b border-black font-bold px-4 inline-block">International Institute of Professional Studies (IIPS)</span>
+                        </p>
+                      </div>
+                    </div>
 
-              <div className="mt-5 flex justify-center">
-                <span className="border border-slate-400 px-4 py-1.5 text-sm font-bold tracking-wide text-slate-900">
-                  VISITING FACULTY REMUNERATION BILL
-                </span>
-              </div>
+                    <div className="mb-4 flex justify-between font-semibold">
+                      <p>Page No. of Attendance Register ___________________</p>
+                      <p>S.No. ___________________</p>
+                    </div>
 
-              <div className="mt-6 flex flex-col justify-between gap-2 border-t border-slate-300 pt-4 text-xs sm:flex-row sm:text-sm">
-                <p>
-                  <span className="font-semibold">Bill No.:</span> {billNo}
-                </p>
-                <p>
-                  <span className="font-semibold">Month / Year:</span> {selectedMonth} {selectedYear}
-                </p>
-                <p>
-                  <span className="font-semibold">Date of Submission:</span> {submissionDate}
-                </p>
-              </div>
+                    <h2 className="mb-4 text-center text-[15px] font-bold underline underline-offset-4">
+                      Bill For Claiming Remuneration/Honorarium for Visiting Faculty
+                    </h2>
 
-              <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-3 border-t border-slate-300 pt-6 text-sm sm:grid-cols-2">
-                <p><span className="inline-block w-28 font-semibold text-slate-600">UVFIN :</span> {facultyInfo.uvfin}</p>
-                <p><span className="inline-block w-28 font-semibold text-slate-600">Name :</span> {facultyInfo.name}</p>
-                <p><span className="inline-block w-28 align-top font-semibold text-slate-600">Email :</span> {facultyInfo.email}</p>
-                <p><span className="inline-block w-28 font-semibold text-slate-600">Program :</span> {facultyInfo.course}</p>
-                <p><span className="inline-block w-28 font-semibold text-slate-600">Semester :</span> {facultyInfo.semester}</p>
-                <p><span className="inline-block w-28 font-semibold text-slate-600">Session :</span> {facultyInfo.session}</p>
-              </div>
+                    <div className="mb-6 flex items-center justify-end gap-2">
+                      <span className="font-semibold">UVFIN (Unified Visiting Faculty ID No.)</span>
+                      <UVFINBlocks uvfin={facultyInfo.uvfin} />
+                    </div>
 
-              <div className="mt-6 overflow-x-auto border-t border-slate-300 pt-6">
-                <table className="w-full min-w-[560px] border-collapse text-sm">
-                  <thead>
-                    <tr className="border border-slate-300 bg-slate-50">
-                      <th className="border border-slate-300 px-3 py-2 text-left font-semibold">Sr.</th>
-                      <th className="border border-slate-300 px-3 py-2 text-left font-semibold">Date</th>
-                      <th className="border border-slate-300 px-3 py-2 text-left font-semibold">Code</th>
-                      <th className="border border-slate-300 px-3 py-2 text-left font-semibold">Subject Name</th>
-                      <th className="border border-slate-300 px-3 py-2 text-left font-semibold">T/P</th>
-                      <th className="border border-slate-300 px-3 py-2 text-left font-semibold">Hrs</th>
-                      <th className="border border-slate-300 px-3 py-2 text-left font-semibold">Rate (₹)</th>
-                      <th className="border border-slate-300 px-3 py-2 text-left font-semibold">Amt (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {records.map((r, index) => {
-                      const amount = (parseFloat(r.hours) || 0) * (parseFloat(r.rate_per_hour) || 0);
-                      return (
-                        <tr key={r.attendance_id}>
-                          <td className="border border-slate-300 px-3 py-2">{index + 1}</td>
-                          <td className="border border-slate-300 px-3 py-2">{formatDate(r.attendance_date)}</td>
-                          <td className="border border-slate-300 px-3 py-2">{r.subject_code}</td>
-                          <td className="border border-slate-300 px-3 py-2">{r.subject_name}</td>
-                          <td className="border border-slate-300 px-3 py-2">{r.session_type || 'Theory'}</td>
-                          <td className="border border-slate-300 px-3 py-2">{parseFloat(r.hours)}</td>
-                          <td className="border border-slate-300 px-3 py-2">{parseFloat(r.rate_per_hour || 0)}</td>
-                          <td className="border border-slate-300 px-3 py-2 font-medium">{amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                    <div className="mb-6 space-y-4 text-[14px]">
+                      <div className="flex items-end gap-2">
+                        <span className="w-16 shrink-0 font-medium">Name</span>
+                        <span className="flex-1 border-b border-black pb-0.5 text-left pl-2 font-semibold">
+                          {facultyInfo.name}
+                        </span>
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <span className="w-16 shrink-0 font-medium">Address</span>
+                        <span className="flex-1 border-b border-black pb-0.5 text-left pl-2 font-semibold">
+                          {facultyInfo.address || "\u00A0"}
+                        </span>
+                      </div>
+                      <div className="flex items-end gap-4">
+                        <div className="flex flex-1 items-end gap-2">
+                          <span className="shrink-0 font-medium">Mob No.</span>
+                          <span className="flex-1 border-b border-black pb-0.5 text-left pl-2 font-semibold">
+                            {facultyInfo.mobile || "\u00A0"}
+                          </span>
+                        </div>
+                        <div className="flex flex-1 items-end gap-2">
+                          <span className="shrink-0 font-medium">Qualification</span>
+                          <span className="flex-1 border-b border-black pb-0.5 text-left pl-2 font-semibold">
+                            {facultyInfo.qualification || "\u00A0"}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Leave your Date/Month row exactly as it is below this! */}
+                      <div className="flex items-end justify-between gap-2 text-[13px]">
+                        <div className="flex items-end gap-2">
+                          <span className="font-medium">Month</span>
+                          <span className="w-20 border-b border-black pb-0.5 text-center font-bold">{selectedMonth}</span>
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <span className="font-medium">Year</span>
+                          <span className="w-16 border-b border-black pb-0.5 text-center font-bold">{selectedYear}</span>
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <span className="font-medium">Date of Submission</span>
+                          <span className="w-24 border-b border-black pb-0.5 text-center font-bold">{submissionDate}</span>
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <span className="font-medium">Theory/Practical</span>
+                          <span className="w-20 border-b border-black pb-0.5 text-center font-bold"></span>
+                          <span className="font-medium">per week</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <table className="mb-4 w-full border-collapse border border-black text-center text-sm">
+                      <thead>
+                        <tr>
+                          <th className="border border-black p-2 w-[12%]">Program</th>
+                          <th className="border border-black p-2 w-[15%]">Semester</th>
+                          <th className="border border-black p-2 w-[25%]">Subject</th>
+                          <th className="border border-black p-2 w-[20%]">Dates with<br/>Duration (Hrs.)</th>
+                          <th className="border border-black p-2 w-[8%]">Total<br/>Hrs.</th>
+                          <th className="border border-black p-2 w-[10%]">Rate</th>
+                          <th className="border border-black p-2 w-[10%]">Amount</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-blue-50/50">
-                      <td colSpan={7} className="border border-slate-300 px-3 py-2 text-right font-semibold text-slate-800">
-                        TOTAL AMOUNT (₹)
-                      </td>
-                      <td className="border border-slate-300 px-3 py-2 font-bold text-[#004DD2]">
-                        {totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                      </thead>
+                      <tbody>
+                        {aggregatedRecords.map((r, index) => (
+                          <tr key={index}>
+                            <td className="border border-black p-3 font-medium">{r.program}</td>
+                            <td className="border border-black p-3 font-medium">{r.semester}</td>
+                            <td className="border border-black p-3 font-medium">{r.subject}</td>
+                            <td className="border border-black p-2 text-xs leading-relaxed text-slate-700">
+                              {r.dates.map((dateStr, i) => (
+                                <React.Fragment key={i}>
+                                  {dateStr}
+                                  {i < r.dates.length - 1 && <br />}
+                                </React.Fragment>
+                              ))}
+                            </td>
+                            <td className="border border-black p-3 font-medium">{r.totalHrs}</td>
+                            <td className="border border-black p-3 font-medium">{r.rate}</td>
+                            <td className="border border-black p-3 font-medium">{r.amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    <p className="mb-4 text-[11px] font-medium">*Total amount should not exceed the maximum limit of remuneration for a month.</p>
+                    
+                    <div className="mb-8 flex items-end font-bold text-[14px]">
+                      <span>Total Hours</span>
+                      <span className="mx-2 w-16 border-b border-black text-center">{totalHours}</span>
+                      <span className="ml-4">Total Amount</span>
+                      <span className="mx-2 w-24 border-b border-black text-center">{totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                      <span className="ml-4 font-normal">(Amount in Words</span>
+                      <span className="mx-2 flex-1 border-b border-black text-center">{amountInWords}</span>
+                      <span className="font-normal">)</span>
+                    </div>
+
+                    <div className="mb-8 text-[12px] font-medium leading-relaxed">
+                      <p className="font-bold underline text-[14px] mb-1">Note:</p>
+                      <ol className="list-[upper-alpha] pl-6 space-y-0.5">
+                        <li>Rate of Remuneration will be as per university rules.</li>
+                        <li>Faculty members are requested to complete all the above entries.</li>
+                        <li>Rates to be verified as per visiting faculty attendance register and signed by authorized person.</li>
+                        <li>Fill this form for theory/practical classes for every month.</li>
+                        <li>Faculty should not be paid excess amount of Rs 30,000/- PM from D.A.V.V.</li>
+                        <li>Verified visiting faculty Teaching attendance details should be attached with this bill.</li>
+                      </ol>
+                    </div>
+
+                    <div className="mb-12 text-center text-[12px]" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                      <p className="mb-2 font-bold underline text-[15px]">UNDERTAKING</p>
+                      <p className="text-justify mb-6 font-medium leading-relaxed">
+                        I was directed and permitted by the Head to engage the above Classes. For this I have submitted this bill. I therefore, request you to deduct _______% against Income Tax Returns from my payment. Further, I certify that total amount received per month doesn't exceed the maximum permissible limit of remuneration of any amount paid by D.A.V.V. which is Rs. 30,000/- at present.
+                      </p>
+                      
+                      <div className="flex items-start justify-between">
+                        <div className="w-72 border-2 border-black p-3 text-left space-y-1.5 font-semibold">
+                          <p>Pan Card No. <span className="border-b border-black inline-block w-40">{facultyInfo.pan}</span></p>
+                          <p>A/c No. <span className="border-b border-black inline-block w-48">{facultyInfo.account}</span></p>
+                          <p>Bank Name <span className="border-b border-black inline-block w-44">{facultyInfo.bankName}</span><br/><span className="text-[10px] font-normal italic">(State bank of India Compulsory)</span></p>
+                          <p>IFSC Code <span className="border-b border-black inline-block w-44">{facultyInfo.ifsc}</span></p>
+                          <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{facultyInfo.aadhaar}</span></p>
+                        </div>
+                        
+                        <div className="mt-20 flex flex-col items-center font-bold text-[14px]">
+                          <p>_____________________________________</p>
+                          <p>Name & Signature of Visiting Faculty</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-14 font-bold text-[14px]" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                      <div className="text-center">
+                        <p>_____________________________________</p>
+                        <p>Verified by Coordinator (Name & Signature)</p>
+                      </div>
+                      <div className="w-full flex justify-between items-end">
+                        <div className="font-semibold space-y-2">
+                          <p>Date : {submissionDate}</p>
+                          <p>Received Payments of Rs. ____________</p>
+                          <p>Cheque No. ____________</p>
+                        </div>
+                        <div className="text-center">
+                          <p>_____________________________________</p>
+                          <p>Signature Director/Head (Name & Seal)</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* --- PAGE 2: ATTENDANCE REGISTER --- */}
+                <div className={`mx-auto w-full min-h-[297mm] bg-white text-black print:block print-force-break ${billPage === 2 ? 'block' : 'hidden'}`}>
+                  <div className="text-[13px] leading-relaxed p-6 pt-12">
+                    <div className="mb-8 flex items-center justify-end gap-2">
+                      <span className="font-bold text-sm">UVFIN</span>
+                      <UVFINBlocks uvfin={facultyInfo.uvfin} />
+                    </div>
+
+                    <div className="relative mb-8 flex items-center justify-center min-h-[5rem]">
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 h-20 w-20">
+                        <img src={davvLogo} alt="DAVV Logo" className="h-full w-full object-contain grayscale" />
+                      </div>
+                      <div className="text-center w-full px-24">
+                        <h1 className="text-xl font-bold uppercase tracking-tight">DEVI AHILYA VISHWAVIDYALAYA,</h1>
+                        <h1 className="text-xl font-bold uppercase tracking-tight">INDORE</h1>
+                        <p className="mt-3 text-[15px] font-semibold leading-relaxed">
+                          Department/School/Centre <span className="border-b border-black font-bold px-12 inline-block">International Institute of Professional Studies (IIPS)</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <h2 className="mb-6 text-center text-[15px] font-bold underline underline-offset-4">
+                      VISITING FACULTY TEACHING ATTENDANCE
+                    </h2>
+
+                    <table className="w-full border-collapse border-2 border-black font-semibold text-sm mb-0">
+                      <tbody>
+                        <tr>
+                          <td className="border border-black p-2.5 w-1/2">Name: {facultyInfo.name}</td>
+                          <td className="border border-black p-2.5 w-1/2">Designation : Visiting Faculty</td>
+                        </tr>
+                        <tr>
+                          <td className="border border-black p-2.5">Month and Year : {selectedMonth} {selectedYear}</td>
+                          <td className="border border-black p-2.5">Semester and Session : {facultyInfo.semester} ({facultyInfo.session})</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <table className="mb-24 w-full border-collapse border-2 border-t-0 border-black text-center text-sm">
+                      <thead>
+                        <tr>
+                          <th className="border border-black p-2.5 w-[15%]">Date</th>
+                          <th className="border border-black p-2.5 w-[20%]">Subject Code</th>
+                          <th className="border border-black p-2.5 text-left pl-4 w-[35%]">Subject Name</th>
+                          <th className="border border-black p-2.5 w-[15%]">Theory / Practice</th>
+                          <th className="border border-black p-2.5 w-[15%]">Hours</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {records.map((r, i) => (
+                          <tr key={i}>
+                            <td className="border border-black p-2.5">{formatDate(r.attendance_date)}</td>
+                            <td className="border border-black p-2.5 font-semibold">{r.subject_code}</td>
+                            <td className="border border-black p-2.5 text-left pl-4 font-semibold">{r.subject_name}</td>
+                            <td className="border border-black p-2.5">{r.session_type || 'Theory'}</td>
+                            <td className="border border-black p-2.5 font-bold">{parseFloat(r.hours)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    <div className="flex justify-between font-bold text-[14px] mt-16 px-4" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                      <p>Name & Sign. of Faculty</p>
+                      <div className="text-right flex flex-col gap-16">
+                        <p>Name & Sign. of Coordinator</p>
+                        <p>Name & Sign. of Head</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
+            )}
+          </div>
 
-              <p className="mt-6 text-sm font-semibold text-slate-800">
-                Amount in words: <span className="font-bold underline decoration-slate-300 underline-offset-4">{amountInWords}</span>
-              </p>
-
-              <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-4 border border-dashed border-slate-300 p-4 text-sm sm:grid-cols-2 bg-slate-50/30">
-                <div>
-                  <p className="text-xs text-slate-500">Bank Name</p>
-                  <p className="font-semibold text-slate-800">Update Profile</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">A/C Number</p>
-                  <p className="font-semibold text-slate-800">Update Profile</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">IFSC Code</p>
-                  <p className="font-semibold text-slate-800">Update Profile</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">PAN Number</p>
-                  <p className="font-semibold text-slate-800">Update Profile</p>
-                </div>
-              </div>
-
-              <div className="mt-12 grid grid-cols-1 gap-8 text-center text-xs font-semibold uppercase tracking-wide text-slate-600 sm:grid-cols-3">
-                <p className="border-t border-slate-400 pt-2">Sign of Faculty</p>
-                <p className="border-t border-slate-400 pt-2">Head of Dept.</p>
-                <p className="border-t border-slate-400 pt-2">Finance Officer</p>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-6 flex items-center justify-center gap-2">
-            <button className="rounded-md border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50">
-              <ChevronLeft className="h-4 w-4" />
+          <div className="flex flex-row lg:flex-col gap-2 shrink-0 justify-center print-hide">
+            <button 
+              onClick={() => setBillPage(1)}
+              className={`flex flex-col items-center justify-center gap-1 w-20 h-20 rounded-xl border transition-all ${
+                billPage === 1 
+                  ? "border-[#004DD2] bg-blue-50 text-[#004DD2] shadow-sm" 
+                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              <FileText className="h-6 w-6" />
+              <span className="text-xs font-semibold">Page 1</span>
             </button>
-            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#004DD2] text-sm font-semibold text-white shadow-sm">
-              1
-            </span>
-            <button className="rounded-md border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50">
-              <ChevronRight className="h-4 w-4" />
+            <button 
+              onClick={() => setBillPage(2)}
+              className={`flex flex-col items-center justify-center gap-1 w-20 h-20 rounded-xl border transition-all ${
+                billPage === 2 
+                  ? "border-[#004DD2] bg-blue-50 text-[#004DD2] shadow-sm" 
+                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              <TableProperties className="h-6 w-6" />
+              <span className="text-xs font-semibold">Page 2</span>
             </button>
           </div>
         </div>
 
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex justify-end print-hide">
           <button 
             disabled={records.length === 0}
-            className="flex items-center gap-2 rounded-lg bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2 rounded-lg-[#004DD2] bg-[#004DD2] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Download className="h-4 w-4" /> Download PDF
+            <Download className="h-4 w-4" /> Download Full PDF
           </button>
         </div>
       </div>
