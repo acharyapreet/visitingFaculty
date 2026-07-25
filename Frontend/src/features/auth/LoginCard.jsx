@@ -157,7 +157,7 @@ const LoginCard = ({ onNavigate, initialEmail = "" }) => {
               </label>
               <input
                 type="email"
-                placeholder="abc@gmail.com"
+                placeholder="user@gmail.com"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
