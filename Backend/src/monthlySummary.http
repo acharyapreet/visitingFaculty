@@ -1,0 +1,74 @@
+###############################################################
+# MONTHLY SUMMARY MODULE — API TEST FILE
+# Install "REST Client" extension in VS Code to use this file.
+# Click "Send Request" above any request to test it.
+#
+# Base URL : http://localhost:5000
+# All routes: /api/monthly-summary
+###############################################################
+
+@BASE_URL   = http://localhost:5000
+@MONTH      = July
+@YEAR       = 2026
+@COURSE_ID  = 1
+
+
+# ═══════════════════════════════════════════════════════════════
+# 1.  GET SUMMARY — Single Course
+#     Returns: Semesters → Faculties → Amount (per course)
+#     courseId is OPTIONAL — omit to get all courses combined
+# ═══════════════════════════════════════════════════════════════
+
+### 1.1 Summary for a specific course (by courseId)
+GET {{BASE_URL}}/api/monthly-summary?month={{MONTH}}&year={{YEAR}}&courseId={{COURSE_ID}}
+
+###
+
+### 1.2 Summary for all courses combined (no courseId)
+GET {{BASE_URL}}/api/monthly-summary?month={{MONTH}}&year={{YEAR}}
+
+###
+
+### 1.3 Missing params test (expect 400)
+GET {{BASE_URL}}/api/monthly-summary?month={{MONTH}}
+
+
+# ═══════════════════════════════════════════════════════════════
+# 2.  GET ALL COURSES SUMMARY
+#     Returns: Each active course with its semester-faculty breakdown
+#     + grand total across all courses for that month/year
+# ═══════════════════════════════════════════════════════════════
+
+### 2.1 All courses — July 2026
+GET {{BASE_URL}}/api/monthly-summary/all?month={{MONTH}}&year={{YEAR}}
+
+###
+
+### 2.2 All courses — December 2024
+GET {{BASE_URL}}/api/monthly-summary/all?month=December&year=2024
+
+###
+
+### 2.3 Missing params (expect 400)
+GET {{BASE_URL}}/api/monthly-summary/all
+
+
+# ═══════════════════════════════════════════════════════════════
+# 3.  DOWNLOAD SUMMARY PDF
+#     Returns: Binary PDF file (like the Course Summary Report
+#              shown in the screenshot)
+#     courseId is REQUIRED for PDF (one report per program)
+# ═══════════════════════════════════════════════════════════════
+
+### 3.1 Download PDF — M. Tech. (IT) — July 2026
+GET {{BASE_URL}}/api/monthly-summary/download?month={{MONTH}}&year={{YEAR}}&courseId={{COURSE_ID}}
+
+###
+
+### 3.2 Download PDF — December 2024 — Course 2
+GET {{BASE_URL}}/api/monthly-summary/download?month=December&year=2024&courseId=2
+
+###
+
+### 3.3 Missing courseId (expect 400)
+GET {{BASE_URL}}/api/monthly-summary/download?month={{MONTH}}&year={{YEAR}}

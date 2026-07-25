@@ -1,24 +1,146 @@
-### Generate a new Bill
-POST http://localhost:5000/api/bills/generate
+###############################################################
+# BILL MODULE — API TEST FILE
+# Install "REST Client" extension in VS Code to use this file.
+# Click "Send Request" above any request to test it.
+###############################################################
+
+@BASE_URL    = http://localhost:5000
+@FACULTY_ID  = 3
+@FACULTY_UVFIN = VF-2024-001
+@BILL_ID     = 1
+
+
+# ═══════════════════════════════════════════════════════════
+# 5.1  Generate Bill (minimal)
+# POST /api/bills/generate
+# ═══════════════════════════════════════════════════════════
+### Generate Bill — by numeric faculty ID
+POST {{BASE_URL}}/api/bills/generate
 Content-Type: application/json
 
 {
-    "facultyId": "TEMP-123456",
-    "month": "July",
-    "year": 2026
+    "facultyId": {{FACULTY_ID}},
+    "month": "December",
+    "year": 2024
 }
 
+###
+
+### Generate Bill — by UVFIN string
+POST {{BASE_URL}}/api/bills/generate
+Content-Type: application/json
+
+{
+    "facultyId": "{{FACULTY_UVFIN}}",
+    "month": "January",
+    "year": 2025
+}
+
+###
+
+### Generate Bill — full Annexure-IV fields
+POST {{BASE_URL}}/api/bills/generate
+Content-Type: application/json
+
+{
+    "facultyId": {{FACULTY_ID}},
+    "month": "February",
+    "year": 2025,
+    "department": "Department of Computer Science",
+    "attendancePageNo": "A-12",
+    "serialNo": "001",
+    "tdsPercent": 10,
+    "submissionDate": "2025-02-28"
+}
+
+
+# ═══════════════════════════════════════════════════════════
+# 5.2  Get All Bills (Admin view)
+# GET /api/bills/
+# ═══════════════════════════════════════════════════════════
 ### Get All Bills
-GET http://localhost:5000/api/bills/
+GET {{BASE_URL}}/api/bills/
 
+
+# ═══════════════════════════════════════════════════════════
+# 5.3  Get Bills By Month (Admin filter)
+# GET /api/bills/by-month?month=&year=
+# Returns: count, totalAmount, totalHours + all bills that month
+# ═══════════════════════════════════════════════════════════
+### Get Bills — December 2024
+GET {{BASE_URL}}/api/bills/by-month?month=December&year=2024
+
+###
+
+### Get Bills — January 2025
+GET {{BASE_URL}}/api/bills/by-month?month=January&year=2025
+
+###
+
+### Missing params (expect 400)
+GET {{BASE_URL}}/api/bills/by-month
+
+
+# ═══════════════════════════════════════════════════════════
+# 5.4  Get Bill History (faculty — all bills ever)
+# GET /api/bills/history/:facultyId
+# Returns: array of bills with faculty info + line items
+# ═══════════════════════════════════════════════════════════
+### Get History — by numeric faculty ID
+GET {{BASE_URL}}/api/bills/history/{{FACULTY_ID}}
+
+###
+
+### Get History — by UVFIN
+GET {{BASE_URL}}/api/bills/history/{{FACULTY_UVFIN}}
+
+
+# ═══════════════════════════════════════════════════════════
+# 5.5  Get Bill Summary / Stats (per faculty)
+# GET /api/bills/summary/:facultyId
+# Returns: faculty info, totalBills, totalAmount, totalHours,
+#          billedMonths[], bills[]
+# ═══════════════════════════════════════════════════════════
+### Summary — by numeric faculty ID
+GET {{BASE_URL}}/api/bills/summary/{{FACULTY_ID}}
+
+###
+
+### Summary — by UVFIN
+GET {{BASE_URL}}/api/bills/summary/{{FACULTY_UVFIN}}
+
+
+# ═══════════════════════════════════════════════════════════
+# 5.6  Get Bill Details (single bill header + all line items)
+# GET /api/bills/details/:billId
+# ═══════════════════════════════════════════════════════════
 ### Get Bill Details
-GET http://localhost:5000/api/bills/details/1
+GET {{BASE_URL}}/api/bills/details/{{BILL_ID}}
 
-### Get Bill History for Faculty
-GET http://localhost:5000/api/bills/history/TEMP-123456
 
+# ═══════════════════════════════════════════════════════════
+# 5.7  Download Bill PDF
+# GET /api/bills/download/:billId
+# Returns: binary PDF file (direct download)
+# ═══════════════════════════════════════════════════════════
 ### Download Bill PDF
-GET http://localhost:5000/api/bills/download/1
+GET {{BASE_URL}}/api/bills/download/{{BILL_ID}}
 
+
+# ═══════════════════════════════════════════════════════════
+# 5.8  Regenerate Bill PDF
+# PATCH /api/bills/regenerate/:billId
+# Use when: PDF is missing / corrupted, or faculty details changed
+# Returns: { success, message, billId, pdf_path }
+# ═══════════════════════════════════════════════════════════
+### Regenerate PDF for existing bill
+PATCH {{BASE_URL}}/api/bills/regenerate/{{BILL_ID}}
+
+
+# ═══════════════════════════════════════════════════════════
+# 5.9  Delete Bill
+# DELETE /api/bills/:billId
+# Removes bill header + all line items in a transaction
+# ═══════════════════════════════════════════════════════════
 ### Delete Bill
-DELETE http://localhost:5000/api/bills/1
+DELETE {{BASE_URL}}/api/bills/{{BILL_ID}}
