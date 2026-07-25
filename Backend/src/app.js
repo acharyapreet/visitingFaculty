@@ -10,6 +10,7 @@ const SuperAdminApprovalRouter = require("./routes/superAdminApprovalRoutes");
 const AdminApprovalRouter = require("./routes/adminApprovalRoutes");
 const attendanceRoutes = require("./routes/attendanceRoutes");
 const accountStatusRoutes = require("./routes/accountStatusRoutes");
+const monthlySummaryRoutes = require("./routes/monthlySummaryRoutes");
 
 // Load schemas to register relationships
 require("./Schema");
@@ -35,5 +36,6 @@ app.use("/api/super_admin", SuperAdminApprovalRouter);
 app.use("/api/admin", AdminApprovalRouter);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/account-status", accountStatusRoutes);
+app.use("/api/monthly-summary", monthlySummaryRoutes);
 
 module.exports = app;

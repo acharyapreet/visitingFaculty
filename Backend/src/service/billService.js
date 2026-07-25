@@ -291,7 +291,7 @@ const getBillDetails = async (billId) => {
 };
 
 // ==========================================================
-// Get Bill History (per faculty)
+// Get Bill History (per faculty) — includes faculty info
 // ==========================================================
 const getBillHistory = async (facultyId) => {
 
@@ -301,11 +301,138 @@ const getBillHistory = async (facultyId) => {
         where: {
             user_id: numericUserId
         },
+        include: [
+            {
+                model: User,
+                attributes: [
+                    "user_id",
+                    "full_name",
+                    "email",
+                    "uvfin",
+                    "phone_number"
+                ]
+            },
+            {
+                model: BillDetail
+            }
+        ],
         order: [
             ["generated_at", "DESC"]
         ]
     });
     return bills;
+};
+
+// ==========================================================
+// Get Bill Summary (stats for a faculty)
+// ==========================================================
+const getBillSummary = async (facultyId) => {
+
+    const numericUserId = await resolveUserId(facultyId);
+
+    const faculty = await User.findByPk(numericUserId, {
+        attributes: ["user_id", "full_name", "email", "uvfin", "phone_number", "qualification"]
+    });
+
+    if (!faculty) {
+        throw new Error(`Faculty not found for ID: ${facultyId}`);
+    }
+
+    const bills = await Bill.findAll({
+        where: { user_id: numericUserId },
+        order: [["generated_at", "DESC"]]
+    });
+
+    const totalBills   = bills.length;
+    const totalAmount  = bills.reduce((sum, b) => sum + Number(b.total_amount), 0);
+    const totalHours   = bills.reduce((sum, b) => sum + Number(b.total_hours),  0);
+
+    // Months for which bills exist
+    const billedMonths = bills.map(b => ({ month: b.month, year: b.year, billId: b.bill_id }));
+
+    return {
+        faculty,
+        totalBills,
+        totalAmount: Number(totalAmount.toFixed(2)),
+        totalHours:  Number(totalHours.toFixed(2)),
+        billedMonths,
+        bills
+    };
+};
+
+// ==========================================================
+// Get Bills By Month (admin view — filter by month + year)
+// ==========================================================
+const getBillsByMonth = async (month, year) => {
+
+    if (!month || !year) {
+        throw new Error("Month and Year are required.");
+    }
+
+    const bills = await Bill.findAll({
+        where: { month, year },
+        include: [
+            {
+                model: User,
+                attributes: [
+                    "user_id",
+                    "full_name",
+                    "email",
+                    "uvfin",
+                    "phone_number"
+                ]
+            },
+            {
+                model: BillDetail
+            }
+        ],
+        order: [["generated_at", "DESC"]]
+    });
+
+    const totalAmount = bills.reduce((sum, b) => sum + Number(b.total_amount), 0);
+    const totalHours  = bills.reduce((sum, b) => sum + Number(b.total_hours),  0);
+
+    return {
+        month,
+        year,
+        count: bills.length,
+        totalAmount: Number(totalAmount.toFixed(2)),
+        totalHours:  Number(totalHours.toFixed(2)),
+        bills
+    };
+};
+
+// ==========================================================
+// Regenerate Bill PDF (for an existing bill)
+// ==========================================================
+const regenerateBillPDF = async (billId) => {
+
+    const bill = await Bill.findByPk(billId, {
+        include: [{ model: BillDetail }]
+    });
+
+    if (!bill) {
+        throw new Error("Bill not found.");
+    }
+
+    const faculty = await User.findByPk(bill.user_id);
+
+    if (!faculty) {
+        throw new Error("Faculty not found for this bill.");
+    }
+
+    const finalBillDetails = bill.BillDetails.map(d => d.dataValues);
+
+    const pdfPath = await generateBillPDF(bill, finalBillDetails, faculty);
+
+    await bill.update({ pdf_path: pdfPath });
+
+    return {
+        success:  true,
+        message:  "Bill PDF regenerated successfully.",
+        billId:   bill.bill_id,
+        pdf_path: pdfPath
+    };
 };
 
 // ==========================================================
@@ -397,6 +524,9 @@ module.exports = {
     generateBill,
     getBillDetails,
     getBillHistory,
+    getBillSummary,
+    getBillsByMonth,
+    regenerateBillPDF,
     getAllBills,
     deleteBill,
     downloadBill
