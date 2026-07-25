@@ -43,17 +43,17 @@ function parseCSV(text) {
     return rows;
 }
 
-// Map known course metadata (total semesters & sections)
+// Map known course metadata (total semesters, sections, program incharge and year)
 const defaultCourseMeta = {
-    'C1': { name: 'MCA', semCount: 10, sections: ['A', 'B'], program_incharge: 'Dr. Shaligram Prajapati' },
-    'C2': { name: 'Mtech(it)', semCount: 10, sections: ['A', 'B'], program_incharge: 'Dr. Kirti Mathur' },
-    'C3': { name: 'Mtech(cs)', semCount: 10, sections: [], program_incharge: 'Dr. Yasmin Shaikh' },
-    'C4': { name: 'MBA(ms)', semCount: 10, sections: ['A', 'B'], program_incharge: 'Dr. Manmindar Singh' },
-    'C5': { name: 'MBA(ms)', semCount: 4, sections: ['A', 'B', 'C'], program_incharge: 'Dr. Kapil Jain' },
-    'C6': { name: 'MBA(apr)', semCount: 4, sections: [], program_incharge: 'Dr. Anshu Bhati' },
-    'C7': { name: 'MBA(eship)', semCount: 4, sections: [], program_incharge: 'Dr. Nirmala Sawan' },
-    'C8': { name: 'Bcom(hons)', semCount: 8, sections: [], program_incharge: 'Dr. Sujata Parwani' },
-    'C9': { name: 'MBA(tm)', semCount: 10, sections: [], program_incharge: 'Dr. Shilpa Bagdare' }
+    'C1': { name: 'MCA', semCount: 10, sections: ['A', 'B'], program_incharge: 'Dr. Shaligram Prajapati', year: 5 },
+    'C2': { name: 'Mtech(it)', semCount: 10, sections: ['A', 'B'], program_incharge: 'Dr. Kirti Mathur', year: 5 },
+    'C3': { name: 'Mtech(cs)', semCount: 10, sections: [], program_incharge: 'Dr. Yasmin Shaikh', year: 5 },
+    'C4': { name: 'MBA(ms)', semCount: 10, sections: ['A', 'B'], program_incharge: 'Dr. Manmindar Singh', year: 5 },
+    'C5': { name: 'MBA(ms)', semCount: 4, sections: ['A', 'B', 'C'], program_incharge: 'Dr. Kapil Jain', year: 2 },
+    'C6': { name: 'MBA(apr)', semCount: 4, sections: [], program_incharge: 'Dr. Anshu Bhati', year: 2 },
+    'C7': { name: 'MBA(eship)', semCount: 4, sections: [], program_incharge: 'Dr. Nirmala Sawan', year: 2 },
+    'C8': { name: 'Bcom(hons)', semCount: 8, sections: [], program_incharge: 'Dr. Sujata Parwani', year: 4 },
+    'C9': { name: 'MBA(tm)', semCount: 10, sections: [], program_incharge: 'Dr. Shilpa Bagdare', year: 5 }
 };
 
 /**
@@ -88,6 +88,9 @@ async function importSubjectsFromCSV(options = {}) {
             if (meta.semCount && course.total_semesters !== meta.semCount) {
                 updates.total_semesters = meta.semCount;
             }
+            if (meta.year !== undefined && course.year !== meta.year) {
+                updates.year = meta.year;
+            }
             if (Object.keys(updates).length > 0) {
                 await course.update(updates);
             }
@@ -99,6 +102,7 @@ async function importSubjectsFromCSV(options = {}) {
             course_name: meta.name,
             program_incharge: meta.program_incharge || null,
             total_semesters: meta.semCount,
+            year: meta.year !== undefined ? meta.year : new Date().getFullYear(),
             is_active: true
         });
         courseMap.set(code, course);

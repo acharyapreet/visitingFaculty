@@ -23,6 +23,10 @@ const Course = sequelize.define('Course', {
         type: DataTypes.INTEGER,
         allowNull: false
     },
+    year:{
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
     is_active: {
         type: DataTypes.BOOLEAN,
         defaultValue: true
