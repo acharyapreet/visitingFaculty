@@ -4,6 +4,8 @@ const {
     downloadMonthlySummaryPDF
 } = require("../service/monthlySummaryService");
 
+const { runMonthlySummaryJob } = require("../scheduler/monthlySummaryScheduler");
+
 // =================================================================
 // GET /api/monthly-summary?month=July&year=2026&courseId=1
 // Returns: Summary grouped by Semester → Faculty for ONE course
@@ -85,7 +87,16 @@ const downloadSummaryPDFController = async (req, res) => {
 
         const pdfPath = await downloadMonthlySummaryPDF(month, year, courseId);
 
-        return res.download(pdfPath);
+        // Pass error callback so file-send failures return JSON instead of crashing
+        return res.download(pdfPath, (err) => {
+            if (err && !res.headersSent) {
+                console.error("downloadSummaryPDFController [res.download]:", err);
+                return res.status(500).json({
+                    success: false,
+                    message: "Failed to send PDF file: " + err.message
+                });
+            }
+        });
 
     } catch (error) {
         console.error("downloadSummaryPDFController:", error);
@@ -96,8 +107,35 @@ const downloadSummaryPDFController = async (req, res) => {
     }
 };
 
+// =================================================================
+// POST /api/monthly-summary/trigger-now
+// Manually triggers the cron job (for testing / emergency re-run).
+// Body: { month: "June", year: 2026 } — optional; defaults to previous month
+// =================================================================
+const triggerMonthlySummaryNow = async (req, res) => {
+    try {
+        // runMonthlySummaryJob() always uses "previous month" internally,
+        // so we just fire it and let it handle the date logic.
+        res.status(202).json({
+            success: true,
+            message: "Monthly summary job triggered. Check server logs for progress."
+        });
+
+        // Run AFTER responding so the HTTP request doesn't time out
+        runMonthlySummaryJob();
+
+    } catch (error) {
+        console.error("triggerMonthlySummaryNow:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 module.exports = {
     getMonthlySummaryController,
     getAllCoursesSummaryController,
-    downloadSummaryPDFController
+    downloadSummaryPDFController,
+    triggerMonthlySummaryNow
 };

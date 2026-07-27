@@ -335,7 +335,7 @@ const generateSummaryPDF = (summaryData) => {
 
 // =================================================================
 // Download Summary PDF
-// PATCH /api/monthly-summary/download?month=&year=&courseId=
+// GET /api/monthly-summary/download?month=&year=&courseId=
 // =================================================================
 const downloadMonthlySummaryPDF = async (month, year, courseId) => {
     const summaryData = await getMonthlySummary(month, year, courseId);
