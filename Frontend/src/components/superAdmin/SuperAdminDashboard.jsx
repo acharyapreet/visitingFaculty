@@ -2,12 +2,11 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Sidebar from "./Sidebar"; 
 import PendingApprovalsPage from "./PendingApprovals"; 
-import AllAdminsPage from "./AllAdminsPage"; 
+import AllAdminsPage from './AllAdminsPage'; 
 import SettingsPage from "./Settings"; 
-
+import ProgramsPage from "./ProgramPage";
 
 export default function SuperAdminDashboard({ onSignOut }) {
-  // 1. Initialize state by checking localStorage first
   // 1. Bulletproof State Initialization
   // By passing a function into useState, React runs this BEFORE the first render.
   const [activeTab, setActiveTab] = useState(() => {
@@ -69,6 +68,8 @@ export default function SuperAdminDashboard({ onSignOut }) {
         return <PendingApprovalsPage onNavigate={setActiveTab} />;
       case "admins":
         return <AllAdminsPage onNavigate={setActiveTab} />;
+      case "programs":
+        return <ProgramsPage onNavigate={setActiveTab} />;
       case "settings":
         return <SettingsPage onNavigate={setActiveTab} />;
       default:

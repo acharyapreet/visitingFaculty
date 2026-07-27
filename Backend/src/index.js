@@ -14,7 +14,7 @@ const AdminApprovalRouter = require('./routes/adminApprovalRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const accountStatusRoutes = require('./routes/accountStatusRoutes');
 const monthlySummaryRoutes = require('./routes/monthlySummaryRoutes');
-const { startMonthlySummaryScheduler } = require('./scheduler/monthlySummaryScheduler');
+// const { startMonthlySummaryScheduler } = require('./scheduler/monthlySummaryScheduler');
 
 // Load schemas to register relationships
 require('./Schema');
@@ -96,7 +96,7 @@ const PORT = process.env.PORT || 5000;
       // ── Start the monthly summary auto-scheduler ────────────────────
       // Fires at 00:05 AM IST on the 1st of every month.
       // Generates PDF summaries for all active courses (previous month).
-      startMonthlySummaryScheduler();
+      // startMonthlySummaryScheduler();
     });
   } catch (err) {
     console.error('Failed to start server:', err);
