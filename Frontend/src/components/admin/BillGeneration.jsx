@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { Search, Download, FileText, TableProperties, Calendar } from "lucide-react";
+import { Search, Download, FileText, TableProperties, Calendar, Trash2, Users, Eye } from "lucide-react";
 import axios from "axios";
 import LoadingSpinner from "./LoadingSpinner"; 
 
-// Import the logo correctly for Vite/React
 import davvLogo from "../../assets/image.png";
 
 const MONTHS = [
@@ -18,7 +17,6 @@ const statusStyles = {
   draft: "bg-slate-100 text-slate-500",
 };
 
-// Helper function to convert numbers to words (Indian Rupee Format)
 function convertAmountToWords(amount) {
   if (!amount || amount === 0) return "Zero Rupees Only";
   
@@ -41,7 +39,6 @@ function convertAmountToWords(amount) {
   return str.trim() + " Rupees Only";
 }
 
-// Component to render UVFIN in boxes
 const UVFINBlocks = ({ uvfin }) => {
   const chars = (uvfin || "").padEnd(15, " ").split("").slice(0, 15);
   return (
@@ -71,10 +68,17 @@ export default function BillGeneration() {
   const [facultyOptions, setFacultyOptions] = useState([]);
   const [showFacultyDropdown, setShowFacultyDropdown] = useState(false);
   
+  const [allFaculties, setAllFaculties] = useState([]);
+  const [facultiesLoading, setFacultiesLoading] = useState(true);
+
   const [month, setMonth] = useState("July");
   const [sessionYear, setSessionYear] = useState("2026-27");
   const [bill, setBill] = useState(null);
   const [generating, setGenerating] = useState(false);
+  
+  const [isDeleting, setIsDeleting] = useState(false);
+  // State to control the custom delete modal
+  const [billToDelete, setBillToDelete] = useState(null);
   const [error, setError] = useState("");
 
   const [history, setHistory] = useState([]);
@@ -86,6 +90,7 @@ export default function BillGeneration() {
 
   useEffect(() => {
     loadHistory();
+    loadAllFaculties();
 
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -95,6 +100,18 @@ export default function BillGeneration() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const loadAllFaculties = async () => {
+    setFacultiesLoading(true);
+    try {
+      const res = await axios.get("http://localhost:5000/api/admin/search-faculty?q=", getAxiosConfig());
+      setAllFaculties(res.data.data || []);
+    } catch (err) {
+      console.error("Failed to load faculties for quick select");
+    } finally {
+      setFacultiesLoading(false);
+    }
+  };
 
   const loadHistory = async () => {
     setHistoryLoading(true);
@@ -140,6 +157,23 @@ export default function BillGeneration() {
     
     try {
       const yearInt = parseInt(sessionYear.split("-")[0]);
+      
+      const generatePayload = {
+        facultyId: parseInt(selectedFacultyId, 10),
+        month: month, 
+        year: yearInt
+      };
+
+      const generatedDbRes = await axios.post(
+        "http://localhost:5000/api/bills/generate", 
+        generatePayload, 
+        getAxiosConfig()
+      );
+
+      // --- FIX: Extract real numeric ID for backend logic ---
+      const responseData = generatedDbRes.data?.data || generatedDbRes.data || {};
+      const realDbId = responseData.id || responseData.bill_id || responseData.billId;
+      const displayBillNo = realDbId ? realDbId : `BILL-${Date.now().toString().slice(-6)}`;
 
       const profileRes = await axios.get(
         `http://localhost:5000/api/admin/faculty/${selectedFacultyId}`, 
@@ -151,7 +185,6 @@ export default function BillGeneration() {
         `http://localhost:5000/api/attendance/monthly/${selectedFacultyId}?month=${month}&year=${yearInt}`, 
         getAxiosConfig()
       );
-
       const records = attendanceRes.data.data || [];
 
       if (records.length === 0) {
@@ -160,10 +193,9 @@ export default function BillGeneration() {
         return;
       }
 
-      // Populate dynamicBill with ALL required banking and personal info
-      // Populate dynamicBill with safe fallbacks in case DB fields are null
       const dynamicBill = {
-        billNo: `BILL-${Date.now().toString().slice(-6)}`,
+        id: realDbId,          // Real ID for the backend
+        billNo: displayBillNo, // String ID for the UI
         month: month,
         year: yearInt,
         session: sessionYear,
@@ -185,6 +217,8 @@ export default function BillGeneration() {
 
       setBill(dynamicBill);
       
+      await loadHistory();
+      
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to retrieve data for bill generation.");
     } finally {
@@ -192,24 +226,91 @@ export default function BillGeneration() {
     }
   };
 
-  const handleDownloadPDF = async (billId) => {
+  // Opens the custom modal
+  const handleDeleteClick = (billId) => {
+    setBillToDelete(billId);
+  };
+
+  // Executes the actual deletion when confirmed inside the modal
+  const confirmDeleteBill = async () => {
+    if (!billToDelete) return;
+    setIsDeleting(true);
+    
     try {
-      const res = await axios.get(`http://localhost:5000/api/bills/download/${billId}`, {
-        ...getAxiosConfig(),
-        responseType: 'blob'
-      });
+      await axios.delete(`http://localhost:5000/api/bills/${billToDelete}`, getAxiosConfig());
       
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Bill_${billId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      // --- FIX: Remove bill from table immediately handling both ID formats ---
+      setHistory(prev => prev.filter(b => b.id !== billToDelete && b.bill_id !== billToDelete && b.billNo !== billToDelete));
+      
+      if (bill && (bill.id === billToDelete || bill.bill_id === billToDelete || bill.billNo === billToDelete)) {
+        setBill(null);
+      }
+      
+      setBillToDelete(null);
     } catch (err) {
-      // Fallback: Trigger browser print
-      window.print();
+      alert(err?.response?.data?.message || "Failed to delete bill.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+// --- NEW: Option 2 Frontend Preview Workaround ---
+  const handleViewBill = async (billId) => {
+    try {
+      // 1. Fetch the historical bill details
+      const res = await axios.get(`http://localhost:5000/api/bills/details/${billId}`, getAxiosConfig());
+      const data = res.data?.data || res.data;
+
+      // 2. Safely extract the attendance items from the backend's "BillDetails" array
+      const items = data.BillDetails || [];
+
+      // 3. Since the backend only gave us `user_id`, we must fetch their profile to get the Name, UVFIN, etc.
+      let facultyData = {};
+      if (data.user_id) {
+        try {
+          const profileRes = await axios.get(`http://localhost:5000/api/admin/faculty/${data.user_id}`, getAxiosConfig());
+          facultyData = profileRes.data?.data || {};
+        } catch (profileErr) {
+          console.error("Could not fetch faculty profile for preview", profileErr);
+        }
+      }
+
+      // 4. Map everything together perfectly for our frontend layout
+      const historyBill = {
+        id: data.bill_id || billId,
+        billNo: data.billNo || `BILL-${(data.bill_id || billId).toString().padStart(6, '0')}`,
+        month: data.month || "Unknown",
+        year: data.year || "",
+        session: data.session || "2026-27", // Fallback if backend doesn't store session
+        submittedOn: data.bill_date ? new Date(data.bill_date).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
+        
+        // Map the Faculty info we just fetched
+        facultyName: facultyData.full_name || "Name Missing",
+        uvfin: facultyData.uvfin || "",
+        qualification: facultyData.qualification || "",
+        address: facultyData.address || "",
+        mobile: facultyData.phone_number || "",
+        pan: facultyData.pan_card_no || "",
+        account: facultyData.account_no || "",
+        bankName: facultyData.bank_name || "",
+        ifsc: facultyData.ifsc_code || "",
+        aadhaar: facultyData.aadhaar_no || "",
+        
+        // Map the Program/Semester from the first attendance item
+        program: items[0]?.course_name || "N/A",
+        semester: items[0]?.semester_number ? `Semester ${items[0].semester_number}` : "N/A",
+        items: items 
+      };
+
+      // Set the bill to trigger the preview window
+      setBill(historyBill);
+      
+      // Smoothly scroll the user to the top to see the generated preview
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    } catch (err) {
+      console.error("View Bill Error:", err);
+      alert(err?.response?.data?.message || "Failed to load bill details for preview.");
     }
   };
 
@@ -231,7 +332,6 @@ export default function BillGeneration() {
   return (
     <main className="p-4 sm:p-6 space-y-6 w-full print:p-0 print:m-0 print:bg-white">
       
-      {/* 1. Global Print Styles specifically scoped for the admin dashboard */}
       <style>
         {`
           @media print {
@@ -256,7 +356,6 @@ export default function BillGeneration() {
         `}
       </style>
 
-      {/* Hide controls when printing */}
       <div className="print-hide">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
           <div>
@@ -265,6 +364,7 @@ export default function BillGeneration() {
           </div>
         </div>
 
+        {/* Search & Generate Section */}
         <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col md:flex-row gap-3 items-stretch md:items-end shadow-sm mb-6">
           <div className="flex-1 relative" ref={dropdownRef}>
             <label className="text-sm font-medium text-slate-700 mb-1 block">Faculty Search</label>
@@ -337,18 +437,58 @@ export default function BillGeneration() {
           </button>
         </div>
 
+        {/* REFORMATTED: Quick Select Faculty List */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-6">
+          <h2 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
+            <Users size={16} className="text-[#004DD2]" /> Quick Select Faculty
+          </h2>
+          
+          {facultiesLoading ? (
+            <div className="text-sm text-slate-400 py-2">Loading faculty list...</div>
+          ) : allFaculties.length === 0 ? (
+            <div className="text-sm text-slate-400 py-2">No faculty members found.</div>
+          ) : (
+            <ul className="max-h-56 overflow-y-auto pr-3 space-y-2">
+              {allFaculties.map((f) => (
+                <li key={f.user_id}>
+                  <button
+                    onClick={() => {
+                      setSelectedFacultyId(f.user_id);
+                      setFacultySearch(`${f.full_name} (${f.email})`);
+                    }}
+                    className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
+                      selectedFacultyId === f.user_id
+                        ? "bg-blue-50 border-blue-200 shadow-sm"
+                        : "bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`text-sm font-medium ${selectedFacultyId === f.user_id ? 'text-[#004DD2]' : 'text-slate-700'}`}>
+                        {f.full_name}
+                      </span>
+                      <span className={`text-xs ${selectedFacultyId === f.user_id ? 'text-blue-600' : 'text-slate-400'}`}>
+                        {f.email}
+                      </span>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         {error && <p className="text-sm text-red-500 bg-red-50 p-3 rounded-lg border border-red-100 mb-6">{error}</p>}
         {generating && <div className="py-12 flex justify-center text-slate-500">Generating official document preview...</div>}
       </div>
 
-      {/* RENDER ANNEXURE IV PREVIEW IF GENERATED */}
       {!generating && bill && (
         <div className="mb-8">
-          <BillPreview bill={bill} onDownload={() => handleDownloadPDF(bill.billNo)} />
+          {/* --- FIX: Opens print preview directly --- */}
+          <BillPreview bill={bill} onDownload={() => window.print()} />
         </div>
       )}
 
-      {/* BILL HISTORY TABLE */}
+      {/* History Section */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm flex flex-col print-hide">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2">
@@ -413,12 +553,21 @@ export default function BillGeneration() {
                         {b.status || "Draft"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    
+                    <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                    <button 
+                      onClick={() => handleViewBill(b.id || b.bill_id || b.billNo)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-indigo-50 text-indigo-600 text-xs font-medium hover:bg-indigo-100 transition-colors"
+                    >
+                      <Eye size={13} /> Preview
+                    </button>
                       <button 
-                        onClick={() => handleDownloadPDF(b.id || b.billNo)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-50 text-blue-600 text-xs font-medium hover:bg-blue-100 transition-colors"
+                        /* --- FIX: Safely pass the backend ID format --- */
+                        onClick={() => handleDeleteClick(b.id || b.bill_id || b.billNo)}
+                        disabled={isDeleting}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 transition-colors disabled:opacity-50"
                       >
-                        <Download size={13} /> PDF
+                        <Trash2 size={13} /> Delete
                       </button>
                     </td>
                   </tr>
@@ -460,6 +609,40 @@ export default function BillGeneration() {
           </div>
         </div>
       </div>
+      {/* Custom Delete Confirmation Modal */}
+      {billToDelete && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm print-hide p-4 transition-opacity">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4 mb-2">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50">
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Delete Bill?</h3>
+                <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                  Are you sure you want to permanently delete this bill? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 mt-6">
+              <button
+                onClick={() => setBillToDelete(null)}
+                disabled={isDeleting}
+                className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteBill}
+                disabled={isDeleting}
+                className="px-4 py-2.5 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 shadow-sm hover:shadow transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {isDeleting ? "Deleting..." : "Yes, Delete it"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
