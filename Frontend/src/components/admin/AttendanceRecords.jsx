@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { Search, Download, Calendar, Clock, IndianRupee, Filter } from "lucide-react";
+import { Search, Download, Calendar, Clock, IndianRupee, Filter, Users } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
 import axios from "axios";
 
@@ -22,6 +22,11 @@ export default function AttendanceRecords() {
   const [selectedFacultyId, setSelectedFacultyId] = useState("");
   const [facultyOptions, setFacultyOptions] = useState([]);
   const [showFacultyDropdown, setShowFacultyDropdown] = useState(false);
+  
+  // --- NEW STATE: Quick Select ---
+  const [allFaculties, setAllFaculties] = useState([]);
+  const [facultiesLoading, setFacultiesLoading] = useState(true);
+
   const dropdownRef = useRef(null);
   const filterRef = useRef(null);
 
@@ -40,9 +45,11 @@ export default function AttendanceRecords() {
   const [page, setPage] = useState(1);
 
   // ==========================================
-  // 1. EVENT LISTENERS
+  // 1. EVENT LISTENERS & INITIAL LOAD
   // ==========================================
   useEffect(() => {
+    loadAllFaculties();
+
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setShowFacultyDropdown(false);
@@ -54,6 +61,19 @@ export default function AttendanceRecords() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // --- NEW: Fetch all faculties for quick select ---
+  const loadAllFaculties = async () => {
+    setFacultiesLoading(true);
+    try {
+      const res = await axios.get("http://localhost:5000/api/admin/search-faculty?q=", getAxiosConfig());
+      setAllFaculties(res.data.data || []);
+    } catch (err) {
+      console.error("Failed to load faculties for quick select");
+    } finally {
+      setFacultiesLoading(false);
+    }
+  };
 
   // ==========================================
   // 2. LIVE FACULTY SEARCH
@@ -98,7 +118,7 @@ export default function AttendanceRecords() {
       setRecords(Array.isArray(fetchedRecords) ? fetchedRecords : []);
       
       // Save active faculty details for the dashboard header
-      const selected = facultyOptions.find(f => f.user_id === selectedFacultyId);
+      const selected = facultyOptions.find(f => f.user_id === selectedFacultyId) || allFaculties.find(f => f.user_id === selectedFacultyId);
       setActiveFaculty({
         name: selected?.full_name || facultySearch,
         session: "2024-25" // Defaulting to current session
@@ -253,6 +273,46 @@ export default function AttendanceRecords() {
         </button>
       </div>
 
+{/* QUICK SELECT FACULTY LIST (Now always visible) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-2">
+        <h2 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <Users size={16} className="text-[#0b57d0]" /> Quick Select Faculty
+        </h2>
+        
+        {facultiesLoading ? (
+          <div className="text-sm text-slate-400 py-2">Loading faculty list...</div>
+        ) : allFaculties.length === 0 ? (
+          <div className="text-sm text-slate-400 py-2">No faculty members found.</div>
+        ) : (
+          <ul className="max-h-40 overflow-y-auto pr-3 space-y-2">
+            {allFaculties.map((f) => (
+              <li key={f.user_id}>
+                <button
+                  onClick={() => {
+                    setSelectedFacultyId(f.user_id);
+                    setFacultySearch(`${f.full_name} (${f.email})`);
+                  }}
+                  className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
+                    selectedFacultyId === f.user_id
+                      ? "bg-blue-50 border-blue-200 shadow-sm"
+                      : "bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm font-medium ${selectedFacultyId === f.user_id ? 'text-[#0b57d0]' : 'text-slate-700'}`}>
+                      {f.full_name}
+                    </span>
+                    <span className={`text-xs ${selectedFacultyId === f.user_id ? 'text-blue-600' : 'text-slate-400'}`}>
+                      {f.email}
+                    </span>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {loading && <LoadingSpinner fullPage label="Fetching attendance history..." />}
 
       {!loading && error && (
@@ -262,12 +322,22 @@ export default function AttendanceRecords() {
       {/* DASHBOARD PREVIEW */}
       {!loading && activeFaculty && (
         <>
-          <div className="pt-2">
-            <h2 className="text-xl font-bold text-slate-800">{activeFaculty.name}</h2>
-            <p className="text-sm text-slate-400 mt-1">
-              {new Date().toLocaleString("en-US", { month: "long", year: "numeric" })} · Session{" "}
-              {activeFaculty.session || "2024-25"}
-            </p>
+          <div className="pt-2 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">{activeFaculty.name}</h2>
+              <p className="text-sm text-slate-400 mt-1">
+                {new Date().toLocaleString("en-US", { month: "long", year: "numeric" })} · Session{" "}
+                {activeFaculty.session || "2024-25"}
+              </p>
+            </div>
+            
+            {/* Quick action to clear and search someone else */}
+            <button 
+              onClick={() => { setActiveFaculty(null); setRecords([]); setSelectedFacultyId(""); setFacultySearch(""); }}
+              className="text-sm text-[#0b57d0] hover:underline font-medium"
+            >
+              Search different faculty
+            </button>
           </div>
 
           <div className="grid sm:grid-cols-3 gap-4">
@@ -431,9 +501,10 @@ export default function AttendanceRecords() {
         </>
       )}
 
-      {!loading && !activeFaculty && !error && (
+      {/* I modified this bottom message slightly since the Quick Select is handling the empty state too */}
+      {!loading && !activeFaculty && !error && allFaculties.length > 0 && (
         <p className="text-center text-slate-400 text-sm py-16">
-          Search for a faculty member to view their attendance history.
+          Search or select a faculty member above to view their attendance history.
         </p>
       )}
     </main>
