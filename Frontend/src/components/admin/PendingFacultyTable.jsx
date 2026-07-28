@@ -49,11 +49,11 @@ export default function PendingFacultyTable({ faculty = [], loading, onChanged }
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-semibold">
-                        {f.name?.charAt(0) ?? "F"}
+                        {(f.full_name || f.name)?.charAt(0)?.toUpperCase() ?? "F"}
                       </div>
                       <div>
-                        <p className="font-medium text-slate-800">{f.name}</p>
-                        <p className="text-xs text-slate-400">{f.phone}</p>
+                        <p className="font-medium text-slate-800">{f.full_name || f.name || "Unknown Name"}</p>
+                        <p className="text-xs text-slate-400">{f.phone_number || f.phone || f.email}</p>
                       </div>
                     </div>
                   </td>
