@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Download, ChevronDown, Loader2, Calendar, FileText, TableProperties } from "lucide-react";
+import { Download, ChevronDown, Loader2, Calendar, FileText, TableProperties, Eye, CheckCircle } from "lucide-react";
 import axios from "axios";
 import PageHeader from "./shared/PageHeader";
 
@@ -49,6 +49,7 @@ export default function ViewBill({ facultyUserId }) {
   const [isLoading, setIsLoading] = useState(true);
   const [showFilter, setShowFilter] = useState(false);
   const [billPage, setBillPage] = useState(1);
+  const [isFullDocumentView, setIsFullDocumentView] = useState(false);
   
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(currentDate.toLocaleString('default', { month: 'long' }));
@@ -56,8 +57,8 @@ export default function ViewBill({ facultyUserId }) {
   
   const [facultyInfo, setFacultyInfo] = useState({
     name: "Visiting Faculty",
-    uvfin: "",
     email: "",
+    uvfin: "",
     course: "",
     semester: "",
     session: "2026-27",
@@ -81,7 +82,6 @@ export default function ViewBill({ facultyUserId }) {
       if (!sessionStr) return;
       
       const session = JSON.parse(sessionStr);
-      // Use the provided prop for admins, otherwise default to logged-in user
       const targetId = facultyUserId || session.userId;
 
       const response = await axios.get(`http://localhost:5000/api/admin/faculty/${targetId}`, {
@@ -129,7 +129,6 @@ export default function ViewBill({ facultyUserId }) {
         const data = response.data.data || [];
         setRecords(data);
         
-        // Update dynamic academic info based on the first record found
         if (data.length > 0) {
           setFacultyInfo(prev => ({
             ...prev,
@@ -146,12 +145,10 @@ export default function ViewBill({ facultyUserId }) {
     }
   };
 
-  // Run profile fetch once on mount or if the viewed faculty member changes
   useEffect(() => {
     fetchFacultyProfile();
   }, [facultyUserId]);
 
-  // Run records fetch when dates or viewed user changes
   useEffect(() => {
     fetchMonthlyBill();
   }, [selectedMonth, selectedYear, facultyUserId]);
@@ -201,8 +198,14 @@ export default function ViewBill({ facultyUserId }) {
   };
 
   const handleDownloadPDF = () => {
-    window.print();
+    setIsFullDocumentView(true);
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
+
+  const monthShort = selectedMonth.substring(0, 3).toUpperCase();
+  const billReferenceCode = `VFB/${selectedYear}/${monthShort}/001`;
 
   return (
     <div className="pb-12 print:pb-0 print:bg-white">
@@ -239,7 +242,7 @@ export default function ViewBill({ facultyUserId }) {
       </div>
 
       <div className="px-4 py-6 sm:px-8 print:p-0">
-        <div className="relative flex flex-wrap items-center justify-between gap-3 print-hide">
+        <div className="relative flex flex-wrap items-center justify-between gap-3 print-hide mb-6">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Document Preview</h2>
             <p className="mt-0.5 text-sm text-slate-500">Review the generated document before downloading.</p>
@@ -290,8 +293,87 @@ export default function ViewBill({ facultyUserId }) {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col gap-6 lg:flex-row print:mt-0 print:block">
-          
+        {/* MOBILE RESPONSIVE FIGMA CARD VIEW (Visible on mobile screens, hidden on lg screens unless toggled) */}
+        <div className={`max-w-md mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-5 print-hide ${isFullDocumentView ? 'hidden' : 'block lg:hidden'}`}>
+          <div className="flex items-center justify-between">
+            <span className="px-3 py-1 bg-indigo-50 text-[#004DD2] text-xs font-semibold rounded-full">
+              PREVIEW MODE
+            </span>
+            <span className="text-xs font-medium text-slate-500">
+              {selectedMonth} {selectedYear}
+            </span>
+          </div>
+
+          <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+            <p className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Bill Reference</p>
+            <p className="text-base font-bold text-slate-900 mt-0.5">{billReferenceCode}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[11px] font-semibold text-slate-400 uppercase">Faculty Name & Email</p>
+              <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">{facultyInfo.name}</p>
+              <p className="text-xs text-slate-500 truncate">{facultyInfo.email || "No email provided"}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Hours</p>
+              <p className="text-sm font-semibold text-slate-800 mt-0.5">{totalHours} Hours</p>
+            </div>
+          </div>
+
+          <div className="bg-blue-50/60 rounded-xl p-4 border border-blue-100 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-600">Total Amount</span>
+            <span className="text-xl font-bold text-[#004DD2]">
+              ₹{totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+            </span>
+          </div>
+
+          {/* Document Thumbnail Preview Banner */}
+          <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 h-36 flex items-center justify-center">
+            <div className="absolute inset-0 opacity-40 bg-cover bg-center" style={{ backgroundImage: `url(${davvLogo})` }}></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
+            <div className="relative z-10 text-center px-4">
+              <CheckCircle className="h-6 w-6 text-blue-400 mx-auto mb-1" />
+              <p className="text-xs font-semibold text-white">Verified by International Institute of Professional Studies</p>
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <button 
+              disabled={records.length === 0}
+              onClick={handleDownloadPDF}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-sm font-semibold text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" /> Download PDF
+            </button>
+            
+            <button 
+              onClick={() => setIsFullDocumentView(true)}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-50 py-3 text-sm font-semibold text-[#004DD2] hover:bg-blue-100 transition-colors"
+            >
+              <Eye className="h-4 w-4" /> View Full Bill
+            </button>
+          </div>
+
+          <div className="rounded-xl bg-slate-50 p-3.5 text-xs text-slate-500 border border-slate-100 flex gap-2">
+            <Calendar className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+            <p>Once generated, this bill will be sent to the Finance Department for final approval. Ensure all attendance hours are accurate before downloading.</p>
+          </div>
+        </div>
+
+        {/* FULL DESKTOP/DOCUMENT VIEW (Default on desktop, or toggled on mobile via "View Full Bill") */}
+        <div className={`mt-6 flex flex-col gap-6 lg:flex-row print:mt-0 print:block ${isFullDocumentView ? 'block' : 'hidden lg:flex'}`}>
+          {isFullDocumentView && (
+            <div className="print-hide mb-2">
+              <button 
+                onClick={() => setIsFullDocumentView(false)}
+                className="text-xs font-semibold text-[#004DD2] hover:underline"
+              >
+                ← Back to Mobile Card View
+              </button>
+            </div>
+          )}
+
           <div id="printable-bill" className="flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print:overflow-visible mx-auto max-w-[210mm]">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-32 text-slate-500 print-hide">
@@ -369,7 +451,6 @@ export default function ViewBill({ facultyUserId }) {
                         </div>
                       </div>
                       
-                      {/* Leave your Date/Month row exactly as it is below this! */}
                       <div className="flex items-end justify-between gap-2 text-[13px]">
                         <div className="flex items-end gap-2">
                           <span className="font-medium">Month</span>
@@ -461,7 +542,7 @@ export default function ViewBill({ facultyUserId }) {
                           <p>A/c No. <span className="border-b border-black inline-block w-48">{facultyInfo.account}</span></p>
                           <p>Bank Name <span className="border-b border-black inline-block w-44">{facultyInfo.bankName}</span><br/><span className="text-[10px] font-normal italic">(State bank of India Compulsory)</span></p>
                           <p>IFSC Code <span className="border-b border-black inline-block w-44">{facultyInfo.ifsc}</span></p>
-                          <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{facultyInfo.aadhaar}</span></p>
+                          <p>Aadhaar No. <span className="border-b border-black inline-block w-40">[Aadhaar Redacted]</span></p>
                         </div>
                         
                         <div className="mt-20 flex flex-col items-center font-bold text-[14px]">
@@ -592,11 +673,12 @@ export default function ViewBill({ facultyUserId }) {
           </div>
         </div>
 
-        <div className="mt-4 flex justify-end print-hide">
+        {/* Desktop Download Button Footer */}
+        <div className="mt-4 hidden lg:flex justify-end print-hide">
           <button 
             disabled={records.length === 0}
             onClick={handleDownloadPDF}
-            className="flex items-center gap-2 rounded-lg-[#004DD2] bg-[#004DD2] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-[#004DD2] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Download className="h-4 w-4" /> Download Full PDF
           </button>
