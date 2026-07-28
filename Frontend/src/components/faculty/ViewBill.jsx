@@ -235,11 +235,6 @@ export default function ViewBill({ facultyUserId }) {
         <PageHeader
           title="View Bill"
           subtitle="Official DAVV remuneration bill"
-          right={
-            <span className="flex items-center gap-1.5 rounded-full bg-[#004DD2]/10 px-3 py-1.5 text-xs font-semibold text-[#004DD2]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#004DD2]" /> PREVIEW MODE
-            </span>
-          }
         />
       </div>
 

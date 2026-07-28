@@ -183,13 +183,11 @@ export default function MarkAttendanceGrid() {
                           className={`rounded-md border-l-2 px-1.5 py-1 text-[10px] leading-tight ${
                             ev.status === "Cancelled"
                               ? "border-slate-300 bg-slate-50 text-slate-400 line-through"
-                              : ev.status === "Present" 
-                                ? "border-green-500 bg-green-50 text-green-700" 
-                                : "border-amber-500 bg-amber-50 text-amber-700"
+                              : "border-green-500 bg-green-50 text-green-700"
                           }`}
                         >
                           <p className="font-semibold truncate">{ev.code}</p>
-                          <p className="truncate">{ev.status}</p>
+                          <p className="truncate">{ev.status === "Cancelled" ? "Cancelled" : "Marked"}</p>
                         </div>
                       ))}
                       {isSelected && (

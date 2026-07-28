@@ -161,7 +161,7 @@ const handleSubmit = async (event) => {
     }
   };
 
-  if (step === 3 && successData) {
+if (step === 3 && successData) {
     return (
       <div className="flex min-h-[calc(100vh-68px)] items-center justify-center bg-[#F8F9FB] px-3 py-8 sm:px-4 sm:py-12">
         <div className="w-full max-w-[420px] rounded-2xl border border-[#C3C5D8] bg-white px-6 py-8 text-center shadow-sm sm:px-8 sm:py-10">
@@ -180,10 +180,6 @@ const handleSubmit = async (event) => {
           <div className="mt-6 rounded-xl bg-[#EEF3FF] px-5 py-4 text-sm text-[#424656]">
             Your account is currently <span className="font-bold text-[#EF4444]">Pending Approval</span>. 
             Once an Administrator verifies and approves your account, you will be able to log in.
-            <div className="mt-4 border-t border-[#C3C5D8]/50 pt-3">
-              <span className="text-xs text-[#6B7280]">Your assigned User ID is:</span>
-              <div className="mt-1 font-semibold text-[#004DD2]">{successData.instituteUserId}</div>
-            </div>
           </div>
 
           <button
