@@ -295,7 +295,7 @@ export default function Settings() {
                   />
                 </div>
                 
-                {/* <div>
+                <div>
                   <label className="text-sm font-semibold text-gray-700 mb-2 block">Email Address</label>
                   <input 
                     value={profileData.email} 
@@ -303,7 +303,7 @@ export default function Settings() {
                     placeholder="Enter email address"
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-gray-400" 
                   />
-                </div> */}
+                </div>
                 
                 <div>
                   <label className="text-sm font-semibold text-gray-700 mb-2 block">Mobile</label>
