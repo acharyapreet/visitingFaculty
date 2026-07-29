@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Topbar from "./Topbar";
 import { ChevronLeft, Plus, Trash2, User } from "lucide-react";
 
-export default function ProgramDetail({ program, onBack }) {
+export default function ProgramDetail({ program, onBack, onUpdate }) {
   const [courseData, setCourseData] = useState(null);
   const [subjects, setSubjects] = useState({});
   const [expandedSem, setExpandedSem] = useState(1);
@@ -10,40 +10,63 @@ export default function ProgramDetail({ program, onBack }) {
 
   const courseId = program.course_id;
 
-  // 1. Fetch Dashboard Details
-  useEffect(() => {
-    fetchCourseDashboard();
-  }, [courseId]);
-
-  const fetchCourseDashboard = async () => {
-    try {
-      const res = await fetch(`/api/super_admin/courseDashboard/${courseId}`);
-      const data = await res.json();
-      if (data.success && data.data.length > 0) {
-        setCourseData(data.data[0]);
-      } else {
-        throw new Error("API returned no data");
-      }
-    } catch (error) {
-      console.error("Failed to fetch course dashboard, using fallback:", error);
-      // Fallback matching the Database row injected from the list
-      setCourseData(program);
-    } finally {
-      setLoading(false);
-      fetchSubjects(1); // Fetch 1st semester subjects by default
-    }
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token'); 
+    return {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    };
   };
 
-  // 2. Fetch Subjects per Semester
+  // 1. Fetch exact detail from Backend DB
+  useEffect(() => {
+    const fetchCourseDashboard = async () => {
+      try {
+        const res = await fetch(`/api/super_admin/courseDashboard/${courseId}`, {
+          method: 'GET',
+          headers: getAuthHeaders() 
+        });
+        
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        
+        const data = await res.json();
+        if (data.success && data.data.length > 0) {
+          setCourseData(data.data[0]);
+        } else {
+          throw new Error("API returned no data");
+        }
+      } catch (error) {
+        console.error("Failed to fetch course dashboard:", error);
+        setCourseData(program); // Fallback
+      } finally {
+        setLoading(false);
+        fetchSubjects(1); 
+      }
+    };
+    fetchCourseDashboard();
+  }, [courseId, program]);
+
+  // 2. Fetch Subjects (WITH UPDATED ERROR HANDLING)
   const fetchSubjects = async (semesterId) => {
     try {
-      const res = await fetch(`/api/super_admin/subjects/${courseId}/${semesterId}`);
+      const res = await fetch(`/api/super_admin/subjects/${courseId}/${semesterId}`, {
+        method: 'GET',
+        headers: getAuthHeaders() 
+      });
+      
+      // PREVENTS THE HTML/JSON PARSE ERROR
+      if (!res.ok) {
+        throw new Error(`Backend returned ${res.status}: Ensure the route exists.`);
+      }
+
       const data = await res.json();
       if (data.success) {
         setSubjects((prev) => ({ ...prev, [semesterId]: data.data || [] }));
       }
     } catch (error) {
-      console.error(`Failed to fetch subjects for semester ${semesterId}:`, error);
+      console.error(`Failed to fetch subjects for semester ${semesterId}:`, error.message);
+      // Ensure the UI doesn't break by setting an empty array on failure
+      setSubjects((prev) => ({ ...prev, [semesterId]: [] }));
     }
   };
 
@@ -55,7 +78,7 @@ export default function ProgramDetail({ program, onBack }) {
     }
   };
 
-  // 3. Update Program Incharge
+  // 3. Update Program Incharge in DB
   const handleChangeIncharge = async () => {
     const newIncharge = prompt("Enter new Program Incharge name:", courseData.program_incharge);
     if (!newIncharge || newIncharge.trim() === "") return;
@@ -63,22 +86,29 @@ export default function ProgramDetail({ program, onBack }) {
     try {
       const res = await fetch(`/api/super_admin/updateIncharge/${courseId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ program_incharge: newIncharge })
       });
+      
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      
       const data = await res.json();
+      
       if (data.success) {
-        setCourseData({ ...courseData, program_incharge: newIncharge });
+        const updatedCourse = { ...courseData, program_incharge: newIncharge };
+        setCourseData(updatedCourse); 
+        if (onUpdate) onUpdate(updatedCourse); 
         alert("Program Incharge updated successfully!");
+      } else {
+        alert("Failed to update incharge on backend.");
       }
     } catch (error) {
       console.error("Failed to update incharge:", error);
-      // Optimistic update for UI if API isn't fully ready
-      setCourseData({ ...courseData, program_incharge: newIncharge });
+      alert("Network error: Could not reach backend.");
     }
   };
 
-  // 4. Add Section
+  // 4. Add Section to DB
   const handleAddSection = async () => {
     const sectionName = prompt("Enter new Section Name (e.g., C):");
     if (!sectionName || sectionName.trim() === "") return;
@@ -88,27 +118,28 @@ export default function ProgramDetail({ program, onBack }) {
     try {
       const res = await fetch(`/api/super_admin/addSection/${courseId}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ section_name: formattedSectionName })
       });
+      
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      
       const data = await res.json();
       
       if (data.success) {
-        // Update local state to reflect the new section immediately
-        setCourseData(prev => ({
-          ...prev,
-          Sections: [...(prev.Sections || []), { section_id: data.data.section_id, section_name: data.data.section_name }]
-        }));
+        const newSection = { section_id: data.data.section_id, section_name: data.data.section_name };
+        const updatedCourse = {
+          ...courseData,
+          Sections: [...(courseData.Sections || []), newSection]
+        };
+        setCourseData(updatedCourse); 
+        if (onUpdate) onUpdate(updatedCourse); 
       } else {
         alert("Failed to add section: " + data.message);
       }
     } catch (error) {
       console.error("Failed to add section:", error);
-      // Optimistic update for UI if API isn't fully ready
-      setCourseData(prev => ({
-        ...prev,
-        Sections: [...(prev.Sections || []), { section_id: Date.now(), section_name: formattedSectionName }]
-      }));
+      alert("Network error: Could not reach backend.");
     }
   };
 
@@ -122,9 +153,12 @@ export default function ProgramDetail({ program, onBack }) {
     try {
       const res = await fetch(`/api/super_admin/addSubject/${courseId}/${semesterId}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ subject_code: subjectCode, subject_name: subjectName })
       });
+      
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      
       const data = await res.json();
       if (data.success) {
         fetchSubjects(semesterId);
@@ -140,8 +174,12 @@ export default function ProgramDetail({ program, onBack }) {
 
     try {
       const res = await fetch(`/api/super_admin/deleteSubject/${courseId}/${semesterId}/${subjectId}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: getAuthHeaders() 
       });
+      
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      
       const data = await res.json();
       if (data.success) {
         fetchSubjects(semesterId);
@@ -151,7 +189,7 @@ export default function ProgramDetail({ program, onBack }) {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading course details...</div>;
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading course details from DB...</div>;
   if (!courseData) return <div className="p-8 text-center text-red-500">Error loading course.</div>;
 
   return (
@@ -170,7 +208,7 @@ export default function ProgramDetail({ program, onBack }) {
           <span>›</span>
           <button onClick={onBack} className="hover:text-purple-600 transition-colors">Programs</button>
           <span>›</span>
-          <span className="text-purple-600">{courseData.course_name} ({courseData.course_code})</span>
+          <span className="text-purple-600">{courseData.course_name}</span>
         </div>
 
         {/* Program Details Card */}
@@ -179,21 +217,16 @@ export default function ProgramDetail({ program, onBack }) {
             <div className="col-span-2 flex justify-between">
                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-3">
                   Program Details 
-                  {courseData.is_active === 1 && (
+                  {(courseData.is_active === 1 || courseData.is_active === true) ? (
                     <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded uppercase tracking-wider">Active</span>
-                  )}
+                  ) : null}
                </h3>
             </div>
 
-            {/* Read-Only Fields from API */}
+            {/* Read-Only Fields from DB */}
             <div>
               <p className="text-xs text-gray-400 font-semibold mb-1 uppercase">Program Name</p>
               <p className="font-bold text-gray-800">{courseData.course_name}</p>
-            </div>
-
-            <div>
-              <p className="text-xs text-gray-400 font-semibold mb-1 uppercase">Course Code</p>
-              <p className="font-bold text-gray-800">{courseData.course_code}</p>
             </div>
 
             <div>
@@ -237,7 +270,7 @@ export default function ProgramDetail({ program, onBack }) {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-6">Subject Management</h3>
           
-          {Array.from({ length: courseData.total_semesters }, (_, i) => i + 1).map((sem) => (
+          {Array.from({ length: courseData.total_semesters || 0 }, (_, i) => i + 1).map((sem) => (
             <div key={sem} className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
               <button 
                 onClick={() => handleAccordionClick(sem)}
