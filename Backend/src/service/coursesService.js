@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 const { Course, Section, Subject } = require('../Schema');
+=======
+const { Course, Section, Semester, Subject } = require('../Schema');
+const { Op } = require('sequelize');
+>>>>>>> ab1eca9708197821626a474124655b5fb4bc9ce8
 
 async function showDashboard() {
     try{

@@ -1,4 +1,16 @@
+<<<<<<< HEAD
 const { showDashboard, showDashboardOfCourse, addSections, updateIncharge, semesterSubjectShow, deleteSubjects, addSubjects } = require("../service/coursesService");
+=======
+const { 
+    showDashboard, 
+    showDashboardOfCourse, 
+    addSections, 
+    updateIncharge,
+    getSubjectsForCourse,
+    addSubjectToCourse,
+    deleteSubjectFromCourse
+} = require("../service/coursesService");
+>>>>>>> ab1eca9708197821626a474124655b5fb4bc9ce8
 
 async function showDashboardController(req, res) {
     try {

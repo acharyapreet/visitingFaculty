@@ -18,5 +18,9 @@ SuperAdminApprovalRouter.get('/subjects/:course_id/:semester_id', authMiddleware
 SuperAdminApprovalRouter.delete('/deleteSubject/:course_id/:semester_id/:subject_id', authMiddleware(['super_admin']), deleteSubjectController);
 SuperAdminApprovalRouter.post('/addSubject/:course_id/:semester_id', authMiddleware(['super_admin']), addSubjectController);
 
+// Subject routes for Super Admin
+SuperAdminApprovalRouter.get('/subjects/:course_id/:semester_id', authMiddleware(['super_admin']), getSubjectsController);
+SuperAdminApprovalRouter.post('/addSubject/:course_id/:semester_id', authMiddleware(['super_admin']), addSubjectController);
+SuperAdminApprovalRouter.delete('/deleteSubject/:course_id/:semester_id/:subject_id', authMiddleware(['super_admin']), deleteSubjectController);
 
 module.exports = SuperAdminApprovalRouter;
