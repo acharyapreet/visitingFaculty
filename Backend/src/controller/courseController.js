@@ -1,4 +1,12 @@
-const { showDashboard, showDashboardOfCourse, addSections, updateIncharge } = require("../service/coursesService");
+const { 
+    showDashboard, 
+    showDashboardOfCourse, 
+    addSections, 
+    updateIncharge,
+    getSubjectsForCourse,
+    addSubjectToCourse,
+    deleteSubjectFromCourse
+} = require("../service/coursesService");
 
 async function showDashboardController(req, res) {
     try {
@@ -68,9 +76,65 @@ async function updateInchargeController(req, res) {
     }
 }
 
+async function getSubjectsController(req, res) {
+    try {
+        const { course_id, semester_id } = req.params;
+        const result = await getSubjectsForCourse(course_id, semester_id);
+        return res.status(200).json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        console.error('Get Subjects Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to fetch subjects.'
+        });
+    }
+}
+
+async function addSubjectController(req, res) {
+    try {
+        const { course_id, semester_id } = req.params;
+        const { subject_code, subject_name } = req.body;
+        const result = await addSubjectToCourse(course_id, semester_id, subject_code, subject_name);
+        return res.status(201).json({
+            success: true,
+            message: 'Subject added successfully',
+            data: result
+        });
+    } catch (error) {
+        console.error('Add Subject Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to add subject.'
+        });
+    }
+}
+
+async function deleteSubjectController(req, res) {
+    try {
+        const { course_id, semester_id, subject_id } = req.params;
+        const result = await deleteSubjectFromCourse(course_id, semester_id, subject_id);
+        return res.status(200).json({
+            success: true,
+            message: result.message
+        });
+    } catch (error) {
+        console.error('Delete Subject Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to delete subject.'
+        });
+    }
+}
+
 module.exports = {
     showDashboardController,
     showDashboardOfCourseController,
     addSectionsController,
-    updateInchargeController
-}
+    updateInchargeController,
+    getSubjectsController,
+    addSubjectController,
+    deleteSubjectController
+};

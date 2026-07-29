@@ -1,7 +1,15 @@
 const express = require('express');
 const authMiddleware = require('../middleware/auth');
 const { AdminApprovalController, getPendingAdminsController, getApprovedAdminsController, getRejectedAdminsController, getAllAdminsController, getAdminController } = require('../controller/superAdminApprovalController');
-const { showDashboardController, showDashboardOfCourseController, addSectionsController, updateInchargeController } = require('../controller/courseController');
+const { 
+    showDashboardController, 
+    showDashboardOfCourseController, 
+    addSectionsController, 
+    updateInchargeController,
+    getSubjectsController,
+    addSubjectController,
+    deleteSubjectController
+} = require('../controller/courseController');
 const SuperAdminApprovalRouter = express.Router();
 
 SuperAdminApprovalRouter.put('/admin/:user_id/approve', authMiddleware(['super_admin']), AdminApprovalController);
@@ -15,5 +23,9 @@ SuperAdminApprovalRouter.get('/courseDashboard/:course_id', authMiddleware(['sup
 SuperAdminApprovalRouter.post('/addSection/:course_id', authMiddleware(['super_admin']), addSectionsController);
 SuperAdminApprovalRouter.put('/updateIncharge/:course_id', authMiddleware(['super_admin']), updateInchargeController);
 
+// Subject routes for Super Admin
+SuperAdminApprovalRouter.get('/subjects/:course_id/:semester_id', authMiddleware(['super_admin']), getSubjectsController);
+SuperAdminApprovalRouter.post('/addSubject/:course_id/:semester_id', authMiddleware(['super_admin']), addSubjectController);
+SuperAdminApprovalRouter.delete('/deleteSubject/:course_id/:semester_id/:subject_id', authMiddleware(['super_admin']), deleteSubjectController);
 
 module.exports = SuperAdminApprovalRouter;

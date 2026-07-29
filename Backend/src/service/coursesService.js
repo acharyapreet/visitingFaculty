@@ -1,4 +1,5 @@
-const { Course, Section } = require('../Schema');
+const { Course, Section, Semester, Subject } = require('../Schema');
+const { Op } = require('sequelize');
 
 async function showDashboard() {
     try{
@@ -67,10 +68,86 @@ async function updateIncharge(program_incharge, course_id) {
     }
 }
 
+async function getSubjectsForCourse(course_id, semester_id) {
+    try {
+        let targetSemesterId = semester_id;
+        const semRecord = await Semester.findOne({
+            where: {
+                course_id: course_id,
+                [Op.or]: [
+                    { semester_id: semester_id },
+                    { semester_number: semester_id }
+                ]
+            }
+        });
+        if (semRecord) {
+            targetSemesterId = semRecord.semester_id;
+        }
+
+        const subjects = await Subject.findAll({
+            where: {
+                course_id: course_id,
+                semester_id: targetSemesterId,
+                is_active: true
+            },
+            order: [['subject_code', 'ASC']]
+        });
+        return subjects;
+    } catch (error) {
+        console.log(error);
+        throw new Error('not able to fetch subjects');
+    }
+}
+
+async function addSubjectToCourse(course_id, semester_id, subject_code, subject_name) {
+    try {
+        let [semRecord] = await Semester.findOrCreate({
+            where: {
+                course_id: course_id,
+                semester_number: semester_id
+            },
+            defaults: {
+                course_id: course_id,
+                semester_number: semester_id,
+                is_active: true
+            }
+        });
+
+        const subject = await Subject.create({
+            subject_code: subject_code.trim(),
+            subject_name: subject_name.trim(),
+            course_id: course_id,
+            semester_id: semRecord.semester_id,
+            is_active: true
+        });
+
+        return subject;
+    } catch (error) {
+        console.log(error);
+        throw new Error('not able to add subject');
+    }
+}
+
+async function deleteSubjectFromCourse(course_id, semester_id, subject_id) {
+    try {
+        const subject = await Subject.findByPk(subject_id);
+        if (!subject) {
+            throw new Error('Subject not found');
+        }
+        await subject.destroy();
+        return { message: "Subject deleted successfully" };
+    } catch (error) {
+        console.log(error);
+        throw new Error('not able to delete subject');
+    }
+}
 
 module.exports = {
     showDashboard,
     showDashboardOfCourse,
     addSections,
-    updateIncharge
+    updateIncharge,
+    getSubjectsForCourse,
+    addSubjectToCourse,
+    deleteSubjectFromCourse
 };
