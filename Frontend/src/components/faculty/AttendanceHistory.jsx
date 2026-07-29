@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Download, Calendar, Clock, IndianRupee, ChevronDown, Filter, ChevronLeft, ChevronRight, Loader2, Check, ArrowUpDown } from "lucide-react";
+import { Download, Calendar, Clock, IndianRupee, ChevronDown, Filter, ChevronLeft, ChevronRight, Loader2, Check, ArrowUpDown, Trash2 } from "lucide-react";
 import PageHeader from "./shared/PageHeader";
 import axios from "axios";
 
@@ -27,6 +27,7 @@ export default function AttendanceHistory() {
   const [allocations, setAllocations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [facultyName, setFacultyName] = useState("");
+  const [deletingId, setDeletingId] = useState(null); // Track which record is being deleted
   
   // Filtering & Sorting State
   const [selectedSubject, setSelectedSubject] = useState("All");
@@ -67,7 +68,7 @@ export default function AttendanceHistory() {
       // Fetch History and Allocations concurrently
       const [historyRes, allocationsRes] = await Promise.all([
         axios.get(`http://localhost:5000/api/attendance/history/${targetId}`, { headers }),
-        axios.get(`http://localhost:5000/api/attendance/my-allocations/${targetId}`, { headers }).catch(() => ({ data: { allocations: [] } })) // Fallback if allocations fails
+        axios.get(`http://localhost:5000/api/attendance/my-allocations/${targetId}`, { headers }).catch(() => ({ data: { allocations: [] } })) 
       ]);
 
       if (historyRes.data.success) {
@@ -82,6 +83,33 @@ export default function AttendanceHistory() {
       console.error("Error fetching data:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // --- DELETE RECORD LOGIC ---
+  const handleDelete = async (attendanceId) => {
+    if (!window.confirm("Are you sure you want to cancel this attendance record? This action cannot be undone.")) {
+      return;
+    }
+
+    setDeletingId(attendanceId);
+    try {
+      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+      
+      // Expected backend DELETE route
+      const response = await axios.delete(`http://localhost:5000/api/attendance/record/${attendanceId}`, {
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      });
+
+      if (response.data.success) {
+        // Remove the deleted record from the local state so the UI updates instantly
+        setHistory(prevHistory => prevHistory.filter(record => record.attendance_id !== attendanceId));
+      }
+    } catch (error) {
+      console.error("Error deleting record:", error);
+      alert(error.response?.data?.message || "Failed to delete the record. It may have already been processed.");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -321,14 +349,15 @@ export default function AttendanceHistory() {
                       <th className="px-4 py-3 font-semibold">Type</th>
                       <th className="px-4 py-3 font-semibold">Time</th>
                       <th className="px-4 py-3 font-semibold">Hours</th>
-                      <th className="px-4 py-3 font-semibold">Rate</th>
                       <th className="px-4 py-3 font-semibold">Amount</th>
+                      <th className="px-4 py-3 font-semibold text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {currentRecords.map((r, index) => {
                       const amount = (parseFloat(r.hours) || 0) * (parseFloat(r.rate_per_hour) || 0);
                       const sessionType = r.session_type || "Theory";
+                      const canDelete = r.status === "Pending"; // Only allow deleting if not yet verified
                       
                       return (
                         <tr key={r.attendance_id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors last:border-b-0">
@@ -345,8 +374,23 @@ export default function AttendanceHistory() {
                             {formatTime(r.start_time)} - {formatTime(r.end_time)}
                           </td>
                           <td className="px-4 py-4 font-semibold text-slate-800">{parseFloat(r.hours)}</td>
-                          <td className="px-4 py-4 text-slate-600">₹{parseFloat(r.rate_per_hour || 0)}</td>
                           <td className="px-4 py-4 font-bold text-brand-600">₹{amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                          
+                          {/* DELETE ACTION COLUMN */}
+                          <td className="px-4 py-4 text-center">
+                            <button
+                              onClick={() => handleDelete(r.attendance_id)}
+                              disabled={!canDelete || deletingId === r.attendance_id}
+                              title={canDelete ? "Cancel this record" : "Cannot delete verified records"}
+                              className="rounded p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              {deletingId === r.attendance_id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -359,16 +403,35 @@ export default function AttendanceHistory() {
                 {currentRecords.map((r) => {
                   const amount = (parseFloat(r.hours) || 0) * (parseFloat(r.rate_per_hour) || 0);
                   const sessionType = r.session_type || "Theory";
+                  const canDelete = r.status === "Pending";
 
                   return (
                     <div key={r.attendance_id} className="p-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-brand-600">{r.subject_code}</span>
-                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${typeStyles[sessionType] || typeStyles.Theory}`}>
-                          {sessionType}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-brand-600">{r.subject_code}</span>
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${typeStyles[sessionType] || typeStyles.Theory}`}>
+                            {sessionType}
+                          </span>
+                        </div>
+                        
+                        {/* DELETE ACTION MOBILE */}
+                        <button
+                          onClick={() => handleDelete(r.attendance_id)}
+                          disabled={!canDelete || deletingId === r.attendance_id}
+                          title={canDelete ? "Cancel this record" : "Cannot delete verified records"}
+                          className="rounded p-1.5 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          {deletingId === r.attendance_id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </button>
                       </div>
-                      <p className="mt-1 font-medium text-slate-800">{r.subject_name}</p>
+                      
+                      <p className="mt-1 font-medium text-slate-800 pr-8">{r.subject_name}</p>
+                      
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                         <span>{formatDate(r.attendance_date)}</span>
                         <span>{formatTime(r.start_time)} - {formatTime(r.end_time)}</span>

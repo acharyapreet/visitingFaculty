@@ -542,7 +542,7 @@ export default function ViewBill({ facultyUserId }) {
                           <p>A/c No. <span className="border-b border-black inline-block w-48">{facultyInfo.account}</span></p>
                           <p>Bank Name <span className="border-b border-black inline-block w-44">{facultyInfo.bankName}</span><br/><span className="text-[10px] font-normal italic">(State bank of India Compulsory)</span></p>
                           <p>IFSC Code <span className="border-b border-black inline-block w-44">{facultyInfo.ifsc}</span></p>
-                          <p>Aadhaar No. <span className="border-b border-black inline-block w-40">[Aadhaar Redacted]</span></p>
+                          <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{facultyInfo.aadhaar}</span></p>
                         </div>
                         
                         <div className="mt-20 flex flex-col items-center font-bold text-[14px]">

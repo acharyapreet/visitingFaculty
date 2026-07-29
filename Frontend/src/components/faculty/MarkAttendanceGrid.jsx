@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Info, CheckCircle2, Plus, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info, CheckCircle2, Plus, Loader2, AlertCircle } from "lucide-react";
 import axios from "axios";
 
 const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -23,6 +23,12 @@ export default function MarkAttendanceGrid() {
   const year = currentDate.getFullYear();
   const monthName = currentDate.toLocaleString('default', { month: 'long' });
   const monthIndex = currentDate.getMonth();
+
+  // Check if the viewed month is the actual current month
+  const actualCurrentDate = new Date();
+  const isCurrentMonth = 
+    year === actualCurrentDate.getFullYear() && 
+    monthIndex === actualCurrentDate.getMonth();
 
   // Load Initial Data
   useEffect(() => {
@@ -76,11 +82,19 @@ export default function MarkAttendanceGrid() {
     return grouped;
   }, [monthlyRecords]);
 
-  const handlePrevMonth = () => setCurrentDate(new Date(year, monthIndex - 1, 1));
-  const handleNextMonth = () => setCurrentDate(new Date(year, monthIndex + 1, 1));
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(year, monthIndex - 1, 1));
+    setSelectedDay(1); // Reset selected day to 1st when changing months
+  };
+  
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(year, monthIndex + 1, 1));
+    setSelectedDay(1);
+  };
 
   // Form Submission
   const handleSubmit = async () => {
+    if (!isCurrentMonth) return alert("Attendance can only be marked for the current month.");
     if (!selectedAllocationId) return alert("Please select a subject.");
     
     const sTime = new Date(`1970-01-01T${startTime}`);
@@ -168,7 +182,11 @@ export default function MarkAttendanceGrid() {
                 key={idx}
                 onClick={() => day && setSelectedDay(day)}
                 className={`min-h-[70px] border-b border-r border-slate-100 p-1.5 last:border-r-0 sm:min-h-[92px] sm:p-2 transition-colors ${
-                  !day ? "bg-slate-50/50" : isSelected ? "bg-blue-50 border-blue-200 cursor-pointer" : "bg-white hover:bg-slate-50 cursor-pointer"
+                  !day 
+                    ? "bg-slate-50/50" 
+                    : isSelected 
+                      ? "bg-blue-50 border-blue-200 cursor-pointer" 
+                      : "bg-white hover:bg-slate-50 cursor-pointer"
                 }`}
               >
                 {day && (
@@ -190,7 +208,7 @@ export default function MarkAttendanceGrid() {
                           <p className="truncate">{ev.status === "Cancelled" ? "Cancelled" : "Marked"}</p>
                         </div>
                       ))}
-                      {isSelected && (
+                      {isSelected && isCurrentMonth && (
                         <button className="flex w-full justify-center items-center gap-1 rounded-md bg-[#004DD2] px-1.5 py-1 text-[10px] font-medium text-white shadow-sm mt-1">
                           <Plus className="h-2.5 w-2.5" /> Select
                         </button>
@@ -210,20 +228,30 @@ export default function MarkAttendanceGrid() {
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#004DD2]" />
           <div>
             <h3 className="text-sm font-bold text-slate-900">
-              Add Record for {selectedDay} {monthName}
+              {isCurrentMonth ? `Add Record for ${selectedDay} ${monthName}` : `Viewing ${monthName} ${year}`}
             </h3>
             <p className="mt-1 text-xs leading-relaxed text-slate-500">
-              Select a day on the calendar, fill the details below, and submit the attendance.
+              {isCurrentMonth 
+                ? "Select a day on the calendar, fill the details below, and submit the attendance."
+                : "You are viewing a past or future month. Attendance marking is disabled."}
             </p>
           </div>
         </div>
+
+        {!isCurrentMonth && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg bg-orange-50 p-3 text-xs font-medium text-orange-700 border border-orange-200">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            Attendance can only be marked for the current ongoing month.
+          </div>
+        )}
 
         <div className="mt-6">
           <label className="mb-1.5 block text-sm font-medium text-slate-700">Allocated Subject</label>
           <select 
             value={selectedAllocationId}
             onChange={(e) => setSelectedAllocationId(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2]"
+            disabled={!isCurrentMonth}
+            className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2] disabled:bg-slate-50 disabled:text-slate-400"
           >
             <option value="">Select a Subject...</option>
             {allocations.map(alloc => (
@@ -243,7 +271,8 @@ export default function MarkAttendanceGrid() {
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2]"
+                disabled={!isCurrentMonth}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2] disabled:bg-slate-50 disabled:text-slate-400"
               />
             </div>
             <div>
@@ -252,7 +281,8 @@ export default function MarkAttendanceGrid() {
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2]"
+                disabled={!isCurrentMonth}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2] disabled:bg-slate-50 disabled:text-slate-400"
               />
             </div>
           </div>
@@ -265,13 +295,14 @@ export default function MarkAttendanceGrid() {
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
             placeholder="Optional notes..."
-            className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2]"
+            disabled={!isCurrentMonth}
+            className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2] disabled:bg-slate-50 disabled:text-slate-400"
           />
         </div>
 
         <button 
           onClick={handleSubmit}
-          disabled={isSubmitting || !selectedAllocationId}
+          disabled={isSubmitting || !selectedAllocationId || !isCurrentMonth}
           className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-[#004DD2] py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}

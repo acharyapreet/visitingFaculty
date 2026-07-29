@@ -90,6 +90,7 @@ function DashboardOverview({ facultyInfo, allocatedSubjects, isLoading }) {
             </div>
           )}
         </div>
+        {/*
 
         <button 
           disabled={allocatedSubjects.length === 0}
@@ -98,6 +99,7 @@ function DashboardOverview({ facultyInfo, allocatedSubjects, isLoading }) {
           <FileText className="h-4 w-4" />
           Download Schedule PDF
         </button>
+        */}
       </div>
     </div>
   );

@@ -15,12 +15,12 @@ export default function AdminRegistrationSuccess({ onNavigate }) {
         {/* Title & Body */}
         <h2 className="mb-4 text-2xl font-bold text-[#141B2B]">Registration Submitted!</h2>
         <p className="mb-6 text-sm leading-relaxed text-[#6B7280] px-2">
-          Thank you for registering. Your account is currently <strong>pending approval</strong> from the Super Admin. Once approved, you will receive an email containing your unique <strong>User ID</strong>.
+          Thank you for registering. Your account is currently <strong>pending approval</strong> from the Super Admin. Once approved, you will receive an email containing your confirmation as Administrator.
         </p>
 
         {/* Info Box */}
         <div className="mb-8 rounded-lg bg-[#EEF3FF] p-5 text-sm text-[#424656]">
-          *Please check your inbox (and spam folder) regularly. You will be able to sign in as soon as you receive your credentials.*
+          *Please check your inbox (and spam folder) regularly. You will be able to sign in as soon as you receive your confirmation.*
         </div>
 
         {/* Button */}

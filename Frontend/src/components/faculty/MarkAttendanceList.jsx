@@ -8,8 +8,18 @@ export default function MarkAttendanceList() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
+  // Calculate local current month boundaries for the date picker
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+  const lastDayOfMonth = new Date(currentYear, now.getMonth() + 1, 0).getDate();
+  
+  const minDate = `${currentYear}-${currentMonth}-01`;
+  const maxDate = `${currentYear}-${currentMonth}-${String(lastDayOfMonth).padStart(2, '0')}`;
+  const todayStr = `${currentYear}-${currentMonth}-${String(now.getDate()).padStart(2, '0')}`;
+
   // Form State
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]); // YYYY-MM-DD
+  const [date, setDate] = useState(todayStr); // YYYY-MM-DD
   const [selectedAllocationId, setSelectedAllocationId] = useState("");
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
@@ -62,6 +72,13 @@ export default function MarkAttendanceList() {
   const handleSubmit = async () => {
     if (!selectedAllocationId || hours <= 0 || !date) {
       alert("Please ensure all fields are filled correctly and End Time is after Start Time.");
+      return;
+    }
+
+    // Strict validation to ensure the date is within the current month
+    const selectedDateObj = new Date(date);
+    if (selectedDateObj.getMonth() !== now.getMonth() || selectedDateObj.getFullYear() !== now.getFullYear()) {
+      alert("Attendance can only be marked for the current ongoing month.");
       return;
     }
 
@@ -134,18 +151,20 @@ export default function MarkAttendanceList() {
         )}
 
         <div className="mt-6 space-y-5">
-          {/* Date Picker */}
+          {/* Date Picker Restricted to Current Month */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Date</label>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Date (Current Month Only)</label>
             <input
               type="date"
               value={date}
+              min={minDate}
+              max={maxDate}
               onChange={(e) => setDate(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2]"
             />
           </div>
 
-          {/* Allocation Selection (Smart Dropdown replaces 4 individual dropdowns) */}
+          {/* Allocation Selection */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Subject & Class</label>
             <select 

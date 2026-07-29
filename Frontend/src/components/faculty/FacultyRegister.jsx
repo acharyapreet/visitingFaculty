@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { registerFaculty } from '../../api/authApi';
 
 const initialFormState = {
@@ -26,6 +26,9 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Reference to the top of the form for scrolling
+  const formTopRef = useRef(null);
+
   const progressWidth = step === 1 ? '36%' : '100%';
 
   const handleChange = (event) => {
@@ -45,6 +48,14 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
     setSubmitError('');
   };
 
+  const scrollToError = () => {
+    setTimeout(() => {
+      if (formTopRef.current) {
+        formTopRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
+
   const validateStepOne = () => {
     if (!formData.full_name.trim()) return 'Please enter your full name.';
     if (!/^[0-9]{10}$/.test(formData.phone_number.trim())) return 'Phone number must be 10 digits.';
@@ -53,30 +64,33 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
     return '';
   };
 
-    const validateStepTwo = () => {
-        if (!formData.qualification.trim()) return 'Qualification: Please select your highest qualification.';
-        
-        if (!/^[0-9]{12}$/.test(formData.aadhaar_no.trim())) {
-          return 'Aadhaar No: It must be exactly 12 numeric digits without spaces.';
-        }
-        
-        if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.pan_card_no.trim().toUpperCase())) {
-          return 'PAN Card: Invalid format. It must be 5 letters, 4 numbers, and 1 letter (e.g., ABCDE1234F).';
-        }
-        
-        if (!formData.bank_name.trim()) return 'Bank Name: Please enter your bank name.';
-        if (!formData.account_no.trim()) return 'Account No: Please enter your account number.';
-        
-        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifsc_code.trim().toUpperCase())) {
-          return 'IFSC Code: Invalid format. It must be 4 letters, a zero (0), and 6 letters/numbers (e.g., SBIN0001234).';
-        }
-        
-        if (formData.password.length < 8) return 'Password: Must be at least 8 characters long.';
-        if (!/^(?=.*[A-Za-z])(?=.*\d).+$/.test(formData.password)) return 'Password: Must include both letters and numbers.';
-        if (formData.password !== formData.confirmPassword) return 'Confirm Password: Passwords do not match.';
-        
-        return '';
-      };
+  const validateStepTwo = () => {
+    if (!formData.qualification.trim()) return 'Qualification: Please select your highest qualification.';
+    
+    if (!/^[0-9]{12}$/.test(formData.aadhaar_no.trim())) {
+      return 'Aadhaar No: It must be exactly 12 numeric digits without spaces.';
+    }
+    
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.pan_card_no.trim().toUpperCase())) {
+      return 'PAN Card: Invalid format. It must be 5 letters, 4 numbers, and 1 letter (e.g., ABCDE1234F).';
+    }
+    
+    if (!formData.bank_name.trim()) return 'Bank Name: Please enter your bank name.';
+    // NEW CHECK: Ensure account number is exactly between 8 and 18 numeric digits
+    if (!/^[0-9]{8,18}$/.test(formData.account_no.trim())) {
+      return 'Account No: Must be a valid account number between 8 and 18 digits.';
+    }
+    
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifsc_code.trim().toUpperCase())) {
+      return 'IFSC Code: Invalid format. It must be 4 letters, a zero (0), and 6 letters/numbers (e.g., SBIN0001234).';
+    }
+    
+    if (formData.password.length < 8) return 'Password: Must be at least 8 characters long.';
+    if (!/^(?=.*[A-Za-z])(?=.*\d).+$/.test(formData.password)) return 'Password: Must include both letters and numbers.';
+    if (formData.password !== formData.confirmPassword) return 'Confirm Password: Passwords do not match.';
+    
+    return '';
+  };
 
   const handleNext = (event) => {
     event.preventDefault();
@@ -84,19 +98,22 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
 
     if (validationMessage) {
       setSubmitError(validationMessage);
+      scrollToError();
       return;
     }
 
     setStep(2);
     setSubmitError('');
+    scrollToError(); // Scrolls to top when moving to step 2
   };
 
-const handleSubmit = async (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     const validationMessage = validateStepTwo();
     if (validationMessage) {
       setSubmitError(validationMessage);
+      scrollToError();
       return;
     }
 
@@ -139,10 +156,10 @@ const handleSubmit = async (event) => {
       }
 
       setStep(3);
+      scrollToError(); // Scrolls to top for success message
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || '';
       
-      // Specifically handle SQL duplicate entry errors
       if (errorMessage.includes('ER_DUP_ENTRY')) {
         if (errorMessage.includes('pan_card_no')) {
           setSubmitError('This PAN Card is already registered. Please check your details.');
@@ -156,15 +173,16 @@ const handleSubmit = async (event) => {
       } else {
         setSubmitError(errorMessage || 'Unable to complete faculty registration.');
       }
+      scrollToError();
     } finally {
       setIsSubmitting(false);
     }
   };
 
-if (step === 3 && successData) {
+  if (step === 3 && successData) {
     return (
       <div className="flex min-h-[calc(100vh-68px)] items-center justify-center bg-[#F8F9FB] px-3 py-8 sm:px-4 sm:py-12">
-        <div className="w-full max-w-[420px] rounded-2xl border border-[#C3C5D8] bg-white px-6 py-8 text-center shadow-sm sm:px-8 sm:py-10">
+        <div ref={formTopRef} className="w-full max-w-[420px] rounded-2xl border border-[#C3C5D8] bg-white px-6 py-8 text-center shadow-sm sm:px-8 sm:py-10">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#EAF1FF] text-[#004DD2] shadow-sm">
             <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4" />
@@ -174,12 +192,11 @@ if (step === 3 && successData) {
 
           <h2 className="text-2xl font-bold text-[#141B2B]">Registration Submitted!</h2>
           <p className="mt-4 text-sm leading-6 text-[#6B7280]">
-            Thank you, {successData.fullName}. Your registration details have been sent to the administration for review.
+            Thank you, {successData.fullName}. Your account is currently <strong>pending approval</strong> from the Super Admin. Once approved, you will receive an email containing your confirmation as Visiting Faculty.
           </p>
 
           <div className="mt-6 rounded-xl bg-[#EEF3FF] px-5 py-4 text-sm text-[#424656]">
-            Your account is currently <span className="font-bold text-[#EF4444]">Pending Approval</span>. 
-            Once an Administrator verifies and approves your account, you will be able to log in.
+            *Please check your inbox (and spam folder) regularly. You will be able to sign in as soon as you receive your confirmation.*
           </div>
 
           <button
@@ -216,6 +233,9 @@ if (step === 3 && successData) {
         <div className="h-1.5 overflow-hidden rounded-full bg-[#D9E3FF]">
           <div className="h-full rounded-full bg-[#004DD2] transition-all" style={{ width: progressWidth }} />
         </div>
+
+        {/* Scroll anchor placed exactly where the form and errors begin */}
+        <div ref={formTopRef} className="scroll-mt-6"></div>
 
         <form onSubmit={step === 1 ? handleNext : handleSubmit} className="mt-5 rounded-2xl border border-[#C3C5D8] bg-white p-5 shadow-sm sm:p-6 md:p-8">
           <div className="mb-6 sm:mb-8">
@@ -391,7 +411,7 @@ if (step === 3 && successData) {
                     <input
                       type="text"
                       name="account_no"
-                      placeholder="Bank account number"
+                      placeholder="8 to 18 digit account number"
                       value={formData.account_no}
                       onChange={handleChange}
                       className="w-full rounded-lg border border-[#C3C5D8] px-4 py-2.5 text-[#141B2B] placeholder-[#9CA3AF] focus:border-[#004DD2] focus:outline-none focus:ring-2 focus:ring-[#004DD2]/20"
