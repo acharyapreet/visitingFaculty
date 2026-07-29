@@ -1,4 +1,4 @@
-const { showDashboard, showDashboardOfCourse, addSections, updateIncharge } = require("../service/coursesService");
+const { showDashboard, showDashboardOfCourse, addSections, updateIncharge, semesterSubjectShow, deleteSubjects, addSubjects } = require("../service/coursesService");
 
 async function showDashboardController(req, res) {
     try {
@@ -68,9 +68,62 @@ async function updateInchargeController(req, res) {
     }
 }
 
+async function showSubjectController(req, res) {
+    try {
+        const result = await semesterSubjectShow(req.params.course_id, req.params.semester_id);
+        return res.json({
+            success: true,
+            message: 'subjects',
+            data: result
+        });
+    } catch (error) {
+        console.error('subjects Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to show subjects.'
+        });
+    }
+}
+
+async function deleteSubjectController(req, res) {
+    try {
+        const result = await deleteSubjects(req.params.course_id, req.params.semester_id, req.params.subject_id);
+        return res.json({
+            success: true,
+            message: 'subject deleted',
+            data: result
+        });
+    } catch (error) {
+        console.error('subject deletion Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to delete subject.'
+        });
+    }
+}
+async function addSubjectController(req, res) {
+    try {
+        const result = await addSubjects(req.params.course_id, req.params.semester_id, req.body);
+        return res.json({
+            success: true,
+            message: 'subject added',
+            data: result
+        });
+    } catch (error) {
+        console.error('subject addition Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to add subject.'
+        });
+    }
+}
+
 module.exports = {
     showDashboardController,
     showDashboardOfCourseController,
     addSectionsController,
-    updateInchargeController
+    updateInchargeController,
+    showSubjectController,
+    addSubjectController,
+    deleteSubjectController
 }

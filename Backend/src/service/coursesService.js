@@ -1,4 +1,4 @@
-const { Course, Section } = require('../Schema');
+const { Course, Section, Subject } = require('../Schema');
 
 async function showDashboard() {
     try{
@@ -67,10 +67,71 @@ async function updateIncharge(program_incharge, course_id) {
     }
 }
 
+async function semesterSubjectShow(course_id, semester_id) {
+    try {
+        const subjects = await Subject.findAll({
+            where: {
+                course_id: course_id,
+                semester_id: semester_id,
+                is_active: true
+            },
+            order: [['subject_code', 'ASC']]
+        });
+        return subjects;
+    } catch (error) {
+        console.log(error);
+        throw new Error('not able to fetch subjects for the given course and semester');
+    }
+}
+
+async function deleteSubjects(course_id, semester_id, subject_id) {
+    try {
+        const result = await Subject.findOne({
+            where: {
+                course_id: course_id,
+                semester_id: semester_id,
+                subject_id: subject_id
+            }
+        });
+        if(!result){
+            throw new Error('not able to find subject');
+        }
+        await Subject.destroy({
+            where: {
+                course_id: course_id,
+                semester_id: semester_id,
+                subject_id: subject_id
+            }
+        });
+        return result;
+    } catch (error) {
+        console.log(error);
+        throw new Error('not able to delete subject');
+    }
+}
+
+async function addSubjects(course_id, semester_id, Details) {
+    try {
+        const result = await Subject.create({
+            course_id: course_id,
+            semester_id: semester_id,
+            subject_code: Details.subject_code,
+            subject_name: Details.subject_name
+        });
+        return result;
+    } catch (error) {
+        console.log(error);
+        throw new Error('not able to add subject');
+    }
+}
+
 
 module.exports = {
     showDashboard,
     showDashboardOfCourse,
     addSections,
-    updateIncharge
+    updateIncharge,
+    semesterSubjectShow,
+    deleteSubjects,
+    addSubjects
 };
