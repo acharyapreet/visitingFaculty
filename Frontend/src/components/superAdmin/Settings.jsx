@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Topbar from "./Topbar";
-import { Download, Printer, ClipboardList, CheckCircle2, XCircle, X } from "lucide-react"; // Added icons for Toast
+import { Download, Printer, ClipboardList, CheckCircle2, XCircle, X } from "lucide-react"; 
 import axios from "axios";
 
 const tabs = ["General", "Security", "Audit Log"];
@@ -14,7 +14,8 @@ const systemInfo = [
 ];
 
 export default function Settings() {
-  // --- BULLETPROOF TAB MEMORY ---
+  const [searchQuery, setSearchQuery] = useState("");
+
   const [activeTab, setActiveTab] = useState(() => {
     const savedSettingsTab = localStorage.getItem("iipsSettingsTab");
     return savedSettingsTab || "General";
@@ -23,24 +24,19 @@ export default function Settings() {
   useEffect(() => {
     localStorage.setItem("iipsSettingsTab", activeTab);
   }, [activeTab]);
-  // ------------------------------
 
-  // --- CUSTOM TOAST NOTIFICATION STATE ---
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
-    // Auto-hide after 3.5 seconds
     setTimeout(() => {
       setToast((prev) => ({ ...prev, show: false }));
     }, 3500);
   };
-  // ---------------------------------------
 
   const [auditFilter, setAuditFilter] = useState("Select...");
   const [logs, setLogs] = useState([]);
 
-  // --- Security Tab States ---
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -52,7 +48,6 @@ export default function Settings() {
   });
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   
-  // --- General Tab States ---
   const [profileData, setProfileData] = useState({
     full_name: "", 
     email: "",
@@ -60,7 +55,6 @@ export default function Settings() {
   });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
-  // Pre-fill profile data from current session on load, leaving empty if no data exists
   useEffect(() => {
     const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
     if (session && Object.keys(session).length > 0) {
@@ -72,7 +66,6 @@ export default function Settings() {
     }
   }, []);
 
-// --- 1. PROFILE UPDATE HANDLER ---
   const handleProfileUpdate = async () => {
     setIsUpdatingProfile(true);
     try {
@@ -103,7 +96,6 @@ export default function Settings() {
     }
   };
 
-// --- 2. CHANGE PASSWORD HANDLER ---
   const handleChangePassword = async () => {
     if (!passwords.currentPassword || !passwords.newPassword || !passwords.confirmPassword) {
       return showToast("Please fill in all password fields.", "error");
@@ -147,7 +139,6 @@ export default function Settings() {
     }
   };
 
-  // Fetch data for the Audit Log
   const fetchAuditLogs = async () => {
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
@@ -169,16 +160,29 @@ export default function Settings() {
     if (activeTab === "Audit Log") fetchAuditLogs();
   }, [activeTab]);
 
+  // Bulletproofed status logic
   const getLogStatus = (log) => {
-    if (log.AdminApproval?.status) {
-      return log.AdminApproval.status.charAt(0).toUpperCase() + log.AdminApproval.status.slice(1);
+    if (log.AdminApproval && log.AdminApproval.status) {
+      const stat = String(log.AdminApproval.status);
+      return stat.charAt(0).toUpperCase() + stat.slice(1);
     }
     return log.is_approved ? "Approved" : "Rejected";
   };
 
+  // Bulletproofed search filtering logic
   const filteredLogs = logs.filter(log => {
-    if (auditFilter === "Select...") return true;
-    return getLogStatus(log) === auditFilter;
+    const status = getLogStatus(log);
+    
+    const matchesDropdown = auditFilter === "Select..." || status === auditFilter;
+    
+    const lowerQuery = (searchQuery || "").toLowerCase();
+    const matchesSearch = !searchQuery || (
+      (log.full_name && String(log.full_name).toLowerCase().includes(lowerQuery)) ||
+      (log.user_id && String(log.user_id).toLowerCase().includes(lowerQuery)) ||
+      (String(status).toLowerCase().includes(lowerQuery))
+    );
+
+    return matchesDropdown && matchesSearch;
   });
 
   const exportToCSV = () => {
@@ -216,7 +220,6 @@ export default function Settings() {
         }
       `}</style>
 
-      {/* --- FLOATING TOAST NOTIFICATION --- */}
       {toast.show && (
         <div className={`fixed top-6 right-6 z-[9999] flex items-center gap-3 px-4 py-3.5 rounded-xl shadow-xl border animate-in slide-in-from-top-4 fade-in duration-300 ${
           toast.type === "success" 
@@ -246,7 +249,8 @@ export default function Settings() {
         <Topbar 
             title="Settings" 
             subtitle="System-wide configuration, security and audit log" 
-            showSearch={false} 
+            showSearch={activeTab === 'Audit Log'}
+            onSearch={setSearchQuery} 
           />
       </div>
 
@@ -254,7 +258,6 @@ export default function Settings() {
         <h1 className="text-2xl font-bold text-gray-900 mb-1 no-print">Settings</h1>
         <p className="text-gray-400 mb-6 no-print">System-wide configuration, security and audit log</p>
 
-        {/* Tabs */}
         <div className="inline-flex bg-gray-100 rounded-full p-1 mb-6 no-print">
           {tabs.map((tab) => {
             const isAudit = tab === "Audit Log";
@@ -276,7 +279,6 @@ export default function Settings() {
           })}
         </div>
 
-        {/* DYNAMIC CONTENT AREA */}
         {activeTab === "General" && (
           <div className="flex flex-col lg:flex-row gap-6">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex-1 max-w-2xl">
@@ -454,31 +456,31 @@ export default function Settings() {
             </div>
 
             <div className="overflow-x-auto">
-              {logs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200 mt-2">
-                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
-                    <ClipboardList className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <h4 className="text-gray-900 font-semibold mb-1">No Audit Logs Found</h4>
-                  <p className="text-gray-500 text-sm max-w-sm">
-                    There are currently no records of admin approvals or rejections in the system.
-                  </p>
-                </div>
-              ) : (
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="text-xs font-semibold text-gray-400 border-b border-gray-100 uppercase">
-                      <th className="py-3">Sr.</th>
-                      <th className="py-3">Action</th>
-                      <th className="py-3">Admin Name</th>
-                      <th className="py-3">User ID Issued</th>
-                      <th className="py-3">Performed By</th>
-                      <th className="py-3">Date</th>
-                      <th className="py-3">Remarks</th>
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-xs font-semibold text-gray-400 border-b border-gray-100 uppercase">
+                    <th className="py-3">Sr.</th>
+                    <th className="py-3">Action</th>
+                    <th className="py-3">Admin Name</th>
+                    <th className="py-3">User ID Issued</th>
+                    <th className="py-3">Performed By</th>
+                    <th className="py-3">Date</th>
+                    <th className="py-3">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm">
+                  {filteredLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="py-16 text-center text-gray-500 text-sm">
+                        {searchQuery ? (
+                          <span>No administrators found matching "{searchQuery}".</span>
+                        ) : (
+                          <span>No audit logs found in the system.</span>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="text-sm">
-                    {filteredLogs.length > 0 ? filteredLogs.map((log, i) => {
+                  ) : (
+                    filteredLogs.map((log, i) => {
                       const status = getLogStatus(log);
                       return (
                         <tr key={log.user_id || i} className="border-b border-gray-50">
@@ -497,14 +499,10 @@ export default function Settings() {
                           <td className="py-4 text-gray-400">{log.AdminApproval?.rejection_reason || '—'}</td>
                         </tr>
                       );
-                    }) : (
-                      <tr>
-                        <td colSpan="7" className="py-8 text-center text-gray-500 text-sm">No records match the selected filter.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

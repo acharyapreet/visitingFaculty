@@ -216,7 +216,7 @@ export default function PendingApprovalsPage() {
         </div>
       )}
 
-      <Topbar title="Pending Admin Approvals" subtitle="Review, approve or reject admin registration requests" />
+      <Topbar title="Pending Admin Approvals" subtitle="Review, approve or reject admin registration requests" showSearch={false} />
 
       <div className="px-8 py-8 pb-24">
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Admin Registration Approvals</h1>

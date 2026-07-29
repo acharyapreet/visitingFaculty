@@ -129,6 +129,7 @@ export default function AllAdminsPage({ onNavigate }) {
       <Topbar 
         title="All Admin Accounts" 
         subtitle="Active and approved VFM System administrators"
+        showSearch={true}
         onPendingClick={() => onNavigate("pending")} 
         onSearch={(value) => {
           setSearchTerm(value);
