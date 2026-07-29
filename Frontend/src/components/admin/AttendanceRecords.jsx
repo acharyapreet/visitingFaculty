@@ -137,14 +137,14 @@ export default function AttendanceRecords() {
   // 4. DATA PROCESSING & FILTERS
   // ==========================================
   const subjects = useMemo(
-    () => [...new Set(records.map((r) => r.Allocation?.Subject?.subject_name).filter(Boolean))],
+    () => [...new Set(records.map((r) => r.subject_name).filter(Boolean))],
     [records]
   );
 
   const filteredAndSorted = useMemo(() => {
     let result = records.filter((r) => {
       // 1. Subject Filter
-      const matchesSubject = !subjectFilter || r.Allocation?.Subject?.subject_name === subjectFilter;
+      const matchesSubject = !subjectFilter || r.subject_name === subjectFilter;
       
       // 2. Timeline Filter Logic
       let matchesTimeline = true;
@@ -183,36 +183,48 @@ export default function AttendanceRecords() {
   
   useEffect(() => setPage(1), [subjectFilter, timelineFilter, sortOrder, records]);
 
-  // Map and calculate totals dynamically based on Allocation rates and marked hours
+  // Map and calculate totals dynamically based on flat API properties
   const totals = useMemo(() => {
     const classes = filteredAndSorted.length;
     const hours = filteredAndSorted.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
     const earnings = filteredAndSorted.reduce((sum, r) => {
-      const rate = Number(r.Allocation?.rate_per_hour) || 0;
+      const rate = Number(r.rate_per_hour) || 0;
       const hrs = Number(r.hours) || 0;
       return sum + (hrs * rate);
     }, 0);
     return { classes, hours, earnings };
   }, [filteredAndSorted]);
 
-  // ==========================================
+// ==========================================
   // 5. EXPORT
   // ==========================================
   const handleExport = () => {
     const headers = ["Date", "Subject Code", "Subject Name", "Type", "Hours", "Rate", "Amount"];
+    
     const rows = filteredAndSorted.map((r) => {
-      const rate = Number(r.Allocation?.rate_per_hour) || 0;
+      const rate = Number(r.rate_per_hour) || 0;
       const hrs = Number(r.hours) || 0;
+      
+      // Format date to "30-Jul-2026" so Excel doesn't hide it behind ########
+      let formattedDate = r.attendance_date || "N/A";
+      if (formattedDate !== "N/A") {
+        const d = new Date(formattedDate);
+        if (!isNaN(d.getTime())) {
+          formattedDate = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+        }
+      }
+
       return [
-        r.attendance_date,
-        r.Allocation?.Subject?.subject_code || "N/A",
-        r.Allocation?.Subject?.subject_name || "N/A",
-        r.Allocation?.session_type || "N/A",
+        formattedDate,
+        r.subject_code || "N/A",
+        r.subject_name || "N/A",
+        r.session_type || "N/A",
         r.hours,
         rate,
         (hrs * rate)
       ];
     });
+
     const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -273,7 +285,7 @@ export default function AttendanceRecords() {
         </button>
       </div>
 
-{/* QUICK SELECT FACULTY LIST (Now always visible) */}
+      {/* QUICK SELECT FACULTY LIST (Now always visible) */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-2">
         <h2 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
           <Users size={16} className="text-[#0b57d0]" /> Quick Select Faculty
@@ -428,7 +440,7 @@ export default function AttendanceRecords() {
                     </tr>
                   )}
                   {paginated.map((r, idx) => {
-                    const rate = Number(r.Allocation?.rate_per_hour) || 0;
+                    const rate = Number(r.rate_per_hour) || 0;
                     const hours = Number(r.hours) || 0;
                     const amount = rate * hours;
 
@@ -436,17 +448,17 @@ export default function AttendanceRecords() {
                       <tr key={r.attendance_id || idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors last:border-0">
                         <td className="px-5 py-4 text-slate-500">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                         <td className="px-5 py-4 text-slate-700 font-medium">{r.attendance_date}</td>
-                        <td className="px-5 py-4 font-bold text-slate-900">{r.Allocation?.Subject?.subject_code || "N/A"}</td>
-                        <td className="px-5 py-4 text-slate-600">{r.Allocation?.Subject?.subject_name || "N/A"}</td>
+                        <td className="px-5 py-4 font-bold text-slate-900">{r.subject_code || "N/A"}</td>
+                        <td className="px-5 py-4 text-slate-600">{r.subject_name || "N/A"}</td>
                         <td className="px-5 py-4">
                           <span
                             className={`px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase ${
-                              r.Allocation?.session_type?.toLowerCase() === "practical"
+                              r.session_type?.toLowerCase() === "practical"
                                 ? "bg-purple-50 text-purple-600"
                                 : "bg-blue-50 text-blue-600"
                             }`}
                           >
-                            {r.Allocation?.session_type || "N/A"}
+                            {r.session_type || "N/A"}
                           </span>
                         </td>
                         <td className="px-5 py-4 font-medium text-slate-700">{hours}h</td>
