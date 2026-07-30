@@ -14,7 +14,8 @@ const statusStyles = {
   pending: "bg-amber-50 text-amber-600",
 };
 
-export default function FacultyManagement({ setActiveTab }) {
+export default function FacultyManagement({ setActiveTab, onAllocateSubject }) {
+  // ... your component code
   const [faculty, setFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -340,11 +341,16 @@ export default function FacultyManagement({ setActiveTab }) {
                             </span>
                           ) : (
                             <button
-                              onClick={() => setActiveTab("subject-allocation")}
-                              className="px-3 py-1.5 rounded-full text-xs font-semibold bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 transition-colors"
-                            >
-                              Allocate Subject
-                            </button>
+                            onClick={() => onAllocateSubject && onAllocateSubject(f)} 
+                            disabled={f.is_active === false}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                              f.is_active === false 
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                                : 'bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600'
+                            }`}
+                          >
+                            Allocate Subject
+                          </button>
                           )}
                         </td>
                         <td className="px-6 py-4 text-center">

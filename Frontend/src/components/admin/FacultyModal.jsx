@@ -8,7 +8,8 @@ import {
   XCircle, 
   Check,
   Briefcase,
-  AlertTriangle
+  AlertTriangle,
+  CreditCard
 } from "lucide-react";
 import adminApi from "../../api/adminApi";
 import LoadingSpinner from "./LoadingSpinner";
@@ -62,12 +63,30 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
 
   const displayName = faculty?.full_name || faculty?.name || "Unknown Faculty";
 
-  const handleApproveSubmit = async () => {
+  const formatDate = (dateString) => {
+    if (!dateString) return "—";
+    return new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+  
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "—";
+    return new Date(dateString).toLocaleString('en-GB', { 
+      day: '2-digit', month: 'short', year: 'numeric', 
+      hour: '2-digit', minute: '2-digit', hour12: true 
+    });
+  };
+
+const handleApproveSubmit = async () => {
     setActionLoading(true);
     setNotification(null);
     try {
       await adminApi.approveFaculty(faculty.id || faculty.user_id, uvfin);
-      onActionSuccess && onActionSuccess({ action: 'approved' });
+      onActionSuccess && onActionSuccess({ 
+        action: 'approved',
+        facultyName: displayName,
+        email: faculty?.email,
+        uvfin: uvfin 
+      });
       onClose();
     } catch (err) {
       setNotification({ type: 'error', text: "Approval failed: " + (err.response?.data?.message || err.message || "Unknown Error") });
@@ -85,7 +104,11 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
     setNotification(null);
     try {
       await adminApi.rejectFaculty(faculty.id || faculty.user_id, rejectReason);
-      onActionSuccess && onActionSuccess({ action: 'rejected' });
+      onActionSuccess && onActionSuccess({ 
+        action: 'rejected',
+        facultyName: displayName,
+        email: faculty?.email
+      });
       onClose();
     } catch (err) {
       setNotification({ type: 'error', text: "Rejection failed: " + (err.response?.data?.message || err.message || "Unknown Error") });
@@ -188,19 +211,21 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
             <NotificationBanner />
             
             <div className="bg-[#F8F9FA] border border-[#C3C5D8] rounded-[12px] p-5">
-              <p className="text-[11px] font-semibold text-[#585F6C] uppercase tracking-wide mb-3">Faculty Member</p>
+              <p className="text-[11px] font-semibold text-[#585F6C] uppercase tracking-wide mb-1">Faculty Member</p>
+              <p className="text-[15px] font-bold text-[#141B2B] capitalize mb-4">{displayName}</p>
+              
               <div className="grid grid-cols-2 gap-y-4">
                 <div>
                   <p className="text-[11px] font-semibold text-[#585F6C] uppercase mb-1">Qualification</p>
                   <p className="text-[14px] font-medium text-[#141B2B]">{faculty?.qualification || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold text-[#585F6C] uppercase mb-1">Department</p>
-                  <p className="text-[14px] font-medium text-[#141B2B]">—</p>
+                  <p className="text-[11px] font-semibold text-[#585F6C] uppercase mb-1">Last Login</p>
+                  <p className="text-[14px] font-medium text-[#141B2B]">{formatDateTime(faculty?.last_login)}</p>
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold text-[#585F6C] uppercase mb-1">Reg. Date</p>
-                  <p className="text-[14px] font-medium text-[#141B2B]">—</p>
+                  <p className="text-[14px] font-medium text-[#141B2B]">{formatDate(faculty?.created_at)}</p>
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold text-[#585F6C] uppercase mb-1">Status</p>
@@ -280,7 +305,8 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
             <NotificationBanner />
             
             <div className="bg-[#F8F9FA] border border-[#C3C5D8] rounded-[8px] p-4">
-              <p className="text-[14px] text-[#585F6C] font-medium">
+              <p className="text-[14px] text-[#141B2B] font-bold capitalize">{displayName}</p>
+              <p className="text-[13px] text-[#585F6C] font-medium mt-1">
                 {faculty?.qualification || "Qualification details missing"}
               </p>
             </div>
@@ -376,12 +402,12 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
                     <p className="text-[14px] font-medium text-[#141B2B]">{faculty?.qualification || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold text-[#585F6C] uppercase tracking-wide mb-1">Department</p>
-                    <p className="text-[14px] font-medium text-[#141B2B]">—</p>
+                    <p className="text-[11px] font-semibold text-[#585F6C] uppercase tracking-wide mb-1">Last Login</p>
+                    <p className="text-[14px] font-medium text-[#141B2B]">{formatDateTime(faculty?.last_login)}</p>
                   </div>
                   <div>
                     <p className="text-[11px] font-semibold text-[#585F6C] uppercase tracking-wide mb-1">Reg. Date</p>
-                    <p className="text-[14px] font-medium text-[#141B2B]">—</p>
+                    <p className="text-[14px] font-medium text-[#141B2B]">{formatDate(faculty?.created_at)}</p>
                   </div>
                   <div>
                     <p className="text-[11px] font-semibold text-[#585F6C] uppercase tracking-wide mb-1">Status</p>
@@ -404,7 +430,6 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
                     <User size={18} className="text-[#004DD2]" />
                     <h3 className="text-[16px] font-semibold text-[#141B2B]">Personal Information</h3>
                   </div>
-                  <button className="text-[13px] font-semibold text-[#004DD2] hover:underline">Edit</button>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-y-5 gap-x-4">
@@ -414,15 +439,15 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
                   </div>
                   <div>
                     <p className="text-[12px] text-[#585F6C] mb-1">Phone Number</p>
-                    <p className="text-[14px] font-medium text-[#141B2B]">+91 {faculty?.phone_number || "—"}</p>
+                    <p className="text-[14px] font-medium text-[#141B2B]">{faculty?.phone_number ? `+91 ${faculty.phone_number}` : "—"}</p>
                   </div>
                   <div>
                     <p className="text-[12px] text-[#585F6C] mb-1">Email Address</p>
                     <p className="text-[14px] font-medium text-[#141B2B]">{faculty?.email || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-[12px] text-[#585F6C] mb-1">Date of Birth</p>
-                    <p className="text-[14px] font-medium text-[#141B2B]">—</p>
+                    <p className="text-[12px] text-[#585F6C] mb-1">Aadhaar Number</p>
+                    <p className="text-[14px] font-medium text-[#141B2B]">{faculty?.aadhaar_no || "—"}</p>
                   </div>
                   <div className="col-span-2">
                     <p className="text-[12px] text-[#585F6C] mb-1">Residential Address</p>
@@ -437,32 +462,45 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
                     <GraduationCap size={18} className="text-[#004DD2]" />
                     <h3 className="text-[16px] font-semibold text-[#141B2B]">Academic & Professional</h3>
                   </div>
-                  <button className="text-[13px] font-semibold text-[#004DD2] hover:underline">Edit</button>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-y-5 gap-x-4">
+                <div className="grid grid-cols-1 gap-y-5 gap-x-4">
                   <div>
                     <p className="text-[12px] text-[#585F6C] mb-1">Highest Qualification</p>
                     <p className="text-[14px] font-medium text-[#141B2B]">{faculty?.qualification || "—"}</p>
                   </div>
+                </div>
+              </div>
+
+              {/* NEW BANK INFORMATION SECTION */}
+              <div className="bg-[#FFFFFF] border border-[#C3C5D8] rounded-[12px] p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center gap-2">
+                    <CreditCard size={18} className="text-[#004DD2]" />
+                    <h3 className="text-[16px] font-semibold text-[#141B2B]">Bank Information</h3>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-y-5 gap-x-4">
                   <div>
-                    <p className="text-[12px] text-[#585F6C] mb-1">Department</p>
-                    <p className="text-[14px] font-medium text-[#141B2B]">—</p>
+                    <p className="text-[12px] text-[#585F6C] mb-1">Bank Name</p>
+                    <p className="text-[14px] font-medium text-[#141B2B]">{faculty?.bank_name || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-[12px] text-[#585F6C] mb-1">Teaching Experience</p>
-                    <p className="text-[14px] font-medium text-[#141B2B]">—</p>
+                    <p className="text-[12px] text-[#585F6C] mb-1">Account Number</p>
+                    <p className="text-[14px] font-medium text-[#141B2B]">{faculty?.account_no || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-[12px] text-[#585F6C] mb-1">Specialization</p>
-                    <p className="text-[14px] font-medium text-[#141B2B]">—</p>
+                    <p className="text-[12px] text-[#585F6C] mb-1">IFSC Code</p>
+                    <p className="text-[14px] font-medium text-[#141B2B] uppercase">{faculty?.ifsc_code || "—"}</p>
                   </div>
-                  <div className="col-span-2">
-                    <p className="text-[12px] text-[#585F6C] mb-1">Previous Institution</p>
-                    <p className="text-[14px] font-medium text-[#141B2B]">—</p>
+                  <div>
+                    <p className="text-[12px] text-[#585F6C] mb-1">PAN Card No</p>
+                    <p className="text-[14px] font-medium text-[#141B2B] uppercase">{faculty?.pan_card_no || "—"}</p>
                   </div>
                 </div>
               </div>
+
             </>
           )}
         </div>

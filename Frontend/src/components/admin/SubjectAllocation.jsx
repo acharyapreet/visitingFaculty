@@ -18,7 +18,8 @@ const emptyForm = {
   academic_year: "2024-25",
 };
 
-export default function SubjectAllocation() {
+// NOTICE: We added 'prefilledFaculty' here!
+export default function SubjectAllocation({ prefilledFaculty }) {
   // --- STATE: Data from APIs ---
   const [facultyOptions, setFacultyOptions] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -56,7 +57,7 @@ export default function SubjectAllocation() {
   };
 
   // ==========================================
-  // 1. DATA FETCHING: INITIAL LOAD
+  // 1. DATA FETCHING & AUTO-FILL
   // ==========================================
   useEffect(() => {
     fetchCourses();
@@ -71,6 +72,25 @@ export default function SubjectAllocation() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // --- NEW: Auto-fill logic when clicking from Faculty Management ---
+  // --- NEW: Auto-fill logic when clicking from Faculty Management ---
+  useEffect(() => {
+    if (prefilledFaculty) {
+      // Let's log it to the console just in case we need to see the exact structure!
+      console.log("Passed Faculty Data from Table:", prefilledFaculty);
+
+      // Check if the actual details are nested inside a 'User' or 'user' object
+      const nestedData = prefilledFaculty.User || prefilledFaculty.user || {};
+
+      // Look at the top level first, then look inside the nested object
+      const targetId = prefilledFaculty.user_id || prefilledFaculty.id || nestedData.user_id || nestedData.id || "";
+      const targetName = prefilledFaculty.full_name || prefilledFaculty.name || nestedData.full_name || nestedData.name || "Unknown Name";
+      const targetEmail = prefilledFaculty.email || nestedData.email || "No Email";
+
+      setForm((prev) => ({ ...prev, user_id: targetId }));
+      setFacultySearch(`${targetName} (${targetEmail})`);
+    }
+  }, [prefilledFaculty]);
   const fetchCourses = async () => {
     try {
       const res = await axios.get("http://localhost:5000/api/admin/courses", getAxiosConfig());
@@ -97,7 +117,8 @@ export default function SubjectAllocation() {
   // ==========================================
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
-      if (!facultySearch.trim()) {
+      // Don't search if the input exactly matches the prefilled data string format
+      if (!facultySearch.trim() || (prefilledFaculty && facultySearch.includes(prefilledFaculty.email))) {
         setFacultyOptions([]);
         return;
       }
@@ -113,7 +134,7 @@ export default function SubjectAllocation() {
     }, 400);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [facultySearch]);
+  }, [facultySearch, prefilledFaculty]);
 
   // ==========================================
   // 3. CASCADING DROPDOWNS LOGIC
@@ -326,20 +347,6 @@ export default function SubjectAllocation() {
               />
             </Field>
 
-            <Field label="Subject Code">
-              <select
-                value={form.subject_id}
-                onChange={handleChange("subject_id")}
-                disabled={!form.semester_id || subjects.length === 0}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white disabled:bg-slate-50 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-              >
-                <option value="">Select Code</option>
-                {subjects.map((sub) => (
-                  <option key={`code-${sub.subject_id}`} value={sub.subject_id}>{sub.subject_code}</option>
-                ))}
-              </select>
-            </Field>
-
             <Field label="Subject Name">
               <select
                 value={form.subject_id}
@@ -350,6 +357,20 @@ export default function SubjectAllocation() {
                 <option value="">Select Subject</option>
                 {subjects.map((sub) => (
                   <option key={`name-${sub.subject_id}`} value={sub.subject_id}>{sub.subject_name}</option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Subject Code">
+              <select
+                value={form.subject_id}
+                onChange={handleChange("subject_id")}
+                disabled={!form.semester_id || subjects.length === 0}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white disabled:bg-slate-50 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+              >
+                <option value="">Select Code</option>
+                {subjects.map((sub) => (
+                  <option key={`code-${sub.subject_id}`} value={sub.subject_id}>{sub.subject_code}</option>
                 ))}
               </select>
             </Field>
@@ -453,8 +474,8 @@ export default function SubjectAllocation() {
                         </p>
                       </td>
                       <td className="px-5 py-3">
-                        <p className="font-medium text-slate-700">{a.Subject?.subject_name}</p>
                         <p className="text-xs text-slate-400">{a.Subject?.subject_code}</p>
+                        <p className="font-medium text-slate-700">{a.Subject?.subject_name}</p>
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex flex-col items-start gap-1">
