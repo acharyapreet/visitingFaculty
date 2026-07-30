@@ -23,7 +23,10 @@ const {
 
     // ── Record lookup ────────────────────────────────────────────
     getAttendanceByIdStrictController, // GET  /record/:attendanceId
-    getAttendanceByIdController        // GET  /:attendanceId  (smart)
+    getAttendanceByIdController,        // GET  /:attendanceId  (smart)
+
+    // ── Delete ──────────────────────────────────────────────────
+    deleteAttendanceByFacultyController // DELETE /faculty/:facultyId
 } = require("../controller/attendanceController");
 
 // ============================================================
@@ -94,6 +97,22 @@ router.get("/record/:attendanceId", getAttendanceByIdStrictController);
 //   Admin verifies/updates a record's status
 // NOTE: must be registered BEFORE /:attendanceId (wildcard)
 router.patch("/verify/:attendanceId", verifyAttendanceController);
+
+// ============================================================
+// ■  DELETE — REMOVE ATTENDANCE BY FACULTY ID
+// ============================================================
+
+// DELETE /api/attendance/faculty/:facultyId
+//   Deletes ALL attendance records for the given faculty.
+//
+//   Optional query filters (all combinable):
+//     ?attendance_period=daily|weekly|monthly
+//     ?month=July
+//     ?year=2026
+//     ?attendance_date=YYYY-MM-DD
+//
+// NOTE: registered BEFORE /:attendanceId wildcard to avoid conflict
+router.delete("/faculty/:facultyId", deleteAttendanceByFacultyController);
 
 // ============================================================
 // ■  SMART LOOKUP  (must be LAST — wildcard catch-all)

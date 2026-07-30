@@ -848,6 +848,52 @@ const getAttendanceByIdService = async (attendanceId) => {
     };
 };
 
+// ============================================================
+// ■  DELETE: Remove attendance records by Faculty ID
+//    Accepts numeric user_id OR uvfin string.
+//    Optional filters: attendance_period, month, year, attendance_date
+//    Returns count of deleted rows.
+// ============================================================
+const deleteAttendanceByFaculty = async (facultyId, filters = {}) => {
+    // 1. Resolve to numeric user_id (throws 'Faculty not found' if invalid)
+    const userId = await resolveUserId(facultyId);
+
+    // 2. Build WHERE clause
+    const where = { user_id: userId };
+
+    if (filters.attendance_period) {
+        const allowed = ['daily', 'weekly', 'monthly'];
+        if (!allowed.includes(filters.attendance_period)) {
+            throw new Error(
+                `Invalid attendance_period. Allowed values: ${allowed.join(', ')}`
+            );
+        }
+        where.attendance_period = filters.attendance_period;
+    }
+
+    if (filters.month) {
+        where.month = filters.month;
+    }
+
+    if (filters.year) {
+        where.year = Number(filters.year);
+    }
+
+    if (filters.attendance_date) {
+        where.attendance_date = filters.attendance_date;
+    }
+
+    // 3. Delete matching rows
+    const deletedCount = await Attendance.destroy({ where });
+
+    return {
+        user_id:      userId,
+        faculty_id:   facultyId,
+        deletedCount,
+        filters
+    };
+};
+
 module.exports = {
     markAttendance,
     markDailyAttendance,
@@ -861,6 +907,7 @@ module.exports = {
     verifyAttendance,
     getFacultyAllocations,
     getAttendanceByIdService,
+    deleteAttendanceByFaculty,
     // expose helpers for tests
     getISOWeekNumber,
     getWeekBounds
