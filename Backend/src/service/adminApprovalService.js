@@ -191,25 +191,38 @@ async function updateUvfin(user_id, uvfinId) {
     try {
         const user = await User.findByPk(user_id);
         if (!user || user.role != 'faculty') {
-            throw new Error('faculty not found');
+            throw new Error('Faculty member not found.');
         }
-        const approved = await AdminApproval.findOne({ where: { user_id, status: 'approved' } });
+
+        // FIX 1: Use FacultyApproval, not AdminApproval
+        const approved = await FacultyApproval.findOne({ where: { user_id, status: 'approved' } });
         if (!approved) {
-            throw new Error('faculty not approved');
+            throw new Error('Cannot assign UVFIN: Faculty member is not approved yet.');
         }
+
+        // FIX 2: Check if UVFIN exists, but make sure it doesn't belong to the current user
+        // (in case they are just clicking save on their own existing UVFIN)
         const existingUvfin = await User.findOne({ where: { uvfin: uvfinId } });
-        if (existingUvfin) {
-            throw new Error('UVFIN already exists. Please use a unique UVFIN');
+        if (existingUvfin && existingUvfin.user_id !== parseInt(user_id)) {
+            throw new Error('This UVFIN is already assigned to another faculty member.');
         }
+
+        // FIX 3: Update BOTH tables to keep data perfectly in sync
         await User.update({
             uvfin: uvfinId
-        }, { where: { user_id } })
-        return { message: "uvfin updated successfully" };
+        }, { where: { user_id } });
+
+        await FacultyApproval.update({
+            uvfin: uvfinId
+        }, { where: { user_id } });
+
+        return { message: "UVFIN updated successfully!" };
+        
     } catch (error) {
         console.error('Update UVFIN Error:', error);
-        throw new Error('Failed to update UVFIN');
+        // FIX 4: Pass the actual error message up to the controller and frontend
+        throw new Error(error.message || 'Failed to update UVFIN.');
     }
-
 }
 
 module.exports = {

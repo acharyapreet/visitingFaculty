@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { Download, Plus, Search, Filter, MoreHorizontal, Eye, BookOpen, UserX, Users } from "lucide-react";
+import { Download, Plus, Search, Filter, Eye, BookOpen, UserX, Users } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
 import FacultyModal from "./FacultyModal";
 import adminApi from "../../api/adminApi";
@@ -28,11 +28,9 @@ export default function FacultyManagement({ setActiveTab }) {
   // UI States
   const [page, setPage] = useState(1);
   const [rejectedPage, setRejectedPage] = useState(1);
-  const [openMenuId, setOpenMenuId] = useState(null);
   const [viewId, setViewId] = useState(null);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
 
-  const menuRef = useRef(null);
   const filterRef = useRef(null);
 
   const fetchAll = async () => {
@@ -55,7 +53,6 @@ export default function FacultyManagement({ setActiveTab }) {
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenuId(null);
       if (filterRef.current && !filterRef.current.contains(e.target)) setFilterMenuOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -75,10 +72,10 @@ export default function FacultyManagement({ setActiveTab }) {
       // 1. Search Filter
       const q = search.trim().toLowerCase();
       const matchesSearch =
-        !q ||
-        f.full_name?.toLowerCase().includes(q) ||
-        f.FacultyApproval?.uvfin?.toLowerCase().includes(q) ||
-        String(f.user_id).toLowerCase().includes(q);
+      !q ||
+      f.full_name?.toLowerCase().includes(q) ||
+      (f.uvfin || f.FacultyApproval?.uvfin)?.toLowerCase().includes(q) ||
+      String(f.user_id).toLowerCase().includes(q);
         
       // 2. Designation Filter
       const matchesDesignation = 
@@ -299,17 +296,19 @@ export default function FacultyManagement({ setActiveTab }) {
                 {!loading &&
                   !error &&
                   paginatedMain.map((f) => {
+                    const currentApproval = f.FacultyApproval?.status?.toLowerCase() || (f.is_approved ? "approved" : "pending");
+                    const isPending = currentApproval === "pending";
                     const isActive = f.is_active;
                     
                     return (
                       <tr key={f.user_id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors last:border-0">
                         <td className="px-6 py-4 font-medium text-slate-600">
-                          {f.FacultyApproval?.uvfin ? (
-                            f.FacultyApproval.uvfin
-                          ) : (
-                            <span className="text-slate-400 font-normal italic">Pending</span>
-                          )}
-                        </td>
+                        {(f.uvfin || f.FacultyApproval?.uvfin) ? (
+                          f.uvfin || f.FacultyApproval?.uvfin
+                        ) : (
+                          <span className="text-slate-400 font-normal italic">Pending</span>
+                        )}
+                      </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className="h-9 w-9 shrink-0 rounded-full bg-[#eff6ff] text-[#2563eb] flex items-center justify-center text-sm font-bold uppercase border border-blue-100">
@@ -320,16 +319,22 @@ export default function FacultyManagement({ setActiveTab }) {
                         </td>
                         <td className="px-6 py-4 text-slate-600">{f.qualification || "N/A"}</td>
                         <td className="px-6 py-4">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${
-                              isActive ? statusStyles.active : statusStyles.inactive
-                            }`}
-                          >
-                            {isActive ? "Active" : "Inactive"}
-                          </span>
+                          {isPending ? (
+                            <span className="text-slate-400 italic">N/A</span>
+                          ) : (
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${
+                                isActive ? statusStyles.active : statusStyles.inactive
+                              }`}
+                            >
+                              {isActive ? "Active" : "Inactive"}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4">
-                          {f.allocated ? (
+                          {isPending ? (
+                            <span className="text-slate-400 italic">N/A</span>
+                          ) : f.allocated ? (
                             <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-600 inline-block">
                               Allocated
                             </span>
@@ -342,41 +347,14 @@ export default function FacultyManagement({ setActiveTab }) {
                             </button>
                           )}
                         </td>
-                        <td className="px-6 py-4 relative text-center">
+                        <td className="px-6 py-4 text-center">
                           <button
-                            onClick={() =>
-                              setOpenMenuId(openMenuId === f.user_id ? null : f.user_id)
-                            }
-                            className="h-8 w-8 inline-flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 transition-colors"
+                            onClick={() => setViewId(f.user_id)}
+                            className="inline-flex flex-col items-center gap-1 text-slate-400 hover:text-[#004DD2] transition-colors"
                           >
-                            <MoreHorizontal size={18} />
+                            <Eye size={18} />
+                            <span className="text-[10px] font-semibold leading-none">View Profile</span>
                           </button>
-                          
-                          {openMenuId === f.user_id && (
-                            <div
-                              ref={menuRef}
-                              className="absolute right-8 z-10 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 text-left"
-                            >
-                              <button
-                                onClick={() => {
-                                  setViewId(f.user_id);
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
-                              >
-                                <Eye size={15} /> View Profile
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setActiveTab("subject-allocation");
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
-                              >
-                                <BookOpen size={15} /> Allocate Subject
-                              </button>
-                            </div>
-                          )}
                         </td>
                       </tr>
                     );

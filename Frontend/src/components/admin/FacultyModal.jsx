@@ -33,6 +33,9 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
   const [newUvfin, setNewUvfin] = useState("");
   const [uvfinLoading, setUvfinLoading] = useState(false);
 
+  // --- NEW: Inline Notification State ---
+  const [notification, setNotification] = useState(null); // { type: 'success' | 'error', text: '' }
+
   // Helper to fetch Auth Token
   const getAuthHeaders = () => {
     const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
@@ -61,26 +64,31 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
 
   const handleApproveSubmit = async () => {
     setActionLoading(true);
+    setNotification(null);
     try {
       await adminApi.approveFaculty(faculty.id || faculty.user_id, uvfin);
       onActionSuccess && onActionSuccess({ action: 'approved' });
       onClose();
     } catch (err) {
-      alert("Approval failed: " + (err.response?.data?.message || err.message || "Unknown Error"));
+      setNotification({ type: 'error', text: "Approval failed: " + (err.response?.data?.message || err.message || "Unknown Error") });
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleRejectSubmit = async () => {
-    if (!rejectReason.trim()) return alert("Please provide a reason for rejection.");
+    if (!rejectReason.trim()) {
+      setNotification({ type: 'error', text: "Please provide a reason for rejection." });
+      return;
+    }
     setActionLoading(true);
+    setNotification(null);
     try {
       await adminApi.rejectFaculty(faculty.id || faculty.user_id, rejectReason);
       onActionSuccess && onActionSuccess({ action: 'rejected' });
       onClose();
     } catch (err) {
-      alert("Rejection failed: " + (err.response?.data?.message || err.message || "Unknown Error"));
+      setNotification({ type: 'error', text: "Rejection failed: " + (err.response?.data?.message || err.message || "Unknown Error") });
     } finally {
       setActionLoading(false);
     }
@@ -90,6 +98,7 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
   
   const handleToggleStatus = async () => {
     setIsUpdatingStatus(true);
+    setNotification(null);
     try {
       const action = faculty.is_active ? "deactivate" : "activate";
       const facultyId = faculty.id || faculty.user_id;
@@ -99,20 +108,27 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
       });
       
       setFaculty(prev => ({ ...prev, is_active: !prev.is_active }));
+      setNotification({ type: 'success', text: `Account successfully ${action}d.` });
       onActionSuccess && onActionSuccess({ action: 'status_changed' });
+      
+      setTimeout(() => setNotification(null), 3000);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to update account status.");
+      setNotification({ type: 'error', text: err.response?.data?.message || "Failed to update account status." });
     } finally {
       setIsUpdatingStatus(false);
     }
   };
 
   const handleUpdateUvfin = async () => {
-    if (!newUvfin.trim()) return;
+    if (!newUvfin.trim()) {
+      setNotification({ type: 'error', text: "Please enter a valid UVFIN." });
+      return;
+    }
     setUvfinLoading(true);
+    setNotification(null);
     try {
       const facultyId = faculty.id || faculty.user_id;
-      await axios.put(`http://localhost:5000/api/admin/updateFaculty/${facultyId}`, { uvfin: newUvfin }, {
+      const response = await axios.put(`http://localhost:5000/api/admin/updateFaculty/${facultyId}`, { uvfin: newUvfin }, {
         headers: getAuthHeaders()
       });
       
@@ -123,14 +139,31 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
         FacultyApproval: { ...prev.FacultyApproval, uvfin: newUvfin }
       }));
       setShowUvfinInput(false);
+      setNotification({ type: 'success', text: response.data?.message || "UVFIN updated successfully!" });
       onActionSuccess && onActionSuccess({ action: 'uvfin_updated' });
+      
+      setTimeout(() => setNotification(null), 3000);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to assign UVFIN.");
+      setNotification({ type: 'error', text: err.response?.data?.message || "Failed to assign UVFIN." });
     } finally {
       setUvfinLoading(false);
     }
   };
 
+  // --- REUSABLE NOTIFICATION BANNER COMPONENT ---
+  const NotificationBanner = () => {
+    if (!notification) return null;
+    return (
+      <div className={`p-4 mb-2 rounded-[8px] flex items-center gap-3 text-[13px] font-semibold border animate-in fade-in duration-200 ${
+        notification.type === 'error' 
+          ? 'bg-[#FEF2F2] text-[#DC3545] border-[#FCA5A5]' 
+          : 'bg-[#F0FDF4] text-[#16A34A] border-[#BBF7D0]'
+      }`}>
+        {notification.type === 'error' ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
+        {notification.text}
+      </div>
+    );
+  };
 
   // --------------------------------------------------------
   // VIEW 1: APPROVE REGISTRATION (Figma Match)
@@ -152,6 +185,8 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
           </div>
 
           <div className="p-6 space-y-6">
+            <NotificationBanner />
+            
             <div className="bg-[#F8F9FA] border border-[#C3C5D8] rounded-[12px] p-5">
               <p className="text-[11px] font-semibold text-[#585F6C] uppercase tracking-wide mb-3">Faculty Member</p>
               <div className="grid grid-cols-2 gap-y-4">
@@ -242,6 +277,8 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
           </div>
 
           <div className="p-6 space-y-6">
+            <NotificationBanner />
+            
             <div className="bg-[#F8F9FA] border border-[#C3C5D8] rounded-[8px] p-4">
               <p className="text-[14px] text-[#585F6C] font-medium">
                 {faculty?.qualification || "Qualification details missing"}
@@ -319,6 +356,8 @@ export default function FacultyModal({ userId, onClose, onActionSuccess, initial
             <div className="py-12 text-center text-[#BA1A1A]">{error}</div>
           ) : (
             <>
+              <NotificationBanner />
+              
               <div className="bg-[#F1F3FF] border border-[#C3C5D8] rounded-[12px] p-6">
                 <div className="mb-6">
                   <p className="text-[11px] font-semibold text-[#585F6C] uppercase tracking-wide mb-1">Faculty Member</p>
