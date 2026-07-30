@@ -453,8 +453,8 @@ export default function SubjectAllocation() {
                         </p>
                       </td>
                       <td className="px-5 py-3">
-                        <p className="text-xs text-slate-400">{a.Subject?.subject_code}</p>
                         <p className="font-medium text-slate-700">{a.Subject?.subject_name}</p>
+                        <p className="text-xs text-slate-400">{a.Subject?.subject_code}</p>
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex flex-col items-start gap-1">
