@@ -99,10 +99,12 @@ export default function AttendanceRecords() {
   }, [facultySearch]);
 
   // ==========================================
-  // 3. FETCH HISTORY
+  // 3. FETCH HISTORY (Updated to accept an ID directly)
   // ==========================================
-  const handleSearch = async () => {
-    if (!selectedFacultyId) {
+  const handleSearch = async (idToSearch = null) => {
+    const targetId = idToSearch || selectedFacultyId;
+    
+    if (!targetId) {
       setError("Please select a faculty member from the dropdown first.");
       return;
     }
@@ -112,15 +114,15 @@ export default function AttendanceRecords() {
     
     try {
       // Endpoint 5: Attendance History
-      const res = await axios.get(`http://localhost:5000/api/attendance/history/${selectedFacultyId}`, getAxiosConfig());
+      const res = await axios.get(`http://localhost:5000/api/attendance/history/${targetId}`, getAxiosConfig());
       
       const fetchedRecords = res.data.data || [];
       setRecords(Array.isArray(fetchedRecords) ? fetchedRecords : []);
       
       // Save active faculty details for the dashboard header
-      const selected = facultyOptions.find(f => f.user_id === selectedFacultyId) || allFaculties.find(f => f.user_id === selectedFacultyId);
+      const selected = facultyOptions.find(f => f.user_id === targetId) || allFaculties.find(f => f.user_id === targetId);
       setActiveFaculty({
-        name: selected?.full_name || facultySearch,
+        name: selected?.full_name || facultySearch || "Selected Faculty",
         session: "2024-25" // Defaulting to current session
       });
       
@@ -195,7 +197,7 @@ export default function AttendanceRecords() {
     return { classes, hours, earnings };
   }, [filteredAndSorted]);
 
-// ==========================================
+  // ==========================================
   // 5. EXPORT
   // ==========================================
   const handleExport = () => {
@@ -268,6 +270,8 @@ export default function AttendanceRecords() {
                     setSelectedFacultyId(f.user_id);
                     setFacultySearch(`${f.full_name} (${f.email})`);
                     setShowFacultyDropdown(false);
+                    // Automatically trigger search
+                    handleSearch(f.user_id);
                   }}
                   className="px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0"
                 >
@@ -278,7 +282,7 @@ export default function AttendanceRecords() {
           )}
         </div>
         <button
-          onClick={handleSearch}
+          onClick={() => handleSearch()}
           className="self-end flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-[#0b57d0] text-white text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
         >
           <Search size={16} /> Search
@@ -303,6 +307,8 @@ export default function AttendanceRecords() {
                   onClick={() => {
                     setSelectedFacultyId(f.user_id);
                     setFacultySearch(`${f.full_name} (${f.email})`);
+                    // Automatically trigger search
+                    handleSearch(f.user_id);
                   }}
                   className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
                     selectedFacultyId === f.user_id

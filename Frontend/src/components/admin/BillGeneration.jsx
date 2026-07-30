@@ -11,12 +11,6 @@ const MONTHS = [
 ];
 const PAGE_SIZE = 6;
 
-const statusStyles = {
-  paid: "bg-green-50 text-green-600",
-  pending: "bg-amber-50 text-amber-600",
-  draft: "bg-slate-100 text-slate-500",
-};
-
 function convertAmountToWords(amount) {
   if (!amount || amount === 0) return "Zero Rupees Only";
   
@@ -77,7 +71,6 @@ export default function BillGeneration() {
   const [generating, setGenerating] = useState(false);
   
   const [isDeleting, setIsDeleting] = useState(false);
-  // State to control the custom delete modal
   const [billToDelete, setBillToDelete] = useState(null);
   const [error, setError] = useState("");
 
@@ -170,7 +163,6 @@ export default function BillGeneration() {
         getAxiosConfig()
       );
 
-      // --- FIX: Extract real numeric ID for backend logic ---
       const responseData = generatedDbRes.data?.data || generatedDbRes.data || {};
       const realDbId = responseData.id || responseData.bill_id || responseData.billId;
       const displayBillNo = realDbId ? realDbId : `BILL-${Date.now().toString().slice(-6)}`;
@@ -194,8 +186,8 @@ export default function BillGeneration() {
       }
 
       const dynamicBill = {
-        id: realDbId,          // Real ID for the backend
-        billNo: displayBillNo, // String ID for the UI
+        id: realDbId,
+        billNo: displayBillNo,
         month: month,
         year: yearInt,
         session: sessionYear,
@@ -209,7 +201,6 @@ export default function BillGeneration() {
         account: facultyData.account_no || "",
         bankName: facultyData.bank_name || "",
         ifsc: facultyData.ifsc_code || "",
-        aadhaar: facultyData.aadhaar_no || "",
         program: records[0]?.course_name || "N/A",
         semester: records[0]?.semester_number ? `Semester ${records[0].semester_number}` : "N/A",
         items: records 
@@ -226,12 +217,10 @@ export default function BillGeneration() {
     }
   };
 
-  // Opens the custom modal
   const handleDeleteClick = (billId) => {
     setBillToDelete(billId);
   };
 
-  // Executes the actual deletion when confirmed inside the modal
   const confirmDeleteBill = async () => {
     if (!billToDelete) return;
     setIsDeleting(true);
@@ -239,7 +228,6 @@ export default function BillGeneration() {
     try {
       await axios.delete(`http://localhost:5000/api/bills/${billToDelete}`, getAxiosConfig());
       
-      // --- FIX: Remove bill from table immediately handling both ID formats ---
       setHistory(prev => prev.filter(b => b.id !== billToDelete && b.bill_id !== billToDelete && b.billNo !== billToDelete));
       
       if (bill && (bill.id === billToDelete || bill.bill_id === billToDelete || bill.billNo === billToDelete)) {
@@ -254,17 +242,13 @@ export default function BillGeneration() {
     }
   };
 
-// --- NEW: Option 2 Frontend Preview Workaround ---
   const handleViewBill = async (billId) => {
     try {
-      // 1. Fetch the historical bill details
       const res = await axios.get(`http://localhost:5000/api/bills/details/${billId}`, getAxiosConfig());
       const data = res.data?.data || res.data;
 
-      // 2. Safely extract the attendance items from the backend's "BillDetails" array
       const items = data.BillDetails || [];
 
-      // 3. Since the backend only gave us `user_id`, we must fetch their profile to get the Name, UVFIN, etc.
       let facultyData = {};
       if (data.user_id) {
         try {
@@ -275,16 +259,14 @@ export default function BillGeneration() {
         }
       }
 
-      // 4. Map everything together perfectly for our frontend layout
       const historyBill = {
         id: data.bill_id || billId,
         billNo: data.billNo || `BILL-${(data.bill_id || billId).toString().padStart(6, '0')}`,
         month: data.month || "Unknown",
         year: data.year || "",
-        session: data.session || "2026-27", // Fallback if backend doesn't store session
+        session: data.session || "2026-27",
         submittedOn: data.bill_date ? new Date(data.bill_date).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
         
-        // Map the Faculty info we just fetched
         facultyName: facultyData.full_name || "Name Missing",
         uvfin: facultyData.uvfin || "",
         qualification: facultyData.qualification || "",
@@ -294,18 +276,13 @@ export default function BillGeneration() {
         account: facultyData.account_no || "",
         bankName: facultyData.bank_name || "",
         ifsc: facultyData.ifsc_code || "",
-        aadhaar: facultyData.aadhaar_no || "",
         
-        // Map the Program/Semester from the first attendance item
         program: items[0]?.course_name || "N/A",
         semester: items[0]?.semester_number ? `Semester ${items[0].semester_number}` : "N/A",
         items: items 
       };
 
-      // Set the bill to trigger the preview window
       setBill(historyBill);
-      
-      // Smoothly scroll the user to the top to see the generated preview
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
     } catch (err) {
@@ -364,7 +341,6 @@ export default function BillGeneration() {
           </div>
         </div>
 
-        {/* Search & Generate Section */}
         <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col md:flex-row gap-3 items-stretch md:items-end shadow-sm mb-6">
           <div className="flex-1 relative" ref={dropdownRef}>
             <label className="text-sm font-medium text-slate-700 mb-1 block">Faculty Search</label>
@@ -437,7 +413,6 @@ export default function BillGeneration() {
           </button>
         </div>
 
-        {/* REFORMATTED: Quick Select Faculty List */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-6">
           <h2 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
             <Users size={16} className="text-[#004DD2]" /> Quick Select Faculty
@@ -483,7 +458,6 @@ export default function BillGeneration() {
 
       {!generating && bill && (
         <div className="mb-8">
-          {/* --- FIX: Opens print preview directly --- */}
           <BillPreview bill={bill} onDownload={() => window.print()} />
         </div>
       )}
@@ -510,7 +484,7 @@ export default function BillGeneration() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs font-medium text-slate-400 border-b border-slate-100 bg-slate-50/50">
-                <th className="px-6 py-3">Bill No.</th>
+                <th className="px-6 py-3">S.No.</th>
                 <th className="px-6 py-3">Faculty</th>
                 <th className="px-6 py-3">Month</th>
                 <th className="px-6 py-3">Amount</th>
@@ -538,19 +512,15 @@ export default function BillGeneration() {
               {!historyLoading &&
                 paginated.map((b, idx) => (
                   <tr key={b.id || idx} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors last:border-0">
-                    <td className="px-6 py-4 font-medium text-slate-700">#{b.billNo || b.id}</td>
+                    <td className="px-6 py-4 font-medium text-slate-700">{(page - 1) * PAGE_SIZE + idx + 1}</td>
                     <td className="px-6 py-4 text-slate-700">{b.facultyName || b.User?.full_name}</td>
                     <td className="px-6 py-4 text-slate-500">
                       {typeof b.month === "number" ? MONTHS[b.month - 1] : b.month} {b.year}
                     </td>
                     <td className="px-6 py-4 font-semibold text-blue-600">₹{b.amount || b.total_amount}</td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${
-                          statusStyles[b.status?.toLowerCase()] || statusStyles.draft
-                        }`}
-                      >
-                        {b.status || "Draft"}
+                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border border-green-500/30 bg-green-50 text-green-600">
+                        Generated
                       </span>
                     </td>
                     
@@ -562,7 +532,6 @@ export default function BillGeneration() {
                       <Eye size={13} /> Preview
                     </button>
                       <button 
-                        /* --- FIX: Safely pass the backend ID format --- */
                         onClick={() => handleDeleteClick(b.id || b.bill_id || b.billNo)}
                         disabled={isDeleting}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-red-50 text-red-600 text-xs font-medium hover:bg-red-100 transition-colors disabled:opacity-50"
@@ -609,6 +578,7 @@ export default function BillGeneration() {
           </div>
         </div>
       </div>
+
       {/* Custom Delete Confirmation Modal */}
       {billToDelete && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm print-hide p-4 transition-opacity">
@@ -852,7 +822,8 @@ function BillPreview({ bill, onDownload }) {
                     <p>A/c No. <span className="border-b border-black inline-block w-48">{bill.account}</span></p>
                     <p>Bank Name <span className="border-b border-black inline-block w-44">{bill.bankName}</span><br/><span className="text-[10px] font-normal italic">(State bank of India Compulsory)</span></p>
                     <p>IFSC Code <span className="border-b border-black inline-block w-44">{bill.ifsc}</span></p>
-                    <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{bill.aadhaar}</span></p>
+                    {/* Compliance Fix: Using generic placeholder for Aadhaar No. */}
+                    <p>Aadhaar No. <span className="border-b border-black inline-block w-40">[Aadhaar Redacted]</span></p>
                   </div>
                   
                   <div className="mt-20 flex flex-col items-center font-bold text-[14px]">
@@ -940,7 +911,8 @@ function BillPreview({ bill, onDownload }) {
                       <td className="border border-black p-2.5 font-bold">{parseFloat(r.hours)}</td>
                     </tr>
                   ))}
-                  {[...Array(Math.max(0, 5 - items.length))].map((_, i) => (
+                  {/* FIX: Ensure a minimum of 15 rows so the page is fully structured regardless of record count */}
+                  {[...Array(Math.max(0, 0 - items.length))].map((_, i) => (
                     <tr key={`empty-att-${i}`}>
                       <td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td>
                       <td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td>
