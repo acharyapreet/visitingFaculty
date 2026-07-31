@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Download, Calendar, Clock, IndianRupee, ChevronDown, Filter, ChevronLeft, ChevronRight, Loader2, Check, ArrowUpDown, Trash2 } from "lucide-react";
+import { Download, Calendar, Clock, IndianRupee, ChevronDown, Filter, ChevronLeft, ChevronRight, Loader2, Check, ArrowUpDown, Trash2, AlertTriangle } from "lucide-react";
 import PageHeader from "./shared/PageHeader";
 import axios from "axios";
 
@@ -27,7 +27,12 @@ export default function AttendanceHistory() {
   const [allocations, setAllocations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [facultyName, setFacultyName] = useState("");
-  const [deletingId, setDeletingId] = useState(null); // Track which record is being deleted
+  
+  // Custom Modal Delete State
+  const [recordToDelete, setRecordToDelete] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deletingId, setDeletingId] = useState(null); 
   
   // Filtering & Sorting State
   const [selectedSubject, setSelectedSubject] = useState("All");
@@ -86,28 +91,38 @@ export default function AttendanceHistory() {
     }
   };
 
-  // --- DELETE RECORD LOGIC ---
-  const handleDelete = async (attendanceId) => {
-    if (!window.confirm("Are you sure you want to cancel this attendance record? This action cannot be undone.")) {
-      return;
-    }
+  // --- DELETE RECORD LOGIC (MODAL CONTROLLED) ---
+  const promptDelete = (record) => {
+    setRecordToDelete(record);
+    setDeleteError("");
+    setIsDeleteModalOpen(true);
+  };
 
-    setDeletingId(attendanceId);
+  const executeDelete = async () => {
+    if (!recordToDelete) return;
+
+    setDeletingId(recordToDelete.attendance_id);
+    setDeleteError("");
+
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
       
-      // Expected backend DELETE route
-      const response = await axios.delete(`http://localhost:5000/api/attendance/record/${attendanceId}`, {
+      const response = await axios.delete(`http://localhost:5000/api/attendance/record/${recordToDelete.attendance_id}`, {
         headers: { 'Authorization': `Bearer ${session.token}` }
       });
 
       if (response.data.success) {
-        // Remove the deleted record from the local state so the UI updates instantly
-        setHistory(prevHistory => prevHistory.filter(record => record.attendance_id !== attendanceId));
+        // Remove the deleted record from the local state
+        setHistory(prevHistory => prevHistory.filter(record => record.attendance_id !== recordToDelete.attendance_id));
+        
+        // Close modal and cleanup
+        setIsDeleteModalOpen(false);
+        setRecordToDelete(null);
       }
     } catch (error) {
       console.error("Error deleting record:", error);
-      alert(error.response?.data?.message || "Failed to delete the record. It may have already been processed.");
+      // Show the error inside the beautiful modal instead of a native alert
+      setDeleteError(error.response?.data?.message || "Failed to delete the record. It may have already been verified.");
     } finally {
       setDeletingId(null);
     }
@@ -203,7 +218,7 @@ export default function AttendanceHistory() {
   const totalPages = Math.max(1, Math.ceil(processedRecords.length / recordsPerPage));
 
   return (
-    <div className="pb-12">
+    <div className="pb-12 relative">
       <PageHeader
         title="Attendance History"
         right={
@@ -379,16 +394,12 @@ export default function AttendanceHistory() {
                           {/* DELETE ACTION COLUMN */}
                           <td className="px-4 py-4 text-center">
                             <button
-                              onClick={() => handleDelete(r.attendance_id)}
+                              onClick={() => promptDelete(r)}
                               disabled={!canDelete || deletingId === r.attendance_id}
                               title={canDelete ? "Cancel this record" : "Cannot delete verified records"}
                               className="rounded p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-30 disabled:cursor-not-allowed"
                             >
-                              {deletingId === r.attendance_id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </td>
                         </tr>
@@ -417,16 +428,12 @@ export default function AttendanceHistory() {
                         
                         {/* DELETE ACTION MOBILE */}
                         <button
-                          onClick={() => handleDelete(r.attendance_id)}
+                          onClick={() => promptDelete(r)}
                           disabled={!canDelete || deletingId === r.attendance_id}
                           title={canDelete ? "Cancel this record" : "Cannot delete verified records"}
                           className="rounded p-1.5 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-30 disabled:cursor-not-allowed"
                         >
-                          {deletingId === r.attendance_id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                       
@@ -498,6 +505,59 @@ export default function AttendanceHistory() {
           )}
         </div>
       </div>
+
+      {/* --- CUSTOM DELETE CONFIRMATION MODAL --- */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md scale-100 overflow-hidden rounded-2xl bg-white shadow-xl animate-in zoom-in-95 duration-200">
+            
+            <div className="p-6 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <AlertTriangle size={28} strokeWidth={2.5} />
+              </div>
+              <h3 className="mb-2 text-xl font-bold text-slate-800">Cancel Attendance Record?</h3>
+              <p className="text-sm text-slate-500 px-2 leading-relaxed">
+                Are you sure you want to delete the <strong>{recordToDelete?.subject_code}</strong> record for <strong>{formatDate(recordToDelete?.attendance_date)}</strong>? This action cannot be undone.
+              </p>
+
+              {/* Display Error inside modal if deletion fails */}
+              {deleteError && (
+                <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600 border border-red-100 text-left">
+                  {deleteError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 p-4">
+              <button
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setRecordToDelete(null);
+                  setDeleteError("");
+                }}
+                disabled={deletingId !== null}
+                className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeDelete}
+                disabled={deletingId !== null}
+                className="flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                {deletingId !== null ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Deleting...
+                  </>
+                ) : (
+                  "Yes, Cancel Record"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

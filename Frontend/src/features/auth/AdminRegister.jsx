@@ -14,11 +14,17 @@ export default function AdminRegister({ onNavigate }) {
   const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  // FIXED: Added the state to track if registration was successful
   const [isSuccess, setIsSuccess] = useState(false);
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // NEW: Password requirements array linked to formData.password
+  const passwordRequirements = [
+    { label: 'At least 8 characters', met: formData.password.length >= 8 },
+    { label: 'One special symbol (e.g., @, #, $)', met: /[!@#$%^&*(),.?":{}|<>]/.test(formData.password) },
+    { label: 'At least one number', met: /\d/.test(formData.password) },
+  ];
 
   const handleChange = (e) => {
     if (e.target.name === 'mobile') {
@@ -37,8 +43,9 @@ export default function AdminRegister({ onNavigate }) {
       setFormError('Mobile number must be exactly 10 digits.');
       return;
     }
-    if (formData.password.length < 8) {
-      setFormError('Password must be at least 8 characters long.');
+    // NEW: Check that all password requirements are strictly met
+    if (!passwordRequirements.every(r => r.met)) {
+      setFormError('Please meet all password requirements.');
       return;
     }
     if (formData.password !== formData.confirmPassword) {
@@ -57,32 +64,28 @@ export default function AdminRegister({ onNavigate }) {
         phone_number: formData.mobile.trim()
       });
 
-      // FIXED: Instead of window.alert, we tell React to show the Success screen!
       setIsSuccess(true);
       
     } catch (error) {
-      // Safely read both the 'message' and 'data' fields from your backend response
       const responseData = error.response?.data;
       const backendMessage = responseData?.message?.toLowerCase() || '';
-      const backendDetails = responseData?.data?.toLowerCase() || ''; // This catches "Email already exist"
+      const backendDetails = responseData?.data?.toLowerCase() || ''; 
 
-      // Check if it's a 409 OR if the message/details contain "already" or "exist"
       if (
         error.response?.status === 409 || 
         backendMessage.includes('already') || 
         backendDetails.includes('already') ||
         backendDetails.includes('exist')
       ) {
-        setIsDuplicate(true); // Trigger your nice warning screen!
+        setIsDuplicate(true); 
       } else {
-        // Fallback for real errors (like network dropping)
         setFormError(responseData?.message || 'Registration failed. Please try again.');
       }
     } finally {
       setIsLoading(false);
     }
   };
-// NEW: If the email is a duplicate, show this specific screen
+
   if (isDuplicate) {
     return (
       <div className="flex min-h-[calc(100vh-68px)] items-center justify-center bg-[#F8F9FB] px-4 py-12">
@@ -102,7 +105,6 @@ export default function AdminRegister({ onNavigate }) {
 
           <button
             onClick={() => {
-              // When they click this, hide this warning and show the Success/Pending screen!
               setIsDuplicate(false);
               setIsSuccess(true); 
             }}
@@ -126,13 +128,10 @@ export default function AdminRegister({ onNavigate }) {
     );
   }
 
-  // Your existing isSuccess check goes right here...
-  // FIXED: If successful, return the new component
   if (isSuccess) {
     return <AdminRegistrationSuccess onNavigate={onNavigate} />;
   }
 
-  // Otherwise, return the standard form
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-68px)] bg-[#F8F9FB] px-4 py-12">
       
@@ -315,6 +314,17 @@ export default function AdminRegister({ onNavigate }) {
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* NEW: Requirements Box placed below the password row */}
+          <div className="rounded-xl bg-[#F7F6FF] p-4 text-sm text-[#585F6C] space-y-2 mt-4">
+            <p className="font-bold text-[#141B2B] text-xs uppercase mb-2">Password Requirements</p>
+            {passwordRequirements.map((req, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className={`h-4 w-4 flex-none rounded-full border-2 transition-colors ${req.met ? 'bg-[#004DD2] border-[#004DD2]' : 'border-[#C3C5D8]'}`} />
+                <span className={req.met ? 'text-[#141B2B]' : 'text-[#585F6C]'}>{req.label}</span>
+              </div>
+            ))}
           </div>
 
           {/* Submit Button */}
