@@ -28,11 +28,16 @@ export default function AttendanceHistory() {
   const [isLoading, setIsLoading] = useState(true);
   const [facultyName, setFacultyName] = useState("");
   
-  // Custom Modal Delete State
+  // Single Record Delete State
   const [recordToDelete, setRecordToDelete] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [deletingId, setDeletingId] = useState(null); 
+
+  // Bulk Delete State
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState("");
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   
   // Filtering & Sorting State
   const [selectedSubject, setSelectedSubject] = useState("All");
@@ -91,7 +96,7 @@ export default function AttendanceHistory() {
     }
   };
 
-  // --- DELETE RECORD LOGIC (MODAL CONTROLLED) ---
+  // --- SINGLE DELETE LOGIC ---
   const promptDelete = (record) => {
     setRecordToDelete(record);
     setDeleteError("");
@@ -112,19 +117,67 @@ export default function AttendanceHistory() {
       });
 
       if (response.data.success) {
-        // Remove the deleted record from the local state
         setHistory(prevHistory => prevHistory.filter(record => record.attendance_id !== recordToDelete.attendance_id));
-        
-        // Close modal and cleanup
         setIsDeleteModalOpen(false);
         setRecordToDelete(null);
       }
     } catch (error) {
       console.error("Error deleting record:", error);
-      // Show the error inside the beautiful modal instead of a native alert
-      setDeleteError(error.response?.data?.message || "Failed to delete the record. It may have already been verified.");
+      if (error.response?.status === 404) {
+        setDeleteError("Record not found. It may have already been deleted.");
+      } else {
+        setDeleteError(error.response?.data?.message || "Failed to delete the record. It may have already been verified.");
+      }
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  // --- BULK DELETE LOGIC ---
+  const promptBulkDelete = () => {
+    setBulkDeleteError("");
+    setIsBulkDeleteModalOpen(true);
+  };
+
+  const executeBulkDelete = async () => {
+    setIsBulkDeleting(true);
+    setBulkDeleteError("");
+
+    try {
+      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+      const targetId = session.userId;
+      
+      let url = `http://localhost:5000/api/attendance/faculty/${targetId}`;
+      const today = new Date();
+
+      // Dynamically attach query parameters based on the currently selected UI filter
+      if (selectedTimeRange === "Today") {
+        const dStr = today.toISOString().split('T')[0];
+        url += `?attendance_date=${dStr}`;
+      } else if (selectedTimeRange === "This Week") {
+        url += `?attendance_period=weekly`;
+      } else if (selectedTimeRange === "This Month") {
+        const monthName = today.toLocaleString('default', { month: 'long' });
+        url += `?month=${monthName}&year=${today.getFullYear()}`;
+      }
+
+      const response = await axios.delete(url, {
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      });
+
+      if (response.data.success) {
+        setIsBulkDeleteModalOpen(false);
+        fetchData(); // Refresh the entire list
+      }
+    } catch (error) {
+      console.error("Bulk Delete Error:", error);
+      if (error.response?.status === 404) {
+        setBulkDeleteError(error.response?.data?.message || `No pending records found to delete for ${selectedTimeRange}.`);
+      } else {
+        setBulkDeleteError(error.response?.data?.message || "Failed to clear records. Some may already be verified.");
+      }
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -132,12 +185,10 @@ export default function AttendanceHistory() {
   const processedRecords = useMemo(() => {
     let result = [...history];
 
-    // 1. Filter by Subject
     if (selectedSubject !== "All") {
       result = result.filter(r => r.subject_code === selectedSubject);
     }
 
-    // 2. Filter by Time Range
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -159,7 +210,6 @@ export default function AttendanceHistory() {
       });
     }
 
-    // 3. Sort by Date and Time
     result.sort((a, b) => {
       const dateA = new Date(`${a.attendance_date}T${a.start_time}`);
       const dateB = new Date(`${b.attendance_date}T${b.start_time}`);
@@ -169,7 +219,6 @@ export default function AttendanceHistory() {
     return result;
   }, [history, selectedSubject, selectedTimeRange, sortOrder]);
 
-  // --- DYNAMIC SUMMARY CALCULATIONS ---
   const summary = useMemo(() => {
     const totalEarnings = processedRecords.reduce((sum, record) => {
       const hrs = parseFloat(record.hours) || 0;
@@ -186,7 +235,6 @@ export default function AttendanceHistory() {
     };
   }, [processedRecords]);
 
-  // Handle filter changes (and reset pagination)
   const handleFilterChange = (type, value) => {
     if (type === 'subject') setSelectedSubject(value);
     if (type === 'time') setSelectedTimeRange(value);
@@ -199,7 +247,6 @@ export default function AttendanceHistory() {
     setCurrentPage(1);
   };
 
-  // Helper functions for formatting
   const formatDate = (dateStr) => {
     if (!dateStr) return "N/A";
     const d = new Date(dateStr);
@@ -211,7 +258,6 @@ export default function AttendanceHistory() {
     return timeStr.substring(0, 5);
   };
 
-  // Pagination Logic
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
   const currentRecords = processedRecords.slice(indexOfFirstRecord, indexOfLastRecord);
@@ -274,9 +320,8 @@ export default function AttendanceHistory() {
                       {selectedSubject === 'All' && <Check className="w-4 h-4" />}
                     </button>
                     
-                    {/* Extract unique subjects either from allocations OR fallback to history if allocations is empty */}
                     {(allocations.length > 0 ? allocations : Array.from(new Set(history.map(h => h.subject_code))).map(code => ({ subject_code: code, subject_name: history.find(h => h.subject_code === code)?.subject_name })))
-                      .filter((v, i, a) => a.findIndex(t => (t.subject_code === v.subject_code)) === i) // Ensure uniqueness
+                      .filter((v, i, a) => a.findIndex(t => (t.subject_code === v.subject_code)) === i)
                       .map((alloc) => (
                       <button 
                         key={alloc.subject_code}
@@ -321,14 +366,26 @@ export default function AttendanceHistory() {
               </div>
             </div>
 
-            {/* Sort Button */}
-            <button 
-              onClick={toggleSortOrder}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
-            >
-              <ArrowUpDown className="h-4 w-4" /> 
-              {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
-            </button>
+            {/* Sort & Bulk Delete Controls */}
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={toggleSortOrder}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors border border-transparent"
+              >
+                <ArrowUpDown className="h-4 w-4" /> 
+                {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
+              </button>
+
+              {history.length > 0 && (
+                <button
+                  onClick={promptBulkDelete}
+                  className="flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors shadow-sm"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Clear {selectedTimeRange === "All Time" ? "All" : selectedTimeRange}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* --- TABLE / DATA DISPLAY --- */}
@@ -372,7 +429,7 @@ export default function AttendanceHistory() {
                     {currentRecords.map((r, index) => {
                       const amount = (parseFloat(r.hours) || 0) * (parseFloat(r.rate_per_hour) || 0);
                       const sessionType = r.session_type || "Theory";
-                      const canDelete = r.status === "Pending"; // Only allow deleting if not yet verified
+                      const canDelete = r.status === "Pending";
                       
                       return (
                         <tr key={r.attendance_id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors last:border-b-0">
@@ -472,7 +529,6 @@ export default function AttendanceHistory() {
                 
                 <div className="flex gap-1 overflow-x-auto max-w-[150px] sm:max-w-none">
                   {[...Array(totalPages)].map((_, i) => {
-                    // Simple pagination logic to prevent showing 50 pages at once
                     if (totalPages > 5 && i !== 0 && i !== totalPages - 1 && Math.abs(currentPage - 1 - i) > 1) {
                       if (Math.abs(currentPage - 1 - i) === 2) return <span key={i} className="px-1 text-slate-400">...</span>;
                       return null;
@@ -506,11 +562,10 @@ export default function AttendanceHistory() {
         </div>
       </div>
 
-      {/* --- CUSTOM DELETE CONFIRMATION MODAL --- */}
+      {/* --- SINGLE DELETE CONFIRMATION MODAL --- */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-md scale-100 overflow-hidden rounded-2xl bg-white shadow-xl animate-in zoom-in-95 duration-200">
-            
             <div className="p-6 text-center">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600">
                 <AlertTriangle size={28} strokeWidth={2.5} />
@@ -519,15 +574,12 @@ export default function AttendanceHistory() {
               <p className="text-sm text-slate-500 px-2 leading-relaxed">
                 Are you sure you want to delete the <strong>{recordToDelete?.subject_code}</strong> record for <strong>{formatDate(recordToDelete?.attendance_date)}</strong>? This action cannot be undone.
               </p>
-
-              {/* Display Error inside modal if deletion fails */}
               {deleteError && (
                 <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600 border border-red-100 text-left">
                   {deleteError}
                 </div>
               )}
             </div>
-
             <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 p-4">
               <button
                 onClick={() => {
@@ -545,13 +597,49 @@ export default function AttendanceHistory() {
                 disabled={deletingId !== null}
                 className="flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
               >
-                {deletingId !== null ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Deleting...
-                  </>
-                ) : (
-                  "Yes, Cancel Record"
-                )}
+                {deletingId !== null ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting...</> : "Yes, Cancel Record"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- BULK DELETE CONFIRMATION MODAL --- */}
+      {isBulkDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md scale-100 overflow-hidden rounded-2xl bg-white shadow-xl animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <AlertTriangle size={28} strokeWidth={2.5} />
+              </div>
+              <h3 className="mb-2 text-xl font-bold text-slate-800">Bulk Delete Records?</h3>
+              <p className="text-sm text-slate-500 px-2 leading-relaxed">
+                Are you sure you want to delete ALL pending records for <strong>{selectedTimeRange === "All Time" ? "your entire history" : selectedTimeRange}</strong>? 
+                {selectedSubject !== "All" && " (This will ignore the Subject filter and delete ALL subjects for this time range)." } This action cannot be undone.
+              </p>
+              {bulkDeleteError && (
+                <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600 border border-red-100 text-left">
+                  {bulkDeleteError}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 p-4">
+              <button
+                onClick={() => {
+                  setIsBulkDeleteModalOpen(false);
+                  setBulkDeleteError("");
+                }}
+                disabled={isBulkDeleting}
+                className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeBulkDelete}
+                disabled={isBulkDeleting}
+                className="flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                {isBulkDeleting ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting...</> : "Yes, Delete Records"}
               </button>
             </div>
           </div>
