@@ -1,0 +1,17 @@
+[2026-07-27T11:14:52.306Z] Scheduler registered — will auto-generate bills at 23:55 IST on the last day of every month.
+[2026-07-27T11:20:45.422Z] Scheduler registered — will auto-generate bills at 23:55 IST on the last day of every month.
+[2026-07-27T11:28:42.301Z] ========================================
+[2026-07-27T11:28:42.302Z] JOB STARTED — Auto-generating bills for July 2026
+[2026-07-27T11:28:42.448Z] Found 1 active faculty member(s).
+[2026-07-27T11:28:42.463Z]   ↷ SKIP (bill exists) — Punit Chandel [ID: 9]
+[2026-07-27T11:28:42.464Z] SUMMARY: Generated=0 | No-Attendance=0 | Already-Billed=1 | Errors=0
+[2026-07-27T11:28:42.467Z] JOB FINISHED — July 2026
+[2026-07-27T11:28:42.468Z] ========================================
+[2026-07-27T11:32:33.672Z] ========================================
+[2026-07-27T11:32:33.673Z] JOB STARTED — Auto-generating bills for July 2026
+[2026-07-27T11:32:33.678Z] Found 1 active faculty member(s).
+[2026-07-27T11:32:33.703Z]   ↷ SKIP (bill exists) — Punit Chandel [ID: 9]
+[2026-07-27T11:32:33.704Z] SUMMARY: Generated=0 | No-Attendance=0 | Already-Billed=1 | Errors=0
+[2026-07-27T11:32:33.705Z] JOB FINISHED — July 2026
+[2026-07-27T11:32:33.706Z] ========================================
+[2026-07-28T14:19:31.827Z] Scheduler registered — will auto-generate bills at 23:55 IST on the last day of every month.
