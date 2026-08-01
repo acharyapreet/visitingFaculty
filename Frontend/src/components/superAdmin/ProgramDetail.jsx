@@ -37,7 +37,7 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
         }
       } catch (error) {
         console.error("Failed to fetch course dashboard:", error);
-        setCourseData(program); // Fallback
+        setCourseData(program); 
       } finally {
         setLoading(false);
         fetchSubjects(1); 
@@ -46,7 +46,7 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
     fetchCourseDashboard();
   }, [courseId, program]);
 
-  // 2. Fetch Subjects (WITH UPDATED ERROR HANDLING)
+  // 2. Fetch Subjects 
   const fetchSubjects = async (semesterId) => {
     try {
       const res = await fetch(`/api/super_admin/subjects/${courseId}/${semesterId}`, {
@@ -54,7 +54,6 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
         headers: getAuthHeaders() 
       });
       
-      // PREVENTS THE HTML/JSON PARSE ERROR
       if (!res.ok) {
         throw new Error(`Backend returned ${res.status}: Ensure the route exists.`);
       }
@@ -65,7 +64,6 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
       }
     } catch (error) {
       console.error(`Failed to fetch subjects for semester ${semesterId}:`, error.message);
-      // Ensure the UI doesn't break by setting an empty array on failure
       setSubjects((prev) => ({ ...prev, [semesterId]: [] }));
     }
   };
@@ -90,8 +88,6 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
         body: JSON.stringify({ program_incharge: newIncharge })
       });
       
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      
       const data = await res.json();
       
       if (data.success) {
@@ -100,7 +96,7 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
         if (onUpdate) onUpdate(updatedCourse); 
         alert("Program Incharge updated successfully!");
       } else {
-        alert("Failed to update incharge on backend.");
+        alert("Failed to update incharge: " + data.message);
       }
     } catch (error) {
       console.error("Failed to update incharge:", error);
@@ -108,7 +104,7 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
     }
   };
 
-  // 4. Add Section to DB
+  // 4a. Add Section 
   const handleAddSection = async () => {
     const sectionName = prompt("Enter new Section Name (e.g., C):");
     if (!sectionName || sectionName.trim() === "") return;
@@ -122,16 +118,11 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
         body: JSON.stringify({ section_name: formattedSectionName })
       });
       
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      
       const data = await res.json();
       
       if (data.success) {
         const newSection = { section_id: data.data.section_id, section_name: data.data.section_name };
-        const updatedCourse = {
-          ...courseData,
-          Sections: [...(courseData.Sections || []), newSection]
-        };
+        const updatedCourse = { ...courseData, Sections: [...(courseData.Sections || []), newSection] };
         setCourseData(updatedCourse); 
         if (onUpdate) onUpdate(updatedCourse); 
       } else {
@@ -143,7 +134,95 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
     }
   };
 
-  // 5. Add a new Subject
+  // 4b. Delete Section (DELETE /api/super_admin/deleteSection/:course_id/:section_id)
+  const handleDeleteSection = async (sectionId) => {
+    if (!window.confirm("Are you sure you want to delete this section?")) return;
+
+    try {
+      const res = await fetch(`/api/super_admin/deleteSection/${courseId}/${sectionId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      
+      const data = await res.json();
+
+      if (data.success) {
+        const updatedCourse = { ...courseData, Sections: courseData.Sections.filter(s => s.section_id !== sectionId) };
+        setCourseData(updatedCourse); 
+        if (onUpdate) onUpdate(updatedCourse);
+      } else {
+        alert("Failed to delete section: " + data.message);
+      }
+    } catch (error) {
+      console.error("Failed to delete section:", error);
+      alert("Network error: Could not reach backend.");
+    }
+  };
+
+  // 5a. Add Semester (POST /api/super_admin/addSemester/:course_id)
+  const handleAddSemester = async () => {
+    const nextSemId = (courseData.total_semesters || 0) + 1;
+    try {
+      const res = await fetch(`/api/super_admin/addSemester/${courseId}`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ semester_id: nextSemId })
+      });
+      
+      const data = await res.json();
+
+      if (data.success) {
+        const updatedCourse = { ...courseData, total_semesters: nextSemId };
+        setCourseData(updatedCourse);
+        if (onUpdate) onUpdate(updatedCourse);
+      } else {
+        alert("Failed to add semester: " + data.message);
+      }
+    } catch (error) {
+      console.error("Failed to add semester:", error);
+      alert("Network error: Could not reach backend.");
+    }
+  };
+
+  // 5b. Delete Semester (DELETE /api/super_admin/deleteSemester/:course_id/:semester_id)
+  const handleDeleteSemester = async () => {
+    if (courseData.total_semesters <= 1) {
+      alert("A program must have at least 1 semester.");
+      return;
+    }
+    if (!window.confirm("Are you sure you want to remove the last semester? All associated subjects will be lost.")) return;
+
+    const semesterToDelete = courseData.total_semesters;
+
+    try {
+      const res = await fetch(`/api/super_admin/deleteSemester/${courseId}/${semesterToDelete}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      
+      const data = await res.json();
+
+      if (data.success) {
+        const updatedCourse = { ...courseData, total_semesters: courseData.total_semesters - 1 };
+        setCourseData(updatedCourse);
+        if (onUpdate) onUpdate(updatedCourse);
+        
+        // Remove subjects from local state for the deleted semester
+        setSubjects(prev => {
+          const newSubjects = { ...prev };
+          delete newSubjects[semesterToDelete];
+          return newSubjects;
+        });
+      } else {
+        alert("Failed to delete semester: " + data.message);
+      }
+    } catch (error) {
+      console.error("Failed to delete semester:", error);
+      alert("Network error: Could not reach backend.");
+    }
+  };
+
+  // 6. Add Subject
   const handleAddSubject = async (semesterId) => {
     const subjectCode = prompt("Enter Subject Code (e.g., IT-104A):");
     if (!subjectCode) return;
@@ -156,19 +235,18 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
         headers: getAuthHeaders(),
         body: JSON.stringify({ subject_code: subjectCode, subject_name: subjectName })
       });
-      
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      
       const data = await res.json();
       if (data.success) {
         fetchSubjects(semesterId);
+      } else {
+        alert("Failed to add subject: " + data.message);
       }
     } catch (error) {
       console.error("Failed to add subject:", error);
     }
   };
 
-  // 6. Delete a Subject
+  // 7. Delete Subject
   const handleDeleteSubject = async (semesterId, subjectId) => {
     if (!window.confirm("Are you sure you want to delete this subject?")) return;
 
@@ -177,12 +255,11 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
         method: "DELETE",
         headers: getAuthHeaders() 
       });
-      
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      
       const data = await res.json();
       if (data.success) {
         fetchSubjects(semesterId);
+      } else {
+        alert("Failed to delete subject: " + data.message);
       }
     } catch (error) {
       console.error("Failed to delete subject:", error);
@@ -223,7 +300,6 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
                </h3>
             </div>
 
-            {/* Read-Only Fields from DB */}
             <div>
               <p className="text-xs text-gray-400 font-semibold mb-1 uppercase">Program Name</p>
               <p className="font-bold text-gray-800">{courseData.course_name}</p>
@@ -236,10 +312,17 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
 
             <div>
               <p className="text-xs text-gray-400 font-semibold mb-1 uppercase">Sections</p>
-              <div className="flex items-center gap-2 mt-1">
-                <p className="font-bold text-gray-800">
-                  {courseData.Sections?.length > 0 ? courseData.Sections.map(s => s.section_name).join(", ") : "None"}
-                </p>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                {courseData.Sections?.length > 0 ? (
+                  courseData.Sections.map(s => (
+                    <span key={s.section_id} className="bg-gray-100 border border-gray-200 text-gray-700 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1">
+                      {s.section_name}
+                      <button onClick={() => handleDeleteSection(s.section_id)} className="text-red-400 hover:text-red-600 font-bold ml-1 text-sm leading-none">&times;</button>
+                    </span>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 mr-2">None</p>
+                )}
                 <button 
                   onClick={handleAddSection}
                   className="bg-purple-50 text-purple-600 hover:bg-purple-100 px-2 py-0.5 rounded text-xs font-semibold border border-purple-200 transition-colors"
@@ -250,7 +333,6 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
             </div>
           </div>
 
-          {/* Program Incharge Section */}
           <div className="w-64 pl-8 flex flex-col items-center justify-center text-center">
             <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-3">
               <User className="w-8 h-8 text-blue-500" />
@@ -268,7 +350,23 @@ export default function ProgramDetail({ program, onBack, onUpdate }) {
 
         {/* Subject Management Accordion */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-6">Subject Management</h3>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-gray-900">Subject Management</h3>
+            <div className="flex gap-2">
+              <button 
+                onClick={handleDeleteSemester} 
+                className="flex items-center gap-1 border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+              >
+                <Trash2 className="w-3 h-3"/> Remove Last Sem
+              </button>
+              <button 
+                onClick={handleAddSemester} 
+                className="flex items-center gap-1 border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+              >
+                <Plus className="w-3 h-3"/> Add Sem
+              </button>
+            </div>
+          </div>
           
           {Array.from({ length: courseData.total_semesters || 0 }, (_, i) => i + 1).map((sem) => (
             <div key={sem} className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
