@@ -31,6 +31,13 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
 
   const progressWidth = step === 1 ? '36%' : '100%';
 
+  // NEW: Password requirements array linked to formData.password
+  const passwordRequirements = [
+    { label: 'At least 8 characters', met: formData.password.length >= 8 },
+    { label: 'One special symbol (e.g., @, #, $)', met: /[!@#$%^&*(),.?":{}|<>]/.test(formData.password) },
+    { label: 'At least one number', met: /\d/.test(formData.password) },
+  ];
+
   const handleChange = (event) => {
     const { name, value } = event.target;
     const sanitizedValue =
@@ -76,7 +83,7 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
     }
     
     if (!formData.bank_name.trim()) return 'Bank Name: Please enter your bank name.';
-    // NEW CHECK: Ensure account number is exactly between 8 and 18 numeric digits
+    
     if (!/^[0-9]{8,18}$/.test(formData.account_no.trim())) {
       return 'Account No: Must be a valid account number between 8 and 18 digits.';
     }
@@ -85,8 +92,11 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
       return 'IFSC Code: Invalid format. It must be 4 letters, a zero (0), and 6 letters/numbers (e.g., SBIN0001234).';
     }
     
-    if (formData.password.length < 8) return 'Password: Must be at least 8 characters long.';
-    if (!/^(?=.*[A-Za-z])(?=.*\d).+$/.test(formData.password)) return 'Password: Must include both letters and numbers.';
+    // Check that all password requirements are strictly met
+    if (!passwordRequirements.every(r => r.met)) {
+      return 'Password: Please meet all password requirements.';
+    }
+    
     if (formData.password !== formData.confirmPassword) return 'Confirm Password: Passwords do not match.';
     
     return '';
@@ -104,7 +114,7 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
 
     setStep(2);
     setSubmitError('');
-    scrollToError(); // Scrolls to top when moving to step 2
+    scrollToError(); 
   };
 
   const handleSubmit = async (event) => {
@@ -126,7 +136,6 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
       email: formData.email.trim(),
       address: formData.address.trim(),
       qualification: formData.qualification.trim(),
-      // [Aadhaar Redacted] - Value included in payload for submission only
       aadhaar_no: formData.aadhaar_no.trim(), 
       pan_card_no: formData.pan_card_no.trim().toUpperCase(),
       bank_name: formData.bank_name.trim(),
@@ -156,22 +165,32 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
       }
 
       setStep(3);
-      scrollToError(); // Scrolls to top for success message
+      scrollToError(); 
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || '';
+      // ENHANCED ERROR CATCHING: Combines raw DB errors and formatted API duplicate responses
+      const errorMessage = error.response?.data?.message?.toLowerCase() || error.message?.toLowerCase() || '';
+      const errorDetails = typeof error.response?.data?.data === 'string' ? error.response.data.data.toLowerCase() : '';
+      const fullError = errorMessage + ' ' + errorDetails;
       
-      if (errorMessage.includes('ER_DUP_ENTRY')) {
-        if (errorMessage.includes('pan_card_no')) {
-          setSubmitError('This PAN Card is already registered. Please check your details.');
-        } else if (errorMessage.includes('email')) {
-          setSubmitError('This email address is already registered in our system.');
-        } else if (errorMessage.includes('aadhaar_no')) {
-          setSubmitError('This identification number is already registered.');
+      if (
+        fullError.includes('er_dup_entry') || 
+        error.response?.status === 409 || 
+        fullError.includes('already') || 
+        fullError.includes('exist')
+      ) {
+        if (fullError.includes('pan_card_no') || fullError.includes('pan')) {
+          setSubmitError('PAN Card Number already exists. Please verify your details.');
+        } else if (fullError.includes('account_no') || fullError.includes('account')) {
+          setSubmitError('Bank Account Number already exists. Please verify your banking details.');
+        } else if (fullError.includes('aadhaar_no') || fullError.includes('aadhaar')) {
+          setSubmitError('Aadhaar Number already exists. Please verify your details.');
+        } else if (fullError.includes('email')) {
+          setSubmitError('Email Address already exists. Please return to login and sign in.');
         } else {
-          setSubmitError('This information is already registered. Please sign in.');
+          setSubmitError('This information is already registered. Please check your details or sign in.');
         }
       } else {
-        setSubmitError(errorMessage || 'Unable to complete faculty registration.');
+        setSubmitError(error.response?.data?.message || 'Unable to complete faculty registration.');
       }
       scrollToError();
     } finally {
@@ -234,7 +253,6 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
           <div className="h-full rounded-full bg-[#004DD2] transition-all" style={{ width: progressWidth }} />
         </div>
 
-        {/* Scroll anchor placed exactly where the form and errors begin */}
         <div ref={formTopRef} className="scroll-mt-6"></div>
 
         <form onSubmit={step === 1 ? handleNext : handleSubmit} className="mt-5 rounded-2xl border border-[#C3C5D8] bg-white p-5 shadow-sm sm:p-6 md:p-8">
@@ -442,7 +460,7 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
 
                 <div className="grid gap-5 md:grid-cols-2">
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-[#424656]">Password (Minimum length: 8 alpha numeric)</label>
+                    <label className="mb-1.5 block text-sm font-medium text-[#424656]">Password</label>
                     <div className="relative">
                       <input
                         type={showPassword ? "text" : "password"}
@@ -509,6 +527,18 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
                     </div>
                   </div>
                 </div>
+
+                {/* Requirements Box placed below the password row */}
+                <div className="rounded-xl bg-[#F7F6FF] p-4 text-sm text-[#585F6C] space-y-2 mt-4">
+                  <p className="font-bold text-[#141B2B] text-xs uppercase mb-2">Password Requirements</p>
+                  {passwordRequirements.map((req, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className={`h-4 w-4 flex-none rounded-full border-2 transition-colors ${req.met ? 'bg-[#004DD2] border-[#004DD2]' : 'border-[#C3C5D8]'}`} />
+                      <span className={req.met ? 'text-[#141B2B]' : 'text-[#585F6C]'}>{req.label}</span>
+                    </div>
+                  ))}
+                </div>
+
               </section>
             </div>
           )}

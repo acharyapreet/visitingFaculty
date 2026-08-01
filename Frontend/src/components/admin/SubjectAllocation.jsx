@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { ClipboardCheck, ListChecks, Save, Trash2, Check, AlertTriangle, X } from "lucide-react";
+import {
+  ClipboardCheck,
+  ListChecks,
+  Save,
+  Trash2,
+  Check,
+  AlertTriangle,
+  X,
+} from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
 import axios from "axios";
 
@@ -18,7 +26,8 @@ const emptyForm = {
   academic_year: "2024-25",
 };
 
-export default function SubjectAllocation() {
+// NOTICE: We added 'prefilledFaculty' here!
+export default function SubjectAllocation({ prefilledFaculty }) {
   // --- STATE: Data from APIs ---
   const [facultyOptions, setFacultyOptions] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -29,7 +38,7 @@ export default function SubjectAllocation() {
 
   // --- STATE: UI & Form ---
   const [loadingAllocations, setLoadingAllocations] = useState(true);
-  const [facultySearch, setFacultySearch] = useState(""); 
+  const [facultySearch, setFacultySearch] = useState("");
   const [showFacultyDropdown, setShowFacultyDropdown] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -46,17 +55,19 @@ export default function SubjectAllocation() {
   const dropdownRef = useRef(null);
 
   const getAxiosConfig = () => {
-    const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+    const session = JSON.parse(
+      localStorage.getItem("iipsCurrentSession") || "{}",
+    );
     return {
       headers: {
         Authorization: `Bearer ${session.token}`,
-        "Content-Type": "application/json"
-      }
+        "Content-Type": "application/json",
+      },
     };
   };
 
   // ==========================================
-  // 1. DATA FETCHING: INITIAL LOAD
+  // 1. DATA FETCHING & AUTO-FILL
   // ==========================================
   useEffect(() => {
     fetchCourses();
@@ -71,9 +82,42 @@ export default function SubjectAllocation() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // --- NEW: Auto-fill logic when clicking from Faculty Management ---
+  // --- NEW: Auto-fill logic when clicking from Faculty Management ---
+  useEffect(() => {
+    if (prefilledFaculty) {
+      // Let's log it to the console just in case we need to see the exact structure!
+      console.log("Passed Faculty Data from Table:", prefilledFaculty);
+
+      // Check if the actual details are nested inside a 'User' or 'user' object
+      const nestedData = prefilledFaculty.User || prefilledFaculty.user || {};
+
+      // Look at the top level first, then look inside the nested object
+      const targetId =
+        prefilledFaculty.user_id ||
+        prefilledFaculty.id ||
+        nestedData.user_id ||
+        nestedData.id ||
+        "";
+      const targetName =
+        prefilledFaculty.full_name ||
+        prefilledFaculty.name ||
+        nestedData.full_name ||
+        nestedData.name ||
+        "Unknown Name";
+      const targetEmail =
+        prefilledFaculty.email || nestedData.email || "No Email";
+
+      setForm((prev) => ({ ...prev, user_id: targetId }));
+      setFacultySearch(`${targetName} (${targetEmail})`);
+    }
+  }, [prefilledFaculty]);
   const fetchCourses = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/admin/courses", getAxiosConfig());
+      const res = await axios.get(
+        "http://localhost:5000/api/admin/courses",
+        getAxiosConfig(),
+      );
       setCourses(res.data.data || []);
     } catch (err) {
       console.error("Failed to load courses", err);
@@ -83,7 +127,10 @@ export default function SubjectAllocation() {
   const fetchAllocations = async () => {
     setLoadingAllocations(true);
     try {
-      const res = await axios.get("http://localhost:5000/api/admin/allocations", getAxiosConfig());
+      const res = await axios.get(
+        "http://localhost:5000/api/admin/allocations",
+        getAxiosConfig(),
+      );
       setAllocations(res.data.data || []);
     } catch (err) {
       console.error("Failed to load allocations", err);
@@ -97,14 +144,18 @@ export default function SubjectAllocation() {
   // ==========================================
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
-      if (!facultySearch.trim()) {
+      // Don't search if the input exactly matches the prefilled data string format
+      if (
+        !facultySearch.trim() ||
+        (prefilledFaculty && facultySearch.includes(prefilledFaculty.email))
+      ) {
         setFacultyOptions([]);
         return;
       }
       try {
         const res = await axios.get(
-          `http://localhost:5000/api/admin/search-faculty?q=${facultySearch}`, 
-          getAxiosConfig()
+          `http://localhost:5000/api/admin/search-faculty?q=${facultySearch}`,
+          getAxiosConfig(),
         );
         setFacultyOptions(res.data.data || []);
       } catch (err) {
@@ -113,40 +164,54 @@ export default function SubjectAllocation() {
     }, 400);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [facultySearch]);
+  }, [facultySearch, prefilledFaculty]);
 
   // ==========================================
   // 3. CASCADING DROPDOWNS LOGIC
   // ==========================================
   useEffect(() => {
     if (form.course_id) {
-      axios.get(`http://localhost:5000/api/admin/courses/${form.course_id}/sections`, getAxiosConfig())
-        .then(res => setSections(res.data.data || []))
+      axios
+        .get(
+          `http://localhost:5000/api/admin/courses/${form.course_id}/sections`,
+          getAxiosConfig(),
+        )
+        .then((res) => setSections(res.data.data || []))
         .catch(() => setSections([]));
 
-      axios.get(`http://localhost:5000/api/admin/courses/${form.course_id}/semesters`, getAxiosConfig())
-        .then(res => setSemesters(res.data.data || []))
+      axios
+        .get(
+          `http://localhost:5000/api/admin/courses/${form.course_id}/semesters`,
+          getAxiosConfig(),
+        )
+        .then((res) => setSemesters(res.data.data || []))
         .catch(() => setSemesters([]));
     } else {
       setSections([]);
       setSemesters([]);
     }
-    setForm(prev => ({ ...prev, section_id: "", semester_id: "", subject_id: "" }));
+    setForm((prev) => ({
+      ...prev,
+      section_id: "",
+      semester_id: "",
+      subject_id: "",
+    }));
     setSubjects([]);
   }, [form.course_id]);
 
   useEffect(() => {
     if (form.course_id && form.semester_id) {
-      axios.get(
-        `http://localhost:5000/api/admin/courses/${form.course_id}/semesters/${form.semester_id}/subjects`, 
-        getAxiosConfig()
-      )
-        .then(res => setSubjects(res.data.data || []))
+      axios
+        .get(
+          `http://localhost:5000/api/admin/courses/${form.course_id}/semesters/${form.semester_id}/subjects`,
+          getAxiosConfig(),
+        )
+        .then((res) => setSubjects(res.data.data || []))
         .catch(() => setSubjects([]));
     } else {
       setSubjects([]);
     }
-    setForm(prev => ({ ...prev, subject_id: "" }));
+    setForm((prev) => ({ ...prev, subject_id: "" }));
   }, [form.semester_id, form.course_id]);
 
   // ==========================================
@@ -160,7 +225,14 @@ export default function SubjectAllocation() {
     e.preventDefault();
     setFormError("");
 
-    if (!form.user_id || !form.course_id || !form.semester_id || !form.subject_id || !form.session_type || !form.rate_per_hour) {
+    if (
+      !form.user_id ||
+      !form.course_id ||
+      !form.semester_id ||
+      !form.subject_id ||
+      !form.session_type ||
+      !form.rate_per_hour
+    ) {
       setFormError("Please fill all required fields.");
       return;
     }
@@ -168,8 +240,12 @@ export default function SubjectAllocation() {
     setSubmitting(true);
     try {
       const payload = { ...form, section_id: form.section_id || null };
-      await axios.post("http://localhost:5000/api/admin/allocations", payload, getAxiosConfig());
-      
+      await axios.post(
+        "http://localhost:5000/api/admin/allocations",
+        payload,
+        getAxiosConfig(),
+      );
+
       setSuccessModal(true); // Trigger custom success modal
       setForm(emptyForm);
       setFacultySearch("");
@@ -189,7 +265,10 @@ export default function SubjectAllocation() {
     if (!deleteConfirmId) return;
     setDeleting(true);
     try {
-      await axios.delete(`http://localhost:5000/api/admin/allocations/${deleteConfirmId}`, getAxiosConfig());
+      await axios.delete(
+        `http://localhost:5000/api/admin/allocations/${deleteConfirmId}`,
+        getAxiosConfig(),
+      );
       setDeleteConfirmId(null);
       fetchAllocations();
     } catch (err) {
@@ -206,15 +285,22 @@ export default function SubjectAllocation() {
   const filteredAllocations = useMemo(() => {
     if (!search.trim()) return allocations;
     const q = search.toLowerCase();
-    return allocations.filter((a) =>
-      a.User?.full_name?.toLowerCase().includes(q) ||
-      a.Subject?.subject_name?.toLowerCase().includes(q) ||
-      a.Subject?.subject_code?.toLowerCase().includes(q)
+    return allocations.filter(
+      (a) =>
+        a.User?.full_name?.toLowerCase().includes(q) ||
+        a.Subject?.subject_name?.toLowerCase().includes(q) ||
+        a.Subject?.subject_code?.toLowerCase().includes(q),
     );
   }, [allocations, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredAllocations.length / PAGE_SIZE));
-  const paginated = filteredAllocations.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredAllocations.length / PAGE_SIZE),
+  );
+  const paginated = filteredAllocations.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE,
+  );
 
   useEffect(() => setPage(1), [search]);
 
@@ -222,18 +308,26 @@ export default function SubjectAllocation() {
     <main className="p-4 sm:p-6 w-full relative">
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Subject Allocation</h1>
-          <p className="text-sm text-slate-400">Assign courses and subjects to faculty members</p>
+          <h1 className="text-2xl font-bold text-slate-800">
+            Subject Allocation
+          </h1>
+          <p className="text-sm text-slate-400">
+            Assign courses and subjects to faculty members
+          </p>
         </div>
       </div>
 
       <div className="grid xl:grid-cols-[400px_1fr] gap-6 items-start">
-        
         {/* ASSIGNMENT FORM */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm"
+        >
           <div className="flex items-center gap-2 mb-6">
             <ClipboardCheck size={20} className="text-blue-600" />
-            <h2 className="text-lg font-semibold text-slate-800">Assign New Subject</h2>
+            <h2 className="text-lg font-semibold text-slate-800">
+              Assign New Subject
+            </h2>
           </div>
 
           <div className="space-y-4">
@@ -247,7 +341,7 @@ export default function SubjectAllocation() {
                     onChange={(e) => {
                       setFacultySearch(e.target.value);
                       setShowFacultyDropdown(true);
-                      setForm((prev) => ({ ...prev, user_id: "" })); 
+                      setForm((prev) => ({ ...prev, user_id: "" }));
                     }}
                     onFocus={() => setShowFacultyDropdown(true)}
                     placeholder="Select..."
@@ -259,7 +353,10 @@ export default function SubjectAllocation() {
                         <li
                           key={f.user_id}
                           onClick={() => {
-                            setForm((prev) => ({ ...prev, user_id: f.user_id }));
+                            setForm((prev) => ({
+                              ...prev,
+                              user_id: f.user_id,
+                            }));
                             setFacultySearch(`${f.full_name} (${f.email})`);
                             setShowFacultyDropdown(false);
                           }}
@@ -274,15 +371,17 @@ export default function SubjectAllocation() {
               </Field>
             </div>
 
-            <Field label="Course Name">
+            <Field label="Program Name">
               <select
                 value={form.course_id}
                 onChange={handleChange("course_id")}
                 className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
               >
-                <option value="">Select Course</option>
+                <option value="">Select Program</option>
                 {courses.map((c) => (
-                  <option key={c.course_id} value={c.course_id}>{c.course_name}</option>
+                  <option key={c.course_id} value={c.course_id}>
+                    {c.course_name}
+                  </option>
                 ))}
               </select>
             </Field>
@@ -297,7 +396,9 @@ export default function SubjectAllocation() {
                 >
                   <option value="">Select Sem</option>
                   {semesters.map((s) => (
-                    <option key={s.semester_id} value={s.semester_id}>Semester {s.semester_number}</option>
+                    <option key={s.semester_id} value={s.semester_id}>
+                      Semester {s.semester_number}
+                    </option>
                   ))}
                 </select>
               </Field>
@@ -309,9 +410,13 @@ export default function SubjectAllocation() {
                   disabled={!form.course_id || sections.length === 0}
                   className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                 >
-                  <option value="">{sections.length === 0 ? "N/A" : "Select Section"}</option>
+                  <option value="">
+                    {sections.length === 0 ? "N/A" : "Select Section"}
+                  </option>
                   {sections.map((sec) => (
-                    <option key={sec.section_id} value={sec.section_id}>Section {sec.section_name}</option>
+                    <option key={sec.section_id} value={sec.section_id}>
+                      Section {sec.section_name}
+                    </option>
                   ))}
                 </select>
               </Field>
@@ -326,20 +431,6 @@ export default function SubjectAllocation() {
               />
             </Field>
 
-            <Field label="Subject Code">
-              <select
-                value={form.subject_id}
-                onChange={handleChange("subject_id")}
-                disabled={!form.semester_id || subjects.length === 0}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white disabled:bg-slate-50 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-              >
-                <option value="">Select Code</option>
-                {subjects.map((sub) => (
-                  <option key={`code-${sub.subject_id}`} value={sub.subject_id}>{sub.subject_code}</option>
-                ))}
-              </select>
-            </Field>
-
             <Field label="Subject Name">
               <select
                 value={form.subject_id}
@@ -349,7 +440,25 @@ export default function SubjectAllocation() {
               >
                 <option value="">Select Subject</option>
                 {subjects.map((sub) => (
-                  <option key={`name-${sub.subject_id}`} value={sub.subject_id}>{sub.subject_name}</option>
+                  <option key={`name-${sub.subject_id}`} value={sub.subject_id}>
+                    {sub.subject_name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Subject Code">
+              <select
+                value={form.subject_id}
+                onChange={handleChange("subject_id")}
+                disabled={!form.semester_id || subjects.length === 0}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white disabled:bg-slate-50 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+              >
+                <option value="">Select Code</option>
+                {subjects.map((sub) => (
+                  <option key={`code-${sub.subject_id}`} value={sub.subject_id}>
+                    {sub.subject_code}
+                  </option>
                 ))}
               </select>
             </Field>
@@ -362,7 +471,9 @@ export default function SubjectAllocation() {
               >
                 <option value="">Select...</option>
                 {TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
                 ))}
               </select>
             </Field>
@@ -375,12 +486,18 @@ export default function SubjectAllocation() {
               >
                 <option value="">Select Rate...</option>
                 {RATES.map((r) => (
-                  <option key={r} value={r}>₹ {r}</option>
+                  <option key={r} value={r}>
+                    ₹ {r}
+                  </option>
                 ))}
               </select>
             </Field>
 
-            {formError && <p className="text-sm text-red-500 bg-red-50 p-2 rounded">{formError}</p>}
+            {formError && (
+              <p className="text-sm text-red-500 bg-red-50 p-2 rounded">
+                {formError}
+              </p>
+            )}
 
             <button
               type="submit"
@@ -433,7 +550,10 @@ export default function SubjectAllocation() {
 
                 {!loadingAllocations && paginated.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-slate-400 text-sm">
+                    <td
+                      colSpan={5}
+                      className="py-12 text-center text-slate-400 text-sm"
+                    >
                       No subject allocations match your search.
                     </td>
                   </tr>
@@ -441,20 +561,34 @@ export default function SubjectAllocation() {
 
                 {!loadingAllocations &&
                   paginated.map((a) => (
-                    <tr key={a.allocation_id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors last:border-0">
+                    <tr
+                      key={a.allocation_id}
+                      className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors last:border-0"
+                    >
                       <td className="px-5 py-3">
-                        <p className="font-medium text-slate-800">{a.User?.full_name}</p>
-                        <p className="text-xs text-slate-400">{a.User?.email}</p>
-                      </td>
-                      <td className="px-5 py-3">
-                        <p className="font-medium text-slate-700">{a.Course?.course_name}</p>
+                        <p className="font-medium text-slate-800">
+                          {a.User?.full_name}
+                        </p>
                         <p className="text-xs text-slate-400">
-                          Sem {a.Semester?.semester_number} {a.Section ? `• Sec ${a.Section.section_name}` : ''}
+                          {a.User?.email}
                         </p>
                       </td>
                       <td className="px-5 py-3">
-                        <p className="font-medium text-slate-700">{a.Subject?.subject_name}</p>
-                        <p className="text-xs text-slate-400">{a.Subject?.subject_code}</p>
+                        <p className="font-medium text-slate-700">
+                          {a.Course?.course_name}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          Sem {a.Semester?.semester_number}{" "}
+                          {a.Section ? `• Sec ${a.Section.section_name}` : ""}
+                        </p>
+                      </td>
+                      <td className="px-5 py-3">
+                        <p className="text-xs text-slate-400">
+                          {a.Subject?.subject_code}
+                        </p>
+                        <p className="font-medium text-slate-700">
+                          {a.Subject?.subject_name}
+                        </p>
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex flex-col items-start gap-1">
@@ -467,11 +601,13 @@ export default function SubjectAllocation() {
                           >
                             {a.session_type?.toUpperCase()}
                           </span>
-                          <span className="text-xs text-slate-500 font-medium">₹{a.rate_per_hour}/hr</span>
+                          <span className="text-xs text-slate-500 font-medium">
+                            ₹{a.rate_per_hour}/hr
+                          </span>
                         </div>
                       </td>
                       <td className="px-5 py-3 text-right">
-                        <button 
+                        <button
                           onClick={() => confirmDelete(a.allocation_id)}
                           className="p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-md transition-colors"
                           title="Revoke Allocation"
@@ -498,7 +634,9 @@ export default function SubjectAllocation() {
                 key={p}
                 onClick={() => setPage(p)}
                 className={`h-8 w-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                  p === page ? "bg-[#0b57d0] text-white" : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  p === page
+                    ? "bg-[#0b57d0] text-white"
+                    : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 {p}
@@ -525,12 +663,17 @@ export default function SubjectAllocation() {
               <div className="h-14 w-14 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4">
                 <Check size={28} strokeWidth={2.5} />
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Subject Allocated!</h3>
-              <p className="text-slate-500 text-sm">The faculty member has been successfully assigned to this subject.</p>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">
+                Subject Allocated!
+              </h3>
+              <p className="text-slate-500 text-sm">
+                The faculty member has been successfully assigned to this
+                subject.
+              </p>
             </div>
             <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center">
-              <button 
-                onClick={() => setSuccessModal(false)} 
+              <button
+                onClick={() => setSuccessModal(false)}
                 className="w-full px-6 py-2.5 bg-[#0b57d0] text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Continue
@@ -548,19 +691,24 @@ export default function SubjectAllocation() {
               <div className="h-14 w-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle size={28} strokeWidth={2.5} />
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Remove Allocation?</h3>
-              <p className="text-slate-500 text-sm">Are you sure you want to revoke this subject assignment? This action cannot be undone.</p>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">
+                Remove Allocation?
+              </h3>
+              <p className="text-slate-500 text-sm">
+                Are you sure you want to revoke this subject assignment? This
+                action cannot be undone.
+              </p>
             </div>
             <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-              <button 
-                onClick={() => setDeleteConfirmId(null)} 
+              <button
+                onClick={() => setDeleteConfirmId(null)}
                 disabled={deleting}
                 className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
-              <button 
-                onClick={executeDelete} 
+              <button
+                onClick={executeDelete}
                 disabled={deleting}
                 className="px-5 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
@@ -579,12 +727,14 @@ export default function SubjectAllocation() {
               <div className="h-14 w-14 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-4">
                 <X size={28} strokeWidth={2.5} />
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Action Failed</h3>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">
+                Action Failed
+              </h3>
               <p className="text-slate-500 text-sm">{errorModal}</p>
             </div>
             <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center">
-              <button 
-                onClick={() => setErrorModal("")} 
+              <button
+                onClick={() => setErrorModal("")}
                 className="w-full px-6 py-2.5 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900 transition-colors"
               >
                 Close
@@ -600,7 +750,9 @@ export default function SubjectAllocation() {
 function Field({ label, children }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-slate-700 mb-1">
+        {label}
+      </label>
       {children}
     </div>
   );

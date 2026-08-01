@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight } from "lucide-react"; // Removed Mail and X since they are in the Toast component now
+import { ArrowRight } from "lucide-react"; 
 import NotificationToast from './NotificationToast';
 
 // Components
@@ -29,6 +29,9 @@ export default function AdminDashboard({ onSignOut }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  
+  // State to hold the faculty member when switching to Subject Allocation
+  const [selectedFacultyForAllocation, setSelectedFacultyForAllocation] = useState(null);
   
   // Notification Toast State
   const [toastConfig, setToastConfig] = useState(null);
@@ -84,10 +87,26 @@ export default function AdminDashboard({ onSignOut }) {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'faculty-management': return <FacultyManagement setActiveTab={setActiveTab} />;
-      case 'subject-allocation': return <SubjectAllocation />;
-      case 'attendance-records': return <AttendanceRecords />;
-      case 'bill-generation': return <BillGeneration />;
+      case 'faculty-management': 
+        return (
+          <FacultyManagement 
+            setActiveTab={setActiveTab} 
+            onAllocateSubject={(faculty) => {
+              setSelectedFacultyForAllocation(faculty);
+              setActiveTab('subject-allocation');
+            }}
+          />
+        );
+      case 'subject-allocation': 
+        return (
+          <SubjectAllocation 
+            prefilledFaculty={selectedFacultyForAllocation} 
+          />
+        );
+      case 'attendance-records': 
+        return <AttendanceRecords />;
+      case 'bill-generation': 
+        return <BillGeneration />;
       case 'dashboard':
       default:
         return (
