@@ -23,7 +23,7 @@ const emptyForm = {
   subject_id: "",
   session_type: "",
   rate_per_hour: "",
-  academic_year: "2024-25",
+  academic_year: "2026-27",
 };
 
 // NOTICE: We added 'prefilledFaculty' here!
@@ -423,12 +423,13 @@ export default function SubjectAllocation({ prefilledFaculty }) {
             </div>
 
             <Field label="Academic Session">
-              <input
+              <select
                 value={form.academic_year}
                 onChange={handleChange("academic_year")}
-                placeholder="2024-25"
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-              />
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+              >
+                <option value="2026-27">2026-27</option>
+              </select>
             </Field>
 
             <Field label="Subject Name">

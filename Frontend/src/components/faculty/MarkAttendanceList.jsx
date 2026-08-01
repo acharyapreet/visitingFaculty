@@ -4,19 +4,33 @@ import axios from "axios";
 
 export default function MarkAttendanceList() {
   const [allocations, setAllocations] = useState([]);
+  const [monthlyRecords, setMonthlyRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Calculate local current month boundaries for the date picker
+  // --- NEW: GRACE PERIOD & DATE LOGIC ---
   const now = new Date();
   const currentYear = now.getFullYear();
-  const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
-  const lastDayOfMonth = new Date(currentYear, now.getMonth() + 1, 0).getDate();
-  
-  const minDate = `${currentYear}-${currentMonth}-01`;
-  const maxDate = `${currentYear}-${currentMonth}-${String(lastDayOfMonth).padStart(2, '0')}`;
-  const todayStr = `${currentYear}-${currentMonth}-${String(now.getDate()).padStart(2, '0')}`;
+  const currentMonth = now.getMonth(); // 0-indexed
+  const currentDateNum = now.getDate();
+
+  // Determine minimum allowed date based on the 5-day grace period rule
+  let minYear = currentYear;
+  let minMonth = currentMonth;
+
+  // If today is the 5th or earlier, allow selecting dates from the previous month
+  if (currentDateNum <= 5) {
+    minMonth = currentMonth - 1;
+    if (minMonth < 0) {
+      minMonth = 11;
+      minYear -= 1;
+    }
+  }
+
+  const minDate = `${minYear}-${String(minMonth + 1).padStart(2, '0')}-01`;
+  const todayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDateNum).padStart(2, '0')}`;
+  const maxDate = todayStr; // Cannot select future dates!
 
   // Form State
   const [date, setDate] = useState(todayStr); // YYYY-MM-DD
@@ -27,7 +41,7 @@ export default function MarkAttendanceList() {
   const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    const fetchAllocations = async () => {
+    const fetchData = async () => {
       try {
         const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
         const targetId = session.userId;
@@ -35,20 +49,30 @@ export default function MarkAttendanceList() {
         if (!targetId) return;
         setUserId(targetId);
 
-        const response = await axios.get(`http://localhost:5000/api/attendance/my-allocations/${targetId}`, {
-          headers: { 'Authorization': `Bearer ${session.token}` }
-        });
+        const headers = { 'Authorization': `Bearer ${session.token}` };
 
-        if (response.data.success) {
-          setAllocations(response.data.allocations || []);
+        // Fetch allocations AND current month's history simultaneously
+        const monthName = now.toLocaleString('default', { month: 'long' });
+        const [allocationsRes, monthlyRes] = await Promise.all([
+          axios.get(`http://localhost:5000/api/attendance/my-allocations/${targetId}`, { headers }),
+          axios.get(`http://localhost:5000/api/attendance/monthly/${targetId}?month=${monthName}&year=${currentYear}`, { headers }).catch(() => ({ data: { data: [] } }))
+        ]);
+
+        if (allocationsRes.data.success) {
+          setAllocations(allocationsRes.data.allocations || []);
         }
+        
+        if (monthlyRes.data.success) {
+          setMonthlyRecords(monthlyRes.data.data || []);
+        }
+
       } catch (error) {
-        console.error("Error fetching allocations:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchAllocations();
+    fetchData();
   }, []);
 
   // Auto-calculate hours
@@ -75,12 +99,46 @@ export default function MarkAttendanceList() {
       return;
     }
 
-    // Strict validation to ensure the date is within the current month
+    // --- DATE VALIDATION (Future Block & Grace Period) ---
     const selectedDateObj = new Date(date);
-    if (selectedDateObj.getMonth() !== now.getMonth() || selectedDateObj.getFullYear() !== now.getFullYear()) {
-      alert("Attendance can only be marked for the current ongoing month.");
+    selectedDateObj.setHours(0, 0, 0, 0);
+    const todayObj = new Date(now);
+    todayObj.setHours(0, 0, 0, 0);
+
+    if (selectedDateObj > todayObj) {
+      alert("You cannot mark attendance for future dates.");
       return;
     }
+
+    const isCurrentMonthRec = selectedDateObj.getMonth() === now.getMonth() && selectedDateObj.getFullYear() === now.getFullYear();
+    const isPreviousMonthRec = 
+      (selectedDateObj.getFullYear() === now.getFullYear() && selectedDateObj.getMonth() === now.getMonth() - 1) ||
+      (selectedDateObj.getFullYear() === now.getFullYear() - 1 && selectedDateObj.getMonth() === 11 && now.getMonth() === 0);
+
+    if (!isCurrentMonthRec) {
+      if (!isPreviousMonthRec || now.getDate() > 5) {
+        alert("You can only mark attendance for the current month, or the previous month up to the 5th day of the current month.");
+        return;
+      }
+    }
+    // -----------------------------------------------------
+
+    // --- MAX PAY CONSTRAINT LOGIC ---
+    const MAX_MONTHLY_PAY = 25000; // Update this to your actual maximum allowed pay
+
+    const rate = parseFloat(activeAlloc.rate_per_hour) || 0;
+    const potentialEarnings = parseFloat(hours) * rate;
+
+    // Calculate how much they have already made this month
+    const currentMonthlyEarnings = monthlyRecords.reduce((sum, record) => {
+      return sum + (parseFloat(record.hours || 0) * parseFloat(record.rate_per_hour || 0));
+    }, 0);
+
+    if (currentMonthlyEarnings + potentialEarnings > MAX_MONTHLY_PAY) {
+      alert(`Adding this session (₹${potentialEarnings}) exceeds the maximum monthly limit of ₹${MAX_MONTHLY_PAY.toLocaleString('en-IN')}.\n\nCurrent earnings: ₹${currentMonthlyEarnings.toLocaleString('en-IN')}.`);
+      return;
+    }
+    // -------------------------------------
 
     setIsSubmitting(true);
     setSuccessMessage("");
@@ -102,7 +160,7 @@ export default function MarkAttendanceList() {
         hours: parseFloat(hours),
         month: monthName,
         year: yearStr,
-        status: "Pending", // Default as per API rules
+        status: "Pending",
         remarks: remarks
       };
 
@@ -115,8 +173,10 @@ export default function MarkAttendanceList() {
 
       if (response.data.success) {
         setSuccessMessage("Attendance submitted successfully!");
-        setRemarks(""); // Clear remarks on success
-        setTimeout(() => setSuccessMessage(""), 4000); // Hide after 4 seconds
+        setRemarks(""); 
+        // Add the new record to local state so the limit check updates immediately
+        setMonthlyRecords(prev => [...prev, response.data.data]);
+        setTimeout(() => setSuccessMessage(""), 4000); 
       }
     } catch (error) {
       console.error("Error submitting attendance:", error);
@@ -151,9 +211,9 @@ export default function MarkAttendanceList() {
         )}
 
         <div className="mt-6 space-y-5">
-          {/* Date Picker Restricted to Current Month */}
+          {/* Date Picker Restricted by Grace Period Rules */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Date (Current Month Only)</label>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Date</label>
             <input
               type="date"
               value={date}

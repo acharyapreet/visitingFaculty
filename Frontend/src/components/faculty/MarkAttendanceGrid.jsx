@@ -39,11 +39,32 @@ export default function MarkAttendanceGrid() {
   const monthName = currentDate.toLocaleString('default', { month: 'long' });
   const monthIndex = currentDate.getMonth();
 
-  // Check if the viewed month is the actual current month
+  // --- NEW: GRACE PERIOD & DATE LOGIC ---
   const actualCurrentDate = new Date();
-  const isCurrentMonth = 
-    year === actualCurrentDate.getFullYear() && 
-    monthIndex === actualCurrentDate.getMonth();
+  const actualYear = actualCurrentDate.getFullYear();
+  const actualMonth = actualCurrentDate.getMonth();
+  const actualDay = actualCurrentDate.getDate();
+
+  // Check if viewed month is exactly the current month
+  const isCurrentMonth = year === actualYear && monthIndex === actualMonth;
+  
+  // Check if viewed month is exactly the previous month (handles Dec -> Jan rollover)
+  const isPreviousMonth = (year === actualYear && monthIndex === actualMonth - 1) || 
+                          (year === actualYear - 1 && monthIndex === 11 && actualMonth === 0);
+  
+  // Grace period: Allowed to edit previous month if today is <= 5
+  const isWithinGracePeriod = actualDay <= 5;
+  
+  // Determines if the ENTIRE viewed month is open for editing
+  const canEditMonth = isCurrentMonth || (isPreviousMonth && isWithinGracePeriod);
+
+  // Function to check if a SPECIFIC day cell should be clickable/editable
+  const isDayAllowed = (day) => {
+    if (!day) return false;
+    if (isCurrentMonth) return day <= actualDay; // Can't mark future days in current month
+    if (isPreviousMonth) return isWithinGracePeriod; // Can mark days in previous month IF within grace period
+    return false; // All other past/future months are locked
+  };
 
   // Helper to trigger the alert modal
   const showModal = (type, title, message) => {
@@ -120,7 +141,8 @@ export default function MarkAttendanceGrid() {
 
   // --- SUBMIT ATTENDANCE LOGIC ---
   const handleSubmit = async () => {
-    if (!isCurrentMonth) return showModal("error", "Action Not Allowed", "Attendance can only be marked for the current month.");
+    if (!canEditMonth) return showModal("error", "Action Not Allowed", "This month is locked. You can only mark attendance for the current month, or the previous month up to the 5th.");
+    if (!isDayAllowed(selectedDay)) return showModal("error", "Invalid Date", "You cannot mark attendance for future or locked dates.");
     if (!selectedAllocationId) return showModal("error", "Missing Information", "Please select a subject before submitting.");
     
     const sTime = new Date(`1970-01-01T${startTime}`);
@@ -129,10 +151,30 @@ export default function MarkAttendanceGrid() {
     
     if (diffHours <= 0) return showModal("error", "Invalid Time", "End time must be after the start time.");
 
+    // --- MAX PAY CONSTRAINT LOGIC ---
+    const MAX_MONTHLY_PAY = 30000; // Maximum allowed pay
+    
+    const activeAlloc = allocations.find(a => a.allocation_id.toString() === selectedAllocationId);
+    const rate = parseFloat(activeAlloc.rate_per_hour) || 0;
+    const potentialEarnings = diffHours * rate;
+
+    // Calculate how much they have already made this month
+    const currentMonthlyEarnings = monthlyRecords.reduce((sum, record) => {
+      return sum + (parseFloat(record.hours || 0) * parseFloat(record.rate_per_hour || 0));
+    }, 0);
+
+    if (currentMonthlyEarnings + potentialEarnings > MAX_MONTHLY_PAY) {
+      return showModal(
+        "error", 
+        "Payment Limit Exceeded", 
+        `Adding this session (₹${potentialEarnings}) exceeds the maximum monthly limit of ₹${MAX_MONTHLY_PAY.toLocaleString('en-IN')}. Current earnings: ₹${currentMonthlyEarnings.toLocaleString('en-IN')}.`
+      );
+    }
+    // -------------------------------------
+
     setIsSubmitting(true);
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-      const activeAlloc = allocations.find(a => a.allocation_id.toString() === selectedAllocationId);
       
       const submitDate = new Date(year, monthIndex, selectedDay);
       const dateString = submitDate.getFullYear() + "-" + 
@@ -265,16 +307,28 @@ export default function MarkAttendanceGrid() {
             {cells.map((day, idx) => {
               const events = day ? eventsByDay[day] : null;
               const isSelected = day === selectedDay;
+              const isAllowed = isDayAllowed(day);
+
               return (
                 <div
                   key={idx}
-                  onClick={() => day && setSelectedDay(day)}
+                  onClick={() => {
+                    if (day) {
+                      setSelectedDay(day);
+                      // Trigger a warning if they click a future date
+                      if (!isDayAllowed(day) && isCurrentMonth && day > actualDay) {
+                        showModal("error", "Future Date", "You cannot mark attendance for a date that hasn't happened yet.");
+                      }
+                    }
+                  }}
                   className={`min-h-[70px] border-b border-r border-slate-100 p-1.5 last:border-r-0 sm:min-h-[92px] sm:p-2 transition-colors ${
                     !day 
                       ? "bg-slate-50/50" 
-                      : isSelected 
+                      : isSelected && isAllowed
                         ? "bg-blue-50 border-blue-200 cursor-pointer" 
-                        : "bg-white hover:bg-slate-50 cursor-pointer"
+                        : isAllowed
+                          ? "bg-white hover:bg-slate-50 cursor-pointer"
+                          : "bg-slate-50/50 cursor-pointer opacity-60" // Grayed out for locked/future days
                   }`}
                 >
                   {day && (
@@ -296,7 +350,7 @@ export default function MarkAttendanceGrid() {
                             <p className="truncate">{ev.status === "Cancelled" ? "Cancelled" : "Marked"}</p>
                           </div>
                         ))}
-                        {isSelected && isCurrentMonth && (
+                        {isSelected && isAllowed && (
                           <button className="flex w-full justify-center items-center gap-1 rounded-md bg-[#004DD2] px-1.5 py-1 text-[10px] font-medium text-white shadow-sm mt-1">
                             <Plus className="h-2.5 w-2.5" /> Select
                           </button>
@@ -316,20 +370,22 @@ export default function MarkAttendanceGrid() {
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#004DD2]" />
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                {isCurrentMonth ? `Record for ${selectedDay} ${monthName}` : `Viewing ${monthName} ${year}`}
+                {canEditMonth ? `Record for ${selectedDay} ${monthName}` : `Viewing ${monthName} ${year}`}
               </h3>
               <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                {isCurrentMonth 
+                {isDayAllowed(selectedDay) 
                   ? "Select a day on the calendar, fill the details below, and submit the attendance."
-                  : "You are viewing a past or future month. Attendance marking is disabled."}
+                  : "This date is locked. You are viewing a past or future date where marking is disabled."}
               </p>
             </div>
           </div>
 
-          {!isCurrentMonth && (
+          {!isDayAllowed(selectedDay) && (
             <div className="mt-4 flex items-center gap-2 rounded-lg bg-orange-50 p-3 text-xs font-medium text-orange-700 border border-orange-200">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              Attendance can only be marked for the current ongoing month.
+              {isCurrentMonth && selectedDay > actualDay 
+                ? "You cannot mark attendance for future dates." 
+                : "This date is past the editing grace period and is now locked."}
             </div>
           )}
 
@@ -338,7 +394,7 @@ export default function MarkAttendanceGrid() {
             <select 
               value={selectedAllocationId}
               onChange={(e) => setSelectedAllocationId(e.target.value)}
-              disabled={!isCurrentMonth}
+              disabled={!isDayAllowed(selectedDay)}
               className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2] disabled:bg-slate-50 disabled:text-slate-400"
             >
               <option value="">Select a Subject...</option>
@@ -359,7 +415,7 @@ export default function MarkAttendanceGrid() {
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  disabled={!isCurrentMonth}
+                  disabled={!isDayAllowed(selectedDay)}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2] disabled:bg-slate-50 disabled:text-slate-400"
                 />
               </div>
@@ -369,7 +425,7 @@ export default function MarkAttendanceGrid() {
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  disabled={!isCurrentMonth}
+                  disabled={!isDayAllowed(selectedDay)}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2] disabled:bg-slate-50 disabled:text-slate-400"
                 />
               </div>
@@ -383,14 +439,14 @@ export default function MarkAttendanceGrid() {
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               placeholder="Optional notes..."
-              disabled={!isCurrentMonth}
+              disabled={!isDayAllowed(selectedDay)}
               className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2] disabled:bg-slate-50 disabled:text-slate-400"
             />
           </div>
 
           <button 
             onClick={handleSubmit}
-            disabled={isSubmitting || !selectedAllocationId || !isCurrentMonth}
+            disabled={isSubmitting || !selectedAllocationId || !isDayAllowed(selectedDay)}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-[#004DD2] py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting && !deleteConfig.isOpen ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}

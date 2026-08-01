@@ -41,7 +41,7 @@ export default function AttendanceHistory() {
   
   // Filtering & Sorting State
   const [selectedSubject, setSelectedSubject] = useState("All");
-  const [selectedTimeRange, setSelectedTimeRange] = useState("All Time");
+  const [selectedTimeRange, setSelectedTimeRange] = useState("This Month");
   const [sortOrder, setSortOrder] = useState("desc"); // 'desc' = Newest First, 'asc' = Oldest First
   
   // Dropdown UI State
@@ -398,9 +398,10 @@ export default function AttendanceHistory() {
             <div className="py-20 flex flex-col items-center justify-center text-slate-500">
               <Filter className="w-8 h-8 text-slate-300 mb-3" />
               <p>No records found matching your filters.</p>
-              {(selectedSubject !== 'All' || selectedTimeRange !== 'All Time') && (
+              {/* --- UPDATE THIS CONDITION AND ONCLICK --- */}
+              {(selectedSubject !== 'All' || selectedTimeRange !== 'This Month') && (
                 <button 
-                  onClick={() => { setSelectedSubject('All'); setSelectedTimeRange('All Time'); }}
+                  onClick={() => { setSelectedSubject('All'); setSelectedTimeRange('This Month'); }}
                   className="mt-2 text-brand-600 text-sm font-medium hover:underline"
                 >
                   Clear all filters
