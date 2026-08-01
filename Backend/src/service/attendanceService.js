@@ -849,6 +849,35 @@ const getAttendanceByIdService = async (attendanceId) => {
 };
 
 // ============================================================
+// ■  DELETE: Remove a SINGLE attendance record by attendance_id
+//    Example: delete attendance_id = 23 but keep 24 and 26
+//    Returns the deleted row's data for frontend confirmation.
+// ============================================================
+const deleteAttendanceById = async (attendanceId) => {
+    // 1. Find the record first (so we can return its data)
+    const record = await Attendance.findByPk(attendanceId);
+
+    if (!record) {
+        throw new Error(`Attendance record with id=${attendanceId} not found.`);
+    }
+
+    // 2. Delete only THIS specific row
+    await record.destroy();
+
+    // 3. Return the deleted record's key info
+    return {
+        attendance_id:   record.attendance_id,
+        attendance_date: record.attendance_date,
+        user_id:         record.user_id,
+        allocation_id:   record.allocation_id,
+        hours:           Number(record.hours),
+        status:          record.status,
+        month:           record.month,
+        year:            record.year
+    };
+};
+
+// ============================================================
 // ■  DELETE: Remove attendance records by Faculty ID
 //    Accepts numeric user_id OR uvfin string.
 //    Optional filters: attendance_period, month, year, attendance_date
@@ -907,7 +936,8 @@ module.exports = {
     verifyAttendance,
     getFacultyAllocations,
     getAttendanceByIdService,
-    deleteAttendanceByFaculty,
+    deleteAttendanceById,       // single record delete by attendance_id
+    deleteAttendanceByFaculty,  // bulk delete by faculty + optional filters
     // expose helpers for tests
     getISOWeekNumber,
     getWeekBounds

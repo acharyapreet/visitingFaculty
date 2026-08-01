@@ -11,6 +11,7 @@ const {
     verifyAttendance,
     getFacultyAllocations,
     getAttendanceByIdService,
+    deleteAttendanceById,
     deleteAttendanceByFaculty
 } = require("../service/attendanceService");
 
@@ -594,6 +595,50 @@ const deleteAttendanceByFacultyController = async (req, res) => {
     }
 };
 
+// ============================================================
+// ■  DELETE /api/attendance/record/:attendanceId
+//    Deletes a SINGLE attendance record by its attendance_id.
+//
+//    Example: DELETE /api/attendance/record/23
+//      → deletes only attendance_id=23, keeps 24 and 26 untouched
+//
+//    Responses:
+//      200  — deleted successfully, returns the deleted record
+//      400  — attendanceId is not a valid number
+//      404  — no record found with that id
+//      500  — unexpected DB error
+// ============================================================
+const deleteAttendanceByIdController = async (req, res) => {
+    try {
+        const { attendanceId } = req.params;
+
+        // Validate: must be a positive integer
+        if (isNaN(attendanceId) || !Number.isInteger(Number(attendanceId))) {
+            return res.status(400).json({
+                success: false,
+                message: "attendance_id must be a valid integer. Example: DELETE /api/attendance/record/23"
+            });
+        }
+
+        const deleted = await deleteAttendanceById(Number(attendanceId));
+
+        return res.status(200).json({
+            success: true,
+            message: `Attendance record #${attendanceId} deleted successfully.`,
+            data:    deleted   // returns the deleted row so frontend can confirm
+        });
+
+    } catch (error) {
+        console.error(error);
+        const isNotFound = error.message.includes('not found');
+        return res.status(isNotFound ? 404 : 500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+
 module.exports = {
     markAttendanceController,
     markDailyAttendanceController,
@@ -608,5 +653,6 @@ module.exports = {
     getFacultyAllocationsController,
     getAttendanceByIdStrictController,
     getAttendanceByIdController,
-    deleteAttendanceByFacultyController
-};
+    deleteAttendanceByIdController,         // DELETE /record/:attendanceId  (single)
+    deleteAttendanceByFacultyController     // DELETE /faculty/:facultyId    (bulk)
+};
