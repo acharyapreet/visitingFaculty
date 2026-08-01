@@ -1,4 +1,4 @@
-const { Course, Section, Subject } = require('../Schema');
+const { Course, Section, Subject, Semester } = require('../Schema');
 
 async function showDashboard() {
     try{
@@ -53,6 +53,30 @@ async function addSections(section_name, course_id) {
         throw new Error('not able to add section');
     }
 
+}
+
+async function deleteSection(course_id, section_id) {
+    try {
+        const result = await Section.findOne({
+            where: {
+                course_id: course_id,
+                section_id: section_id
+            }
+        });
+        if(!result){
+            throw new Error('not able to find section');
+        }
+        await Section.destroy({
+            where: {
+                course_id: course_id,
+                section_id: section_id
+            }
+        });
+        return result;
+    } catch (error) {
+        console.log(error);
+        throw new Error('not able to delete section');
+    }
 }
 async function updateIncharge(program_incharge, course_id) {
     try {
@@ -125,6 +149,79 @@ async function addSubjects(course_id, semester_id, Details) {
     }
 }
 
+async function addCourse(Details) {
+    try {
+        const result = await Course.create({
+            course_name: Details.course_name,
+                program_incharge: Details.program_incharge,
+                total_semesters: Details.total_semesters,
+                year:Details.year
+        });
+        return result;
+    } catch (error) {
+        console.log(error);
+        throw new Error('not able to add Course');
+    }
+}
+
+async function deleteCourse(course_id) {
+    try {
+        const result = await Course.findOne({
+            where: {
+                course_id: course_id
+            }
+        });
+        if(!result){
+            throw new Error('not able to find Course');
+        }
+        await Course.destroy({
+            where: {
+                course_id: course_id
+            }
+        });
+        return result;
+    } catch (error) {
+        console.log(error);
+        throw new Error('not able to delete Course');
+    }
+}
+
+async function deleteSemester(course_id, semester_id) {
+    try {
+        const result = await Semester.findOne({
+            where: {
+                course_id: course_id,
+                semester_id: semester_id
+            }
+        });
+        if(!result){
+            throw new Error('not able to find semester');
+        }
+        await Semester.destroy({
+            where: {
+                course_id: course_id,
+                semester_id: semester_id            
+            }
+        });
+        return result;
+    } catch (error) {
+        console.log(error);
+        throw new Error('not able to delete semester');
+    }
+}
+
+async function addSemester(course_id, semester_id) {
+    try {
+        const result = await Semester.create({
+            course_id: course_id,
+            semester_id: semester_id
+        });
+        return result;
+    } catch (error) {
+        console.log(error);
+        throw new Error('not able to add semester');
+    }
+}
 
 module.exports = {
     showDashboard,
@@ -133,5 +230,10 @@ module.exports = {
     updateIncharge,
     semesterSubjectShow,
     deleteSubjects,
-    addSubjects
+    addSubjects,
+    deleteCourse,
+    deleteSemester,
+    addSemester,
+    addCourse,
+    deleteSection
 };

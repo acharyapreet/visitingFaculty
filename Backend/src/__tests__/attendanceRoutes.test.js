@@ -459,7 +459,7 @@ describe('POST /api/attendance/mark/monthly', () => {
             .send(body);
 
         expect(res.status).toBe(400);
-        expect(res.body.message).toMatch(/month and year are required/i);
+        expect(res.body.message).toMatch(/Missing required fields/i);
     });
 
     it('should return 400 if year is missing', async () => {
@@ -470,7 +470,7 @@ describe('POST /api/attendance/mark/monthly', () => {
             .send(body);
 
         expect(res.status).toBe(400);
-        expect(res.body.message).toMatch(/month and year are required/i);
+        expect(res.body.message).toMatch(/Missing required fields/i);
     });
 
     it('should return 400 if attendance_date is missing', async () => {

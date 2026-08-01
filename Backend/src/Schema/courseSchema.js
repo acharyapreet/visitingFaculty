@@ -21,11 +21,11 @@ const Course = sequelize.define('Course', {
     },
     total_semesters: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: true
     },
     year:{
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: true
     },
     is_active: {
         type: DataTypes.BOOLEAN,

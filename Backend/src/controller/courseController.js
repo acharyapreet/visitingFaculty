@@ -1,4 +1,4 @@
-const { showDashboard, showDashboardOfCourse, addSections, updateIncharge, semesterSubjectShow, deleteSubjects, addSubjects } = require("../service/coursesService");
+const { showDashboard, showDashboardOfCourse, addSections, updateIncharge, semesterSubjectShow, deleteSubjects, addSubjects, deleteCourse, deleteSemester, addSemester, addCourse, deleteSection } = require("../service/coursesService");
 
 async function showDashboardController(req, res) {
     try {
@@ -118,6 +118,90 @@ async function addSubjectController(req, res) {
     }
 }
 
+async function deleteCourseController(req, res) {
+    try {
+        const result = await deleteCourse(req.params.course_id);
+        return res.json({
+            success: true,
+            message: 'course deleted',
+            data: result
+        });
+    } catch (error) {
+        console.error('course deletion Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to delete course.'
+        });
+    }
+}
+
+async function deleteSemesterController(req, res) {
+    try {
+        const result = await deleteSemester(req.params.course_id, req.params.semester_id);
+        return res.json({
+            success: true,
+            message: 'semester deleted',
+            data: result
+        });
+    } catch (error) {
+        console.error('semester deletion Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to delete semester.'
+        });
+    }
+}
+
+async function addSemesterController(req, res) {
+    try {
+        const result = await addSemester(req.params.course_id, req.body.semester_id);
+        return res.json({
+            success: true,
+            message: 'semester added',
+            data: result
+        });
+    } catch (error) {
+        console.error('semester addition Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to add semester.'
+        });
+    }
+}
+
+async function addCourseController(req, res) {
+    try {
+        const result = await addCourse(req.body);
+        return res.json({
+            success: true,
+            message: 'course added',
+            data: result
+        });
+    } catch (error) {
+        console.error('course addition Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to add course.'
+        });
+    }
+}
+
+async function deleteSectionController(req, res) {
+    try {
+        const result = await deleteSection(req.params.course_id, req.params.section_id);
+        return res.json({
+            success: true,
+            message: 'section deleted',
+            data: result
+        });
+    } catch (error) {
+        console.error('section deletion Controller Error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to delete section.'
+        });
+    }
+}
 module.exports = {
     showDashboardController,
     showDashboardOfCourseController,
@@ -125,5 +209,10 @@ module.exports = {
     updateInchargeController,
     showSubjectController,
     addSubjectController,
-    deleteSubjectController
+    deleteSubjectController,
+    deleteCourseController,
+    deleteSemesterController,
+    addSemesterController,
+    addCourseController,
+    deleteSectionController
 }
