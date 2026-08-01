@@ -10,6 +10,9 @@ const {
     downloadBill
 } = require("../service/billService");
 
+const { runBillAutoGenerationJob } = require("../scheduler/billAutoGenerationScheduler");
+const { Bill, User } = require("../Schema");
+
 // ==========================================
 // Generate Bill
 // ==========================================
@@ -231,6 +234,95 @@ const downloadBillController = async (req, res) => {
 
 };
 
+// ==========================================
+// Manually Trigger Auto-Generation Job
+// POST /api/bills/auto-generate
+// ==========================================
+const autoGenerateBillsController = async (req, res) => {
+    try {
+        // Respond immediately so the HTTP request doesn't time out
+        res.status(202).json({
+            success: true,
+            message: "Bill auto-generation job triggered. Check server logs for progress."
+        });
+
+        // Run AFTER responding
+        runBillAutoGenerationJob();
+
+    } catch (error) {
+        console.error("autoGenerateBillsController:", error);
+        // Headers already sent — just log, don't respond again
+    }
+};
+
+// ==========================================
+// Get All Bills Grouped By Month/Year
+// GET /api/bills/history/all-months
+// ==========================================
+const getBillHistoryAllMonthsController = async (req, res) => {
+    try {
+        // Fetch all bills with faculty info, newest first
+        const bills = await Bill.findAll({
+            include: [
+                {
+                    model: User,
+                    attributes: ["user_id", "full_name", "email", "uvfin"]
+                }
+            ],
+            order: [["year", "DESC"], ["generated_at", "DESC"]]
+        });
+
+        // Group by "Month Year" key
+        const grouped = {};
+        const MONTH_ORDER = [
+            "January","February","March","April","May","June",
+            "July","August","September","October","November","December"
+        ];
+
+        for (const bill of bills) {
+            const key = `${bill.month} ${bill.year}`;
+            if (!grouped[key]) {
+                grouped[key] = {
+                    month:        bill.month,
+                    year:         bill.year,
+                    count:        0,
+                    totalAmount:  0,
+                    totalHours:   0,
+                    bills:        []
+                };
+            }
+            grouped[key].count++;
+            grouped[key].totalAmount += Number(bill.total_amount);
+            grouped[key].totalHours  += Number(bill.total_hours);
+            grouped[key].bills.push(bill);
+        }
+
+        // Sort by year DESC then month DESC
+        const history = Object.values(grouped).sort((a, b) => {
+            if (b.year !== a.year) return b.year - a.year;
+            return MONTH_ORDER.indexOf(b.month) - MONTH_ORDER.indexOf(a.month);
+        }).map(g => ({
+            ...g,
+            totalAmount: Number(g.totalAmount.toFixed(2)),
+            totalHours:  Number(g.totalHours.toFixed(2))
+        }));
+
+        return res.status(200).json({
+            success:      true,
+            totalMonths:  history.length,
+            totalBills:   bills.length,
+            history
+        });
+
+    } catch (error) {
+        console.error("getBillHistoryAllMonthsController:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 module.exports = {
     generateBillController,
     getBillDetailsController,
@@ -240,5 +332,7 @@ module.exports = {
     regenerateBillPDFController,
     getAllBillsController,
     deleteBillController,
-    downloadBillController
+    downloadBillController,
+    autoGenerateBillsController,
+    getBillHistoryAllMonthsController
 };

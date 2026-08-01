@@ -620,3 +620,80 @@ Content-Type: application/json
 GET http://localhost:5000/api/attendance/monthly/3?year=2026
 
 ###
+
+
+# ╔══════════════════════════════════════════════════════════╗
+# ║     SECTION 11 — DELETE ATTENDANCE BY FACULTY (DELETE)   ║
+# ╚══════════════════════════════════════════════════════════╝
+#
+#  Route : DELETE /api/attendance/faculty/:facultyId
+#
+#  facultyId = numeric user_id  OR  uvfin string (e.g. "VF-2024-001")
+#
+#  Optional query filters (all combinable):
+#    ?attendance_period=daily|weekly|monthly
+#    ?month=<MonthName>           e.g. ?month=July
+#    ?year=<YYYY>                 e.g. ?year=2026
+#    ?attendance_date=YYYY-MM-DD  e.g. ?attendance_date=2026-07-23
+#
+#  Responses:
+#    200 – deletedCount > 0  → "N attendance record(s) deleted successfully."
+#    200 – deletedCount = 0  → "No matching attendance records found to delete."
+#    404 – facultyId not found in DB
+#    500 – unexpected server / DB error
+
+
+### 11A. Delete ALL attendance for a faculty (numeric user_id)
+DELETE http://localhost:5000/api/attendance/faculty/3
+
+###
+
+### 11B. Delete ALL attendance using uvfin string
+DELETE http://localhost:5000/api/attendance/faculty/VF-2024-001
+
+###
+
+### 11C. Delete only DAILY records for a faculty
+DELETE http://localhost:5000/api/attendance/faculty/3?attendance_period=daily
+
+###
+
+### 11D. Delete only WEEKLY records for a faculty
+DELETE http://localhost:5000/api/attendance/faculty/3?attendance_period=weekly
+
+###
+
+### 11E. Delete only MONTHLY records for a faculty
+DELETE http://localhost:5000/api/attendance/faculty/3?attendance_period=monthly
+
+###
+
+### 11F. Delete records for a specific month + year
+DELETE http://localhost:5000/api/attendance/faculty/3?month=July&year=2026
+
+###
+
+### 11G. Delete records for a specific date only
+DELETE http://localhost:5000/api/attendance/faculty/3?attendance_date=2026-07-23
+
+###
+
+### 11H. Combined filters — only daily records in July 2026
+DELETE http://localhost:5000/api/attendance/faculty/3?attendance_period=daily&month=July&year=2026
+
+###
+
+### 11I. Combined filters — specific date + period (uvfin)
+DELETE http://localhost:5000/api/attendance/faculty/VF-2024-001?attendance_period=weekly&attendance_date=2026-07-21
+
+###
+
+### 11J. Error case — faculty not found → expect 404
+DELETE http://localhost:5000/api/attendance/faculty/999999
+
+###
+
+### 11K. Error case — invalid attendance_period → expect 500
+DELETE http://localhost:5000/api/attendance/faculty/3?attendance_period=invalid
+
+###

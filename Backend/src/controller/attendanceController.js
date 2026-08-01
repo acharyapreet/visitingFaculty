@@ -10,7 +10,9 @@ const {
     getAdminAttendance,
     verifyAttendance,
     getFacultyAllocations,
-    getAttendanceByIdService
+    getAttendanceByIdService,
+    deleteAttendanceById,
+    deleteAttendanceByFaculty
 } = require("../service/attendanceService");
 
 // ============================================================
@@ -538,6 +540,105 @@ const getAttendanceByIdController = async (req, res) => {
     }
 };
 
+// ============================================================
+// ■  DELETE /api/attendance/faculty/:facultyId
+//    Hard-deletes attendance records for a given faculty.
+//
+//    Path param:
+//      facultyId  — numeric user_id  OR  uvfin string (e.g. "VF-2024-001")
+//
+//    Optional query filters (all combinable):
+//      ?attendance_period=daily|weekly|monthly
+//      ?month=July
+//      ?year=2026
+//      ?attendance_date=YYYY-MM-DD
+//
+//    Responses:
+//      200  — deletion succeeded (deletedCount may be 0 = no matching rows)
+//      404  — facultyId resolves to no user
+//      500  — unexpected DB error
+// ============================================================
+const deleteAttendanceByFacultyController = async (req, res) => {
+    try {
+        const { facultyId } = req.params;
+
+        const filters = {
+            attendance_period: req.query.attendance_period || null,
+            month:             req.query.month             || null,
+            year:              req.query.year              || null,
+            attendance_date:   req.query.attendance_date   || null
+        };
+
+        // Remove null keys so service receives a clean object
+        Object.keys(filters).forEach(k => filters[k] == null && delete filters[k]);
+
+        const result = await deleteAttendanceByFaculty(facultyId, filters);
+
+        return res.status(200).json({
+            success:      true,
+            message:      result.deletedCount > 0
+                            ? `${result.deletedCount} attendance record(s) deleted successfully.`
+                            : "No matching attendance records found to delete.",
+            faculty_id:   result.faculty_id,
+            user_id:      result.user_id,
+            deletedCount: result.deletedCount,
+            filters:      result.filters
+        });
+
+    } catch (error) {
+        console.error(error);
+        const isFacultyNotFound = error.message === 'Faculty not found';
+        return res.status(isFacultyNotFound ? 404 : 500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// ============================================================
+// ■  DELETE /api/attendance/record/:attendanceId
+//    Deletes a SINGLE attendance record by its attendance_id.
+//
+//    Example: DELETE /api/attendance/record/23
+//      → deletes only attendance_id=23, keeps 24 and 26 untouched
+//
+//    Responses:
+//      200  — deleted successfully, returns the deleted record
+//      400  — attendanceId is not a valid number
+//      404  — no record found with that id
+//      500  — unexpected DB error
+// ============================================================
+const deleteAttendanceByIdController = async (req, res) => {
+    try {
+        const { attendanceId } = req.params;
+
+        // Validate: must be a positive integer
+        if (isNaN(attendanceId) || !Number.isInteger(Number(attendanceId))) {
+            return res.status(400).json({
+                success: false,
+                message: "attendance_id must be a valid integer. Example: DELETE /api/attendance/record/23"
+            });
+        }
+
+        const deleted = await deleteAttendanceById(Number(attendanceId));
+
+        return res.status(200).json({
+            success: true,
+            message: `Attendance record #${attendanceId} deleted successfully.`,
+            data:    deleted   // returns the deleted row so frontend can confirm
+        });
+
+    } catch (error) {
+        console.error(error);
+        const isNotFound = error.message.includes('not found');
+        return res.status(isNotFound ? 404 : 500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+
 module.exports = {
     markAttendanceController,
     markDailyAttendanceController,
@@ -551,5 +652,7 @@ module.exports = {
     verifyAttendanceController,
     getFacultyAllocationsController,
     getAttendanceByIdStrictController,
-    getAttendanceByIdController
-};
+    getAttendanceByIdController,
+    deleteAttendanceByIdController,         // DELETE /record/:attendanceId  (single)
+    deleteAttendanceByFacultyController     // DELETE /faculty/:facultyId    (bulk)
+};

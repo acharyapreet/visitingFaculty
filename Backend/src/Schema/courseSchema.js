@@ -25,7 +25,8 @@ const Course = sequelize.define('Course', {
     },
     year:{
         type: DataTypes.INTEGER,
-        allowNull: true
+        allowNull: false,
+        defaultValue: 0   // allows ALTER TABLE to backfill existing rows safely
     },
     is_active: {
         type: DataTypes.BOOLEAN,

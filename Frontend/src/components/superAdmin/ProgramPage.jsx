@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Topbar from "./Topbar";
 import ProgramDetail from "./ProgramDetail";
-import { Eye, ChevronDown } from "lucide-react";
+import { Eye, ChevronDown, Plus, Trash2 } from "lucide-react";
 
 export default function ProgramsPage() {
   const [programs, setPrograms] = useState([]);
@@ -11,7 +11,7 @@ export default function ProgramsPage() {
 
   // Helper to get auth headers
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('token'); // Change 'token' if your app uses a different key
+    const token = localStorage.getItem('token'); 
     return {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}` 
@@ -25,7 +25,7 @@ export default function ProgramsPage() {
     try {
       const res = await fetch('/api/super_admin/courseDashboard', {
         method: 'GET',
-        headers: getAuthHeaders() // Added Authentication Header
+        headers: getAuthHeaders() 
       });
       
       if (res.status === 401) {
@@ -45,9 +45,8 @@ export default function ProgramsPage() {
       
       // Fallback data
       setPrograms([
-        { course_id: 1, course_name: "MCA", program_incharge: "Dr. Shaligram Prajapati", total_semesters: 10, is_active: 1, year: 0, Sections: [{ section_name: "A" }, { section_name: "B" }] },
-        { course_id: 2, course_name: "Mtech(IT)", program_incharge: "Dr. Kirti Mathur", total_semesters: 10, is_active: 1, year: 0, Sections: [{ section_name: "A" }] },
-        { course_id: 4, course_name: "MBA(MS)", program_incharge: "Dr. Manmindar Singh", total_semesters: 10, is_active: 1, year: 0, Sections: [{ section_name: "A" }] }
+        { course_id: 1, course_name: "MCA", program_incharge: "Dr. Shaligram Prajapati", total_semesters: 10, is_active: 1, year: 2026, Sections: [{ section_id: 1, section_name: "A" }, { section_id: 2, section_name: "B" }] },
+        { course_id: 2, course_name: "Mtech(IT)", program_incharge: "Dr. Kirti Mathur", total_semesters: 10, is_active: 1, year: 2026, Sections: [{ section_id: 3, section_name: "A" }] }
       ]);
     } finally {
       setLoading(false);
@@ -62,6 +61,62 @@ export default function ProgramsPage() {
     setPrograms((prevPrograms) =>
       prevPrograms.map((p) => (p.course_id === updatedCourse.course_id ? updatedCourse : p))
     );
+  };
+
+  // 1. Add a new Program (POST /api/super_admin/addCourse)
+  const handleAddProgram = async () => {
+    const programName = prompt("Enter new Program Name (e.g., BCA):");
+    if (!programName || programName.trim() === "") return;
+
+    const totalSemestersStr = prompt("Enter total semesters (e.g., 6):");
+    if (!totalSemestersStr || isNaN(totalSemestersStr)) return;
+    const totalSemesters = parseInt(totalSemestersStr, 10);
+
+    try {
+      const res = await fetch('/api/super_admin/addCourse', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ 
+          course_name: programName, 
+          program_incharge: "Not Assigned", // Default value
+          total_semesters: totalSemesters,
+          year: new Date().getFullYear()
+        })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        // Fetch fresh list from DB to ensure accurate IDs
+        fetchPrograms();
+      } else {
+        alert("Failed to add program: " + data.message);
+      }
+    } catch (error) {
+      console.error("Add program error:", error);
+      alert("Network error: Could not reach backend.");
+    }
+  };
+
+  // 2. Delete a Program (DELETE /api/super_admin/deleteCourse/:course_id)
+  const handleDeleteProgram = async (id) => {
+    if (!window.confirm("Are you sure you want to completely delete this program?")) return;
+
+    try {
+      const res = await fetch(`/api/super_admin/deleteCourse/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        setPrograms(prev => prev.filter(p => p.course_id !== id));
+      } else {
+        alert("Failed to delete program: " + data.message);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Network error: Could not reach backend.");
+    }
   };
 
   if (selectedProgram) {
@@ -89,17 +144,25 @@ export default function ProgramsPage() {
         
         {apiError && (
           <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-6 text-sm font-medium">
-            Warning: Could not fetch courses from the backend database (Unauthorized or Network Error). Displaying offline fallback data.
+            Warning: Could not fetch courses from the backend database. Displaying offline fallback data.
           </div>
         )}
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           
           <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-            <h2 className="text-lg font-bold text-gray-800">Program List</h2>
-            <div className="bg-blue-50 text-blue-600 px-4 py-2 rounded-full text-sm font-semibold">
-              {programs.length} Programs
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-bold text-gray-800">Program List</h2>
+              <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
+                {programs.length} Programs
+              </div>
             </div>
+            <button 
+              onClick={handleAddProgram}
+              className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-purple-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Add Program
+            </button>
           </div>
 
           {loading ? (
@@ -111,7 +174,7 @@ export default function ProgramsPage() {
                   <th className="p-4">Program Name</th>
                   <th className="p-4">Semesters</th>
                   <th className="p-4">Sections</th>
-                  <th className="p-4">Actions</th>
+                  <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="text-sm text-gray-700">
@@ -129,12 +192,18 @@ export default function ProgramsPage() {
                           <ChevronDown className="w-4 h-4 ml-2" />
                         </button>
                       </td>
-                      <td className="p-4">
+                      <td className="p-4 flex items-center justify-end gap-2 mt-1">
                         <button 
                           onClick={() => setSelectedProgram(prog)}
                           className="flex items-center gap-2 text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-4 py-1.5 rounded-lg font-medium transition-colors"
                         >
                           <Eye className="w-4 h-4" /> View
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteProgram(prog.course_id)}
+                          className="text-red-500 border border-red-200 bg-red-50 hover:bg-red-100 p-2 rounded-lg font-medium transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>

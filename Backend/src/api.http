@@ -1,0 +1,904 @@
+###############################################################
+# VISITING FACULTY PORTAL — COMPLETE API TEST FILE
+# Install "REST Client" extension in VS Code to use this file.
+# Click "Send Request" above any request to test it.
+###############################################################
+
+@BASE_URL = http://localhost:5000
+@ADMIN_TOKEN    = PASTE_ADMIN_TOKEN_HERE
+@FACULTY_TOKEN  = PASTE_FACULTY_TOKEN_HERE
+@SUPER_ADMIN_TOKEN = PASTE_SUPER_ADMIN_TOKEN_HERE
+
+# ─────────────────────────────────────────────────────────────
+# Common IDs — change these to match your DB
+# ─────────────────────────────────────────────────────────────
+@FACULTY_ID     = 3
+@FACULTY_UVFIN  = VF-2024-001
+@ADMIN_ID       = 2
+@COURSE_ID      = 1
+@SEMESTER_ID    = 2
+@SECTION_ID     = 1
+@SUBJECT_ID     = 5
+@ALLOCATION_ID  = 4
+@ATTENDANCE_ID  = 10
+@BILL_ID        = 7
+
+
+
+###############################################################
+# ██████████████████████████████████████████████████████████
+# MODULE 1 — AUTH   /api/auth
+# ██████████████████████████████████████████████████████████
+###############################################################
+
+
+### 1.1 Register Faculty
+POST {{BASE_URL}}/api/auth/register/faculty
+Content-Type: application/json
+
+{
+    "full_name": "Dr. Meena Sharma",
+    "email": "meena.sharma@iips.ac.in",
+    "password_hash": "Faculty@123",
+    "phone_number": "9876543210",
+    "address": "123, MG Road, Indore, MP",
+    "qualification": "Ph.D Computer Science",
+    "aadhaar_no": "123456789012",
+    "account_no": "1234567890123",
+    "bank_name": "State Bank of India",
+    "ifsc_code": "SBIN0001234",
+    "pan_card_no": "ABCDE1234F"
+}
+
+###
+
+### 1.2 Register Admin
+POST {{BASE_URL}}/api/auth/register/admin
+Content-Type: application/json
+
+{
+    "full_name": "Admin User",
+    "email": "admin@iips.ac.in",
+    "password_hash": "Admin@123",
+    "phone_number": "9876543211"
+}
+
+###
+
+### 1.3 Login (Faculty) — Copy token from response → paste in @FACULTY_TOKEN above
+POST {{BASE_URL}}/api/auth/login
+Content-Type: application/json
+
+{
+    "email": "meena.sharma@iips.ac.in",
+    "password_hash": "Faculty@123"
+}
+
+###
+
+### 1.4 Login (Admin) — Copy token from response → paste in @ADMIN_TOKEN above
+POST {{BASE_URL}}/api/auth/login
+Content-Type: application/json
+
+{
+    "email": "admin@iips.ac.in",
+    "password_hash": "Admin@123"
+}
+
+###
+
+### 1.5 Login (Super Admin)
+POST {{BASE_URL}}/api/auth/login
+Content-Type: application/json
+
+{
+    "email": "abc@gmail.com",
+    "password_hash": "ADMIN"
+}
+
+###
+
+### 1.6 Logout
+POST {{BASE_URL}}/api/auth/logout
+Authorization: Bearer {{FACULTY_TOKEN}}
+
+###
+
+### 1.7 Forgot Password
+POST {{BASE_URL}}/api/auth/forgotPassword/
+Content-Type: application/json
+
+{
+    "email": "meena.sharma@iips.ac.in"
+}
+
+###
+
+### 1.8 Reset Password
+POST {{BASE_URL}}/api/auth/resetPassword
+Content-Type: application/json
+
+{
+    "token": "PASTE_RESET_TOKEN_FROM_EMAIL",
+    "password": "NewPassword@123"
+}
+
+###
+
+### 1.9 Change Password
+PUT {{BASE_URL}}/api/auth/changePassword
+Authorization: Bearer {{FACULTY_TOKEN}}
+Content-Type: application/json
+
+{
+    "oldPassword": "Faculty@123",
+    "newPassword": "NewFaculty@456"
+}
+
+###
+
+### 1.10 Update Profile
+PUT {{BASE_URL}}/api/auth/update/{{FACULTY_ID}}
+Authorization: Bearer {{FACULTY_TOKEN}}
+Content-Type: application/json
+
+{
+    "full_name": "Dr. Meena Sharma",
+    "phone_number": "9876543210",
+    "address": "456, Vijay Nagar, Indore",
+    "qualification": "Ph.D, M.Tech",
+    "account_no": "9876543210123",
+    "bank_name": "Punjab National Bank",
+    "ifsc_code": "PUNB0123456",
+    "pan_card_no": "ABCDE1234F"
+}
+
+
+
+###############################################################
+# ██████████████████████████████████████████████████████████
+# MODULE 2 — SUPER ADMIN   /api/super_admin
+# ██████████████████████████████████████████████████████████
+###############################################################
+
+
+### 2.1 Approve Admin
+PUT {{BASE_URL}}/api/super_admin/admin/{{ADMIN_ID}}/approve
+Authorization: Bearer {{SUPER_ADMIN_TOKEN}}
+Content-Type: application/json
+
+{
+    "status": "approved"
+}
+
+###
+
+### 2.2 Reject Admin
+PUT {{BASE_URL}}/api/super_admin/admin/{{ADMIN_ID}}/approve
+Authorization: Bearer {{SUPER_ADMIN_TOKEN}}
+Content-Type: application/json
+
+{
+    "status": "rejected"
+}
+
+###
+
+### 2.3 Get Pending Admins
+GET {{BASE_URL}}/api/super_admin/pendingAdmin
+Authorization: Bearer {{SUPER_ADMIN_TOKEN}}
+
+###
+
+### 2.4 Get Approved Admins
+GET {{BASE_URL}}/api/super_admin/approvedAdmin
+Authorization: Bearer {{SUPER_ADMIN_TOKEN}}
+
+###
+
+### 2.5 Get Rejected Admins
+GET {{BASE_URL}}/api/super_admin/rejectedAdmin
+Authorization: Bearer {{SUPER_ADMIN_TOKEN}}
+
+###
+
+### 2.6 Get All Admins
+GET {{BASE_URL}}/api/super_admin/allAdmin
+Authorization: Bearer {{SUPER_ADMIN_TOKEN}}
+
+###
+
+### 2.7 Get Single Admin
+GET {{BASE_URL}}/api/super_admin/admin/{{ADMIN_ID}}
+Authorization: Bearer {{SUPER_ADMIN_TOKEN}}
+
+
+
+###############################################################
+# ██████████████████████████████████████████████████████████
+# MODULE 3 — ADMIN   /api/admin
+# ██████████████████████████████████████████████████████████
+###############################################################
+
+
+### 3.1 Approve Faculty
+PUT {{BASE_URL}}/api/admin/faculty/{{FACULTY_ID}}/approve
+Authorization: Bearer {{ADMIN_TOKEN}}
+Content-Type: application/json
+
+{
+    "status": "approved"
+}
+
+###
+
+### 3.2 Reject Faculty
+PUT {{BASE_URL}}/api/admin/faculty/{{FACULTY_ID}}/approve
+Authorization: Bearer {{ADMIN_TOKEN}}
+Content-Type: application/json
+
+{
+    "status": "rejected"
+}
+
+###
+
+### 3.3 Get Pending Faculty
+GET {{BASE_URL}}/api/admin/pendingFaculty
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+###
+
+### 3.4 Get Approved Faculty
+GET {{BASE_URL}}/api/admin/approvedFaculty
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+###
+
+### 3.5 Get Rejected Faculty
+GET {{BASE_URL}}/api/admin/rejectedFaculty
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+###
+
+### 3.6 Get All Faculty
+GET {{BASE_URL}}/api/admin/allFaculty
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+###
+
+### 3.7 Get Single Faculty
+GET {{BASE_URL}}/api/admin/faculty/{{FACULTY_ID}}
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+###
+
+### 3.8 Update Faculty UVFIN
+PUT {{BASE_URL}}/api/admin/updateFaculty/{{FACULTY_ID}}
+Authorization: Bearer {{ADMIN_TOKEN}}
+Content-Type: application/json
+
+{
+    "uvfin": "VF-2024-001"
+}
+
+###
+
+### 3.9 Live Search Faculty
+GET {{BASE_URL}}/api/admin/search-faculty?q=meena
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+###
+
+### 3.10 Get All Courses
+GET {{BASE_URL}}/api/admin/courses
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+###
+
+### 3.11 Get Sections by Course
+GET {{BASE_URL}}/api/admin/courses/{{COURSE_ID}}/sections
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+###
+
+### 3.12 Get Semesters by Course
+GET {{BASE_URL}}/api/admin/courses/{{COURSE_ID}}/semesters
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+###
+
+### 3.13 Get Subjects by Course + Semester
+GET {{BASE_URL}}/api/admin/courses/{{COURSE_ID}}/semesters/{{SEMESTER_ID}}/subjects
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+###
+
+### 3.14 Create Allocation (Assign subject to faculty)
+# rate_per_hour MUST be "200" | "400" | "800"  (string)
+# session_type  MUST be "Theory" | "Practical"
+POST {{BASE_URL}}/api/admin/allocations
+Authorization: Bearer {{ADMIN_TOKEN}}
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "section_id": 1,
+    "subject_id": 5,
+    "session_type": "Theory",
+    "rate_per_hour": "400",
+    "academic_year": "2024-25"
+}
+
+###
+
+### 3.14b Create Allocation (no section_id)
+POST {{BASE_URL}}/api/admin/allocations
+Authorization: Bearer {{ADMIN_TOKEN}}
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 6,
+    "session_type": "Practical",
+    "rate_per_hour": "200",
+    "academic_year": "2024-25"
+}
+
+###
+
+### 3.15 Get All Allocations
+GET {{BASE_URL}}/api/admin/allocations
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+###
+
+### 3.16 Delete Allocation
+DELETE {{BASE_URL}}/api/admin/allocations/{{ALLOCATION_ID}}
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+###
+
+### 3.17 Seed Subjects from CSV
+POST {{BASE_URL}}/api/admin/seed-subjects
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+
+
+###############################################################
+# ██████████████████████████████████████████████████████████
+# MODULE 4 — ATTENDANCE   /api/attendance
+# ██████████████████████████████████████████████████████████
+###############################################################
+
+# ─────────────────────────────────────────────
+# ■  POST — MARK ATTENDANCE
+# ─────────────────────────────────────────────
+
+### 4.1 Mark DAILY Attendance (full body)
+# attendance_date → optional, defaults to TODAY
+# hours           → optional, auto-calculated from start_time & end_time
+POST {{BASE_URL}}/api/attendance/mark/daily
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "section_id": 1,
+    "subject_id": 5,
+    "attendance_date": "2024-12-02",
+    "start_time": "09:00:00",
+    "end_time": "10:00:00",
+    "status": "Marked",
+    "remarks": "Regular lecture"
+}
+
+###
+
+### 4.2 Mark DAILY — Today (no date needed)
+POST {{BASE_URL}}/api/attendance/mark/daily
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "start_time": "09:00:00",
+    "end_time": "10:30:00"
+}
+
+###
+
+### 4.3 Mark DAILY — Cancelled class
+POST {{BASE_URL}}/api/attendance/mark/daily
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "attendance_date": "2024-12-04",
+    "start_time": "11:00:00",
+    "end_time": "12:00:00",
+    "status": "Cancelled",
+    "remarks": "Class cancelled due to holiday"
+}
+
+###
+
+### 4.4 Mark DAILY — Using allocation_id directly (skips lookup)
+POST {{BASE_URL}}/api/attendance/mark/daily
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "allocation_id": 4,
+    "attendance_date": "2024-12-05",
+    "start_time": "14:00:00",
+    "end_time": "15:00:00",
+    "status": "Marked"
+}
+
+###
+
+### 4.5 Mark DAILY — Using UVFIN instead of user_id
+POST {{BASE_URL}}/api/attendance/mark/daily
+Content-Type: application/json
+
+{
+    "user_id": "VF-2024-001",
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "start_time": "09:00:00",
+    "end_time": "10:00:00",
+    "status": "Marked"
+}
+
+###
+
+### 4.6 Mark WEEKLY Attendance
+# week_number → auto-calculated from attendance_date (ISO week)
+# month, year → auto-derived from attendance_date
+POST {{BASE_URL}}/api/attendance/mark/weekly
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "section_id": 1,
+    "subject_id": 5,
+    "attendance_date": "2024-12-03",
+    "start_time": "12:30:00",
+    "end_time": "13:30:00",
+    "status": "Marked",
+    "remarks": "Week 49 lecture"
+}
+
+###
+
+### 4.7 Mark WEEKLY — Cancelled
+POST {{BASE_URL}}/api/attendance/mark/weekly
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "attendance_date": "2024-12-05",
+    "start_time": "14:00:00",
+    "end_time": "15:00:00",
+    "status": "Cancelled",
+    "remarks": "Faculty was on leave"
+}
+
+###
+
+### 4.8 Mark MONTHLY Attendance
+# month + year are REQUIRED for monthly
+POST {{BASE_URL}}/api/attendance/mark/monthly
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "section_id": 1,
+    "subject_id": 5,
+    "attendance_date": "2024-12-10",
+    "start_time": "10:00:00",
+    "end_time": "11:30:00",
+    "month": "December",
+    "year": 2024,
+    "status": "Marked",
+    "remarks": "Mid-month session"
+}
+
+###
+
+### 4.9 Mark MONTHLY — Cancelled
+POST {{BASE_URL}}/api/attendance/mark/monthly
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "attendance_date": "2024-12-03",
+    "start_time": "12:30:00",
+    "end_time": "13:30:00",
+    "month": "December",
+    "year": 2024,
+    "status": "Cancelled",
+    "remarks": "Institute holiday"
+}
+
+###
+
+### 4.10 Mark MONTHLY — Using allocation_id directly
+POST {{BASE_URL}}/api/attendance/mark/monthly
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "allocation_id": 4,
+    "attendance_date": "2024-12-15",
+    "start_time": "09:00:00",
+    "end_time": "10:00:00",
+    "month": "December",
+    "year": 2024,
+    "status": "Marked"
+}
+
+###
+
+### 4.11 Generic Mark — Single record
+POST {{BASE_URL}}/api/attendance/
+Content-Type: application/json
+
+{
+    "user_id": 3,
+    "course_id": 1,
+    "semester_id": 2,
+    "subject_id": 5,
+    "attendance_date": "2024-12-20",
+    "start_time": "09:00:00",
+    "end_time": "10:00:00",
+    "month": "December",
+    "year": 2024,
+    "attendance_period": "monthly",
+    "status": "Marked"
+}
+
+###
+
+### 4.12 Generic Mark — BULK (array of records)
+POST {{BASE_URL}}/api/attendance/
+Content-Type: application/json
+
+[
+    {
+        "user_id": 3,
+        "course_id": 1,
+        "semester_id": 2,
+        "subject_id": 5,
+        "attendance_date": "2024-12-21",
+        "start_time": "09:00:00",
+        "end_time": "10:00:00",
+        "month": "December",
+        "year": 2024,
+        "attendance_period": "monthly",
+        "status": "Marked"
+    },
+    {
+        "user_id": 3,
+        "course_id": 1,
+        "semester_id": 2,
+        "subject_id": 6,
+        "attendance_date": "2024-12-21",
+        "start_time": "11:00:00",
+        "end_time": "12:00:00",
+        "month": "December",
+        "year": 2024,
+        "attendance_period": "monthly",
+        "status": "Marked"
+    }
+]
+
+###
+
+# ─────────────────────────────────────────────
+# ■  GET — FETCH ATTENDANCE
+# ─────────────────────────────────────────────
+
+### 4.13 Get DAILY Attendance — Today (by user_id)
+GET {{BASE_URL}}/api/attendance/daily/{{FACULTY_ID}}
+
+###
+
+### 4.14 Get DAILY Attendance — Specific date
+GET {{BASE_URL}}/api/attendance/daily/{{FACULTY_ID}}?date=2024-12-02
+
+###
+
+### 4.15 Get DAILY Attendance — By UVFIN
+GET {{BASE_URL}}/api/attendance/daily/{{FACULTY_UVFIN}}?date=2024-12-02
+
+###
+
+### 4.16 Get WEEKLY Attendance — Current week
+GET {{BASE_URL}}/api/attendance/weekly/{{FACULTY_ID}}
+
+###
+
+### 4.17 Get WEEKLY Attendance — Specific week (pass any date in that week)
+GET {{BASE_URL}}/api/attendance/weekly/{{FACULTY_ID}}?date=2024-12-03
+
+###
+
+### 4.18 Get WEEKLY Attendance — By UVFIN
+GET {{BASE_URL}}/api/attendance/weekly/{{FACULTY_UVFIN}}?date=2024-12-03
+
+###
+
+### 4.19 Get MONTHLY Attendance (month + year REQUIRED)
+GET {{BASE_URL}}/api/attendance/monthly/{{FACULTY_ID}}?month=December&year=2024
+
+###
+
+### 4.20 Get MONTHLY Attendance — By UVFIN
+GET {{BASE_URL}}/api/attendance/monthly/{{FACULTY_UVFIN}}?month=December&year=2024
+
+###
+
+### 4.21 Get Attendance HISTORY — All time (by user_id)
+GET {{BASE_URL}}/api/attendance/history/{{FACULTY_ID}}
+
+###
+
+### 4.22 Get Attendance HISTORY — By UVFIN
+GET {{BASE_URL}}/api/attendance/history/{{FACULTY_UVFIN}}
+
+###
+
+### 4.23 Get My Allocations (for form dropdowns)
+GET {{BASE_URL}}/api/attendance/my-allocations/{{FACULTY_ID}}
+
+###
+
+### 4.24 Get My Allocations — By UVFIN
+GET {{BASE_URL}}/api/attendance/my-allocations/{{FACULTY_UVFIN}}
+
+###
+
+### 4.25 Get Single Attendance Record (strict)
+GET {{BASE_URL}}/api/attendance/record/{{ATTENDANCE_ID}}
+
+###
+
+### 4.26 Smart Lookup — Numeric → single record
+GET {{BASE_URL}}/api/attendance/{{ATTENDANCE_ID}}
+
+###
+
+### 4.27 Smart Lookup — UVFIN → full history
+GET {{BASE_URL}}/api/attendance/{{FACULTY_UVFIN}}
+
+###
+
+# ─────────────────────────────────────────────
+# ■  ADMIN — ATTENDANCE MANAGEMENT
+# ─────────────────────────────────────────────
+
+### 4.28 Admin — Get ALL attendance (no filters)
+GET {{BASE_URL}}/api/attendance/admin
+
+###
+
+### 4.29 Admin — Filter by facultyId
+GET {{BASE_URL}}/api/attendance/admin?facultyId={{FACULTY_ID}}
+
+###
+
+### 4.30 Admin — Filter by month + year
+GET {{BASE_URL}}/api/attendance/admin?month=December&year=2024
+
+###
+
+### 4.31 Admin — Filter by status = Marked (pending verification)
+GET {{BASE_URL}}/api/attendance/admin?status=Marked
+
+###
+
+### 4.32 Admin — Filter by attendance_period
+GET {{BASE_URL}}/api/attendance/admin?attendance_period=monthly
+
+###
+
+### 4.33 Admin — Combined filters
+GET {{BASE_URL}}/api/attendance/admin?facultyId={{FACULTY_ID}}&month=December&year=2024&status=Marked
+
+###
+
+### 4.34 Admin — Verify → Mark as Present
+PATCH {{BASE_URL}}/api/attendance/verify/{{ATTENDANCE_ID}}
+Content-Type: application/json
+
+{
+    "status": "Present",
+    "remarks": "Verified by admin — attendance confirmed"
+}
+
+###
+
+### 4.35 Admin — Verify → Mark as Absent
+PATCH {{BASE_URL}}/api/attendance/verify/{{ATTENDANCE_ID}}
+Content-Type: application/json
+
+{
+    "status": "Absent",
+    "remarks": "Faculty was absent, class not conducted"
+}
+
+###
+
+### 4.36 Admin — Reset to Pending
+PATCH {{BASE_URL}}/api/attendance/verify/{{ATTENDANCE_ID}}
+Content-Type: application/json
+
+{
+    "status": "Pending"
+}
+
+
+
+###############################################################
+# ██████████████████████████████████████████████████████████
+# MODULE 5 — BILLS   /api/bills
+# ██████████████████████████████████████████████████████████
+###############################################################
+
+
+### 5.1 Generate Bill (full body with Annexure fields)
+POST {{BASE_URL}}/api/bills/generate
+Content-Type: application/json
+
+{
+    "facultyId": 3,
+    "month": "December",
+    "year": 2024,
+    "department": "Department of Computer Science",
+    "attendancePageNo": "A-12",
+    "serialNo": "001",
+    "tdsPercent": 10,
+    "submissionDate": "2024-12-31"
+}
+
+###
+
+### 5.2 Generate Bill (minimal body)
+POST {{BASE_URL}}/api/bills/generate
+Content-Type: application/json
+
+{
+    "facultyId": 3,
+    "month": "December",
+    "year": 2024
+}
+
+###
+
+### 5.3 Generate Bill — By UVFIN
+POST {{BASE_URL}}/api/bills/generate
+Content-Type: application/json
+
+{
+    "facultyId": "VF-2024-001",
+    "month": "December",
+    "year": 2024
+}
+
+###
+
+### 5.4 Get All Bills (Admin view)
+GET {{BASE_URL}}/api/bills/
+
+###
+
+### 5.5 Get Bill History — By faculty user_id
+GET {{BASE_URL}}/api/bills/history/{{FACULTY_ID}}
+
+###
+
+### 5.6 Get Bill History — By UVFIN
+GET {{BASE_URL}}/api/bills/history/{{FACULTY_UVFIN}}
+
+###
+
+### 5.7 Get Bill Details (line items)
+GET {{BASE_URL}}/api/bills/details/{{BILL_ID}}
+
+###
+
+### 5.8 Download Bill PDF
+GET {{BASE_URL}}/api/bills/download/{{BILL_ID}}
+
+###
+
+### 5.9 Delete Bill
+DELETE {{BASE_URL}}/api/bills/{{BILL_ID}}
+
+
+
+###############################################################
+# ██████████████████████████████████████████████████████████
+# MODULE 6 — ACCOUNT STATUS   /api/account-status
+# ██████████████████████████████████████████████████████████
+###############################################################
+
+
+### 6.1 Admin → Activate Faculty
+PUT {{BASE_URL}}/api/account-status/admin/faculty/{{FACULTY_ID}}/activate
+
+###
+
+### 6.2 Admin → Deactivate Faculty
+PUT {{BASE_URL}}/api/account-status/admin/faculty/{{FACULTY_ID}}/deactivate
+
+###
+
+### 6.3 Super Admin → Activate Faculty
+PUT {{BASE_URL}}/api/account-status/super_admin/faculty/{{FACULTY_ID}}/activate
+
+###
+
+### 6.4 Super Admin → Deactivate Faculty
+PUT {{BASE_URL}}/api/account-status/super_admin/faculty/{{FACULTY_ID}}/deactivate
+
+###
+
+### 6.5 Super Admin → Activate Admin
+PUT {{BASE_URL}}/api/account-status/super_admin/admin/{{ADMIN_ID}}/activate
+
+###
+
+### 6.6 Super Admin → Deactivate Admin
+PUT {{BASE_URL}}/api/account-status/super_admin/admin/{{ADMIN_ID}}/deactivate
+
+
+
+###############################################################
+# ██████████████████████████████████████████████████████████
+# QUICK REFERENCE — STATUS VALUES
+# ██████████████████████████████████████████████████████████
+#
+#  Attendance status:
+#    "Marked"    → faculty marked class as conducted (calendar toggle)
+#    "Cancelled" → faculty marked class as cancelled (calendar toggle)
+#    "Present"   → admin approved (class was conducted)
+#    "Absent"    → admin rejected (class not conducted)
+#    "Pending"   → not yet verified by admin
+#
+#  Rate per hour (ENUM string):
+#    "200"  → Practical sessions
+#    "400"  → Theory (standard)
+#    "800"  → Theory (senior)
+#
+#  Session type:
+#    "Theory"    → Lecture sessions
+#    "Practical" → Lab/practical sessions
+#
+#  facultyId in GET routes:
+#    Use numeric user_id  → 3
+#    Use UVFIN string     → "VF-2024-001"
+###############################################################

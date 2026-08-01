@@ -848,6 +848,81 @@ const getAttendanceByIdService = async (attendanceId) => {
     };
 };
 
+// ============================================================
+// ■  DELETE: Remove a SINGLE attendance record by attendance_id
+//    Example: delete attendance_id = 23 but keep 24 and 26
+//    Returns the deleted row's data for frontend confirmation.
+// ============================================================
+const deleteAttendanceById = async (attendanceId) => {
+    // 1. Find the record first (so we can return its data)
+    const record = await Attendance.findByPk(attendanceId);
+
+    if (!record) {
+        throw new Error(`Attendance record with id=${attendanceId} not found.`);
+    }
+
+    // 2. Delete only THIS specific row
+    await record.destroy();
+
+    // 3. Return the deleted record's key info
+    return {
+        attendance_id:   record.attendance_id,
+        attendance_date: record.attendance_date,
+        user_id:         record.user_id,
+        allocation_id:   record.allocation_id,
+        hours:           Number(record.hours),
+        status:          record.status,
+        month:           record.month,
+        year:            record.year
+    };
+};
+
+// ============================================================
+// ■  DELETE: Remove attendance records by Faculty ID
+//    Accepts numeric user_id OR uvfin string.
+//    Optional filters: attendance_period, month, year, attendance_date
+//    Returns count of deleted rows.
+// ============================================================
+const deleteAttendanceByFaculty = async (facultyId, filters = {}) => {
+    // 1. Resolve to numeric user_id (throws 'Faculty not found' if invalid)
+    const userId = await resolveUserId(facultyId);
+
+    // 2. Build WHERE clause
+    const where = { user_id: userId };
+
+    if (filters.attendance_period) {
+        const allowed = ['daily', 'weekly', 'monthly'];
+        if (!allowed.includes(filters.attendance_period)) {
+            throw new Error(
+                `Invalid attendance_period. Allowed values: ${allowed.join(', ')}`
+            );
+        }
+        where.attendance_period = filters.attendance_period;
+    }
+
+    if (filters.month) {
+        where.month = filters.month;
+    }
+
+    if (filters.year) {
+        where.year = Number(filters.year);
+    }
+
+    if (filters.attendance_date) {
+        where.attendance_date = filters.attendance_date;
+    }
+
+    // 3. Delete matching rows
+    const deletedCount = await Attendance.destroy({ where });
+
+    return {
+        user_id:      userId,
+        faculty_id:   facultyId,
+        deletedCount,
+        filters
+    };
+};
+
 module.exports = {
     markAttendance,
     markDailyAttendance,
@@ -861,6 +936,8 @@ module.exports = {
     verifyAttendance,
     getFacultyAllocations,
     getAttendanceByIdService,
+    deleteAttendanceById,       // single record delete by attendance_id
+    deleteAttendanceByFaculty,  // bulk delete by faculty + optional filters
     // expose helpers for tests
     getISOWeekNumber,
     getWeekBounds

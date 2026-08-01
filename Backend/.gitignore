@@ -1,0 +1,16 @@
+# ── Environment / Secrets ─────────────────────────────────────
+.env
+.env.*
+
+# ── Node modules ───────────────────────────────────────────────
+node_modules/
+
+# ── Auto-generated uploads (bills, PDFs) ──────────────────────
+src/uploads/bills/*.pdf
+
+# ── Scheduler log files ───────────────────────────────────────
+src/uploads/scheduler-logs/*.log
+
+# ── OS files ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
