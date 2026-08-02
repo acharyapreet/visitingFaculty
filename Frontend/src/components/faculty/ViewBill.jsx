@@ -293,7 +293,7 @@ export default function ViewBill({ facultyUserId }) {
           </div>
         </div>
 
-        {/* MOBILE RESPONSIVE FIGMA CARD VIEW (Visible on mobile screens, hidden on lg screens unless toggled) */}
+        {/* MOBILE RESPONSIVE FIGMA CARD VIEW */}
         <div className={`max-w-md mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-5 print-hide ${isFullDocumentView ? 'hidden' : 'block lg:hidden'}`}>
           <div className="flex items-center justify-between">
             <span className="px-3 py-1 bg-indigo-50 text-[#004DD2] text-xs font-semibold rounded-full">
@@ -361,7 +361,7 @@ export default function ViewBill({ facultyUserId }) {
           </div>
         </div>
 
-        {/* FULL DESKTOP/DOCUMENT VIEW (Default on desktop, or toggled on mobile via "View Full Bill") */}
+        {/* FULL DESKTOP/DOCUMENT VIEW */}
         <div className={`mt-6 flex flex-col gap-6 lg:flex-row print:mt-0 print:block ${isFullDocumentView ? 'block' : 'hidden lg:flex'}`}>
           {isFullDocumentView && (
             <div className="print-hide mb-2">
@@ -633,11 +633,17 @@ export default function ViewBill({ facultyUserId }) {
                       </tbody>
                     </table>
 
-                    <div className="flex justify-between font-bold text-[14px] mt-16 px-4" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                      <p>Name & Sign. of Faculty</p>
-                      <div className="text-right flex flex-col gap-16">
-                        <p>Name & Sign. of Coordinator</p>
-                        <p>Name & Sign. of Head</p>
+                    {/* --- UPDATED: PAGE 2 SIGNATURE SECTION WITH GRID SPACING & NO WRAP --- */}
+                    <div className="grid grid-cols-3 gap-4 font-bold text-[12px] whitespace-nowrap mt-20 px-4" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                      <div className="text-left">
+                        <p>Name & Sign. of Visiting Faculty</p>
+                      </div>
+                      <div className="text-center">
+                        <p>Name & Sign. of Program Incharge</p>
+                      </div>
+                      <div className="text-right flex flex-col gap-24">
+                        <p>Name & Sign. of Batch Mentor</p>
+                        <p>Name & Sign. of Director</p>
                       </div>
                     </div>
                   </div>
