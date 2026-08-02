@@ -626,9 +626,15 @@ function BillPreview({ bill, onDownload }) {
   const [billPage, setBillPage] = useState(1);
   const items = bill.items || [];
 
+  // 1. Filter out records that exceeded the 30k limit
+  const billableRecords = useMemo(() => {
+    return items.filter(r => r.is_billable !== false && r.is_billable !== 0);
+  }, [items]);
+
   const aggregatedRecords = useMemo(() => {
     const grouped = {};
-    items.forEach(r => {
+    // 2. Iterate over billableRecords ONLY
+    billableRecords.forEach(r => {
       const key = `${r.course_name}_${r.semester_number}_${r.subject_code}_${r.rate_per_hour}`;
       if (!grouped[key]) {
         grouped[key] = {
@@ -651,7 +657,7 @@ function BillPreview({ bill, onDownload }) {
       grouped[key].amount += (hrs * grouped[key].rate);
     });
     return Object.values(grouped);
-  }, [items, bill.program, bill.semester]);
+  }, [billableRecords, bill.program, bill.semester]);
 
   const totalAmount = useMemo(() => {
     return aggregatedRecords.reduce((sum, r) => sum + r.amount, 0);
@@ -662,6 +668,9 @@ function BillPreview({ bill, onDownload }) {
   }, [aggregatedRecords]);
 
   const amountInWords = convertAmountToWords(totalAmount);
+
+  // 3. Define submission date to fix the crash
+  const submissionDate = bill.submittedOn || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "-";
@@ -744,7 +753,7 @@ function BillPreview({ bill, onDownload }) {
                   </div>
                   <div className="flex items-end gap-2">
                     <span className="font-medium">Date of Submission</span>
-                    <span className="w-24 border-b border-black pb-0.5 text-center font-bold">{bill.submittedOn}</span>
+                    <span className="w-24 border-b border-black pb-0.5 text-center font-bold">{submissionDate}</span>
                   </div>
                   <div className="flex items-end gap-2">
                     <span className="font-medium">Theory/Practical</span>
@@ -818,37 +827,45 @@ function BillPreview({ bill, onDownload }) {
                   I was directed and permitted by the Head to engage the above Classes. For this I have submitted this bill. I therefore, request you to deduct _______% against Income Tax Returns from my payment. Further, I certify that total amount received per month doesn't exceed the maximum permissible limit of remuneration of any amount paid by D.A.V.V. which is Rs. 30,000/- at present.
                 </p>
                 
-                <div className="flex items-start justify-between">
-                  <div className="w-72 border-2 border-black p-3 text-left space-y-1.5 font-semibold">
-                    <p>Pan Card No. <span className="border-b border-black inline-block w-40">{bill.pan}</span></p>
-                    <p>A/c No. <span className="border-b border-black inline-block w-48">{bill.account}</span></p>
-                    <p>Bank Name <span className="border-b border-black inline-block w-44">{bill.bankName}</span><br/><span className="text-[10px] font-normal italic">(State bank of India Compulsory)</span></p>
-                    <p>IFSC Code <span className="border-b border-black inline-block w-44">{bill.ifsc}</span></p>
-                    <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{bill.aadhaar}</span></p>
+                <div className="flex justify-between mt-8" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                        
+                  {/* LEFT COLUMN: Bank Details & Payment Info */}
+                  <div className="flex flex-col justify-between">
+                    <div className="w-72 border-2 border-black p-3 text-left space-y-1.5 font-semibold text-[13px]">
+                      <p>Pan Card No. <span className="border-b border-black inline-block w-40">{bill.pan}</span></p>
+                      <p>A/c No. <span className="border-b border-black inline-block w-48">{bill.account}</span></p>
+                      <p>Bank Name <span className="border-b border-black inline-block w-44">{bill.bankName}</span><br/><span className="text-[10px] font-normal italic">(State bank of India Compulsory)</span></p>
+                      <p>IFSC Code <span className="border-b border-black inline-block w-44">{bill.ifsc}</span></p>
+                      <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{bill.aadhaar}</span></p>
+                    </div>
+                    
+                    <div className="font-semibold space-y-2 text-[14px] mt-10">
+                      <p>Date : {submissionDate}</p>
+                      <p>Received Payments of Rs. <span className="font-bold underline underline-offset-4">{totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span></p>
+                      <p>Cheque No. ____________</p>
+                    </div>
                   </div>
-                  
-                  <div className="mt-20 flex flex-col items-center font-bold text-[14px]">
-                    <p>_____________________________________</p>
-                    <p>Name & Signature of Visiting Faculty</p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="flex flex-col items-end gap-14 font-bold text-[14px]" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                <div className="text-center">
-                  <p>_____________________________________</p>
-                  <p>Verified by Coordinator (Name & Signature)</p>
-                </div>
-                <div className="w-full flex justify-between items-end">
-                  <div className="font-semibold space-y-2">
-                    <p>Date : {bill.submittedOn}</p>
-                    <p>Received Payments of Rs. ____________</p>
-                    <p>Cheque No. ____________</p>
+                  {/* RIGHT COLUMN: All Signatures Perfectly Aligned */}
+                  <div className="flex flex-col justify-between items-center font-bold text-[12px] gap-8">
+                    <div className="text-center mt-2">
+                      <p>_____________________________________</p>
+                      <p className="mt-1">Name & Signature of Visiting Faculty</p>
+                    </div>
+                    <div className="text-center">
+                      <p>_____________________________________</p>
+                      <p className="mt-1">Name & Signature of Batch Mentor</p>
+                    </div>
+                    <div className="text-center">
+                      <p>_____________________________________</p>
+                      <p className="mt-1">Verified by Coordinator (Name & Signature)</p>
+                    </div>
+                    <div className="text-center">
+                      <p>_____________________________________</p>
+                      <p className="mt-1">Signature Director/Head (Name & Seal)</p>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <p>_____________________________________</p>
-                    <p>Signature Director/Head (Name & Seal)</p>
-                  </div>
+
                 </div>
               </div>
             </div>
@@ -903,7 +920,7 @@ function BillPreview({ bill, onDownload }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((r, i) => (
+                  {billableRecords.map((r, i) => (
                     <tr key={i}>
                       <td className="border border-black p-2.5">{formatDate(r.attendance_date)}</td>
                       <td className="border border-black p-2.5 font-semibold">{r.subject_code}</td>
@@ -913,7 +930,7 @@ function BillPreview({ bill, onDownload }) {
                     </tr>
                   ))}
                   {/* FIX: Ensure a minimum of 15 rows so the page is fully structured regardless of record count */}
-                  {[...Array(Math.max(0, 0 - items.length))].map((_, i) => (
+                  {[...Array(Math.max(0, 15 - billableRecords.length))].map((_, i) => (
                     <tr key={`empty-att-${i}`}>
                       <td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td>
                       <td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td>

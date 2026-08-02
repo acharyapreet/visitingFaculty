@@ -190,6 +190,10 @@ export default function MarkAttendanceList() {
     const potentialEarnings = parseFloat(hours) * rate;
 
     const currentMonthlyEarnings = monthlyRecords.reduce((sum, record) => {
+      // Ignore sessions that have already been capped by the backend
+      if (record.is_billable === false || record.is_billable === 0) {
+        return sum;
+      }
       return sum + (parseFloat(record.hours || 0) * parseFloat(record.rate_per_hour || 0));
     }, 0);
 
