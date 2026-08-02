@@ -179,11 +179,24 @@ export default function MarkAttendanceGrid() {
     }, 0);
 
     if (currentMonthlyEarnings + potentialEarnings > MAX_MONTHLY_PAY) {
-      return showModal(
-        "error", 
-        "Payment Limit Exceeded", 
-        `Adding this session (₹${potentialEarnings}) exceeds the maximum monthly limit of ₹${MAX_MONTHLY_PAY.toLocaleString('en-IN')}. Current earnings: ₹${currentMonthlyEarnings.toLocaleString('en-IN')}.`
-      );
+      const remainingPay = MAX_MONTHLY_PAY - currentMonthlyEarnings;
+      const possibleHours = Math.floor(remainingPay / rate);
+
+      // If they logged multiple hours, but there is still budget for at least 1 hour
+      if (diffHours > 1 && possibleHours >= 1) {
+        return showModal(
+          "error", 
+          "Decrease Session Duration", 
+          `Adding a ${diffHours}-hour session exceeds the monthly limit of ₹${MAX_MONTHLY_PAY.toLocaleString('en-IN')}. Please decrease the number of hours. You can log a maximum of ${possibleHours} more hour(s) for this subject.`
+        );
+      } else {
+        // Fallback for when they are fully maxed out or trying to log 1 hour that pushes them over
+        return showModal(
+          "error", 
+          "Payment Limit Exceeded", 
+          `Adding this session (₹${potentialEarnings}) exceeds the maximum monthly limit of ₹${MAX_MONTHLY_PAY.toLocaleString('en-IN')}. Current earnings: ₹${currentMonthlyEarnings.toLocaleString('en-IN')}.`
+        );
+      }
     }
     // -------------------------------------
 

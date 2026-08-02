@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Send, Loader2, CheckCircle2, ChevronUp, ChevronDown } from "lucide-react";
+import { Send, Loader2, CheckCircle2, ChevronUp, ChevronDown, AlertCircle } from "lucide-react";
 import axios from "axios";
 
 export default function MarkAttendanceList() {
@@ -7,7 +7,18 @@ export default function MarkAttendanceList() {
   const [monthlyRecords, setMonthlyRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+
+  // --- CUSTOM MODAL STATE ---
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: "success", 
+    title: "",
+    message: ""
+  });
+
+  const showModal = (type, title, message) => {
+    setModalConfig({ isOpen: true, type, title, message });
+  };
 
   // --- PREVIOUS MONTH OPEN LOGIC ---
   const now = new Date();
@@ -37,8 +48,9 @@ export default function MarkAttendanceList() {
   const [remarks, setRemarks] = useState("");
   const [userId, setUserId] = useState(null);
 
+  // 1. Fetch User & Allocations on Mount
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
       try {
         const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
         const targetId = session.userId;
@@ -47,32 +59,48 @@ export default function MarkAttendanceList() {
         setUserId(targetId);
 
         const headers = { 'Authorization': `Bearer ${session.token}` };
-
-        // Fetch allocations AND current month's history simultaneously
-        const monthName = now.toLocaleString('default', { month: 'long' });
-        const [allocationsRes, monthlyRes] = await Promise.all([
-          axios.get(`http://localhost:5000/api/attendance/my-allocations/${targetId}`, { headers }),
-          axios.get(`http://localhost:5000/api/attendance/monthly/${targetId}?month=${monthName}&year=${currentYear}`, { headers }).catch(() => ({ data: { data: [] } }))
-        ]);
+        const allocationsRes = await axios.get(`http://localhost:5000/api/attendance/my-allocations/${targetId}`, { headers });
 
         if (allocationsRes.data.success) {
           setAllocations(allocationsRes.data.allocations || []);
         }
-        
-        if (monthlyRes.data.success) {
-          setMonthlyRecords(monthlyRes.data.data || []);
-        }
-
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching allocations:", error);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchData();
+    fetchInitialData();
   }, []);
 
-  // --- NEW: CUSTOM WHOLE-HOUR TIME HANDLER ---
+  // 2. Fetch Monthly Records dynamically based on the Selected Date
+  useEffect(() => {
+    const fetchMonthlyData = async () => {
+      if (!userId || !date) return;
+      
+      try {
+        const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+        const headers = { 'Authorization': `Bearer ${session.token}` };
+        
+        const d = new Date(date);
+        const monthName = d.toLocaleString('default', { month: 'long' });
+        const yearStr = d.getFullYear();
+
+        const monthlyRes = await axios.get(`http://localhost:5000/api/attendance/monthly/${userId}?month=${monthName}&year=${yearStr}`, { headers });
+        
+        if (monthlyRes.data.success) {
+          setMonthlyRecords(monthlyRes.data.data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching monthly records:", error);
+        setMonthlyRecords([]); // Fallback to empty if not found
+      }
+    };
+    
+    fetchMonthlyData();
+  }, [date, userId]);
+
+  // --- CUSTOM WHOLE-HOUR TIME HANDLER ---
   const handleTimeChange = (type, direction) => {
     const currentTime = type === 'start' ? startTime : endTime;
     let hour = parseInt(currentTime.split(':')[0], 10);
@@ -108,8 +136,7 @@ export default function MarkAttendanceList() {
 
   const handleSubmit = async () => {
     if (!selectedAllocationId || hours <= 0 || !date) {
-      alert("Please ensure all fields are filled correctly and End Time is after Start Time.");
-      return;
+      return showModal("error", "Missing Information", "Please ensure all fields are filled correctly and End Time is after Start Time.");
     }
 
     // --- DATE VALIDATION (Future Block & Previous Month check) ---
@@ -119,8 +146,7 @@ export default function MarkAttendanceList() {
     todayObj.setHours(0, 0, 0, 0);
 
     if (selectedDateObj > todayObj) {
-      alert("You cannot mark attendance for future dates.");
-      return;
+      return showModal("error", "Invalid Date", "You cannot mark attendance for future dates.");
     }
 
     const isCurrentMonthRec = selectedDateObj.getMonth() === now.getMonth() && selectedDateObj.getFullYear() === now.getFullYear();
@@ -129,13 +155,12 @@ export default function MarkAttendanceList() {
       (selectedDateObj.getFullYear() === now.getFullYear() - 1 && selectedDateObj.getMonth() === 11 && now.getMonth() === 0);
 
     if (!isCurrentMonthRec && !isPreviousMonthRec) {
-        alert("You can only mark attendance for the current and previous month.");
-        return;
+        return showModal("error", "Action Not Allowed", "You can only mark attendance for the current and previous month.");
     }
     // -----------------------------------------------------
 
     // --- MAX PAY CONSTRAINT LOGIC ---
-    const MAX_MONTHLY_PAY = 30000; // Update this to your actual maximum allowed pay
+    const MAX_MONTHLY_PAY = 30000; // Maximum allowed pay
 
     const rate = parseFloat(activeAlloc.rate_per_hour) || 0;
     const potentialEarnings = parseFloat(hours) * rate;
@@ -146,13 +171,28 @@ export default function MarkAttendanceList() {
     }, 0);
 
     if (currentMonthlyEarnings + potentialEarnings > MAX_MONTHLY_PAY) {
-      alert(`Adding this session (₹${potentialEarnings}) exceeds the maximum monthly limit of ₹${MAX_MONTHLY_PAY.toLocaleString('en-IN')}.\n\nCurrent earnings: ₹${currentMonthlyEarnings.toLocaleString('en-IN')}.`);
-      return;
+      const remainingPay = MAX_MONTHLY_PAY - currentMonthlyEarnings;
+      const possibleHours = Math.floor(remainingPay / rate);
+
+      // If they logged multiple hours, but there is still budget for at least 1 hour
+      if (parseFloat(hours) > 1 && possibleHours >= 1) {
+        return showModal(
+          "error", 
+          "Decrease Session Duration", 
+          `Adding a ${hours}-hour session exceeds the monthly limit of ₹${MAX_MONTHLY_PAY.toLocaleString('en-IN')}. Please decrease the number of hours. You can log a maximum of ${possibleHours} more hour(s) for this subject.`
+        );
+      } else {
+        // Fallback for when they are fully maxed out or trying to log 1 hour that pushes them over
+        return showModal(
+          "error", 
+          "Payment Limit Exceeded", 
+          `Adding this session (₹${potentialEarnings}) exceeds the maximum monthly limit of ₹${MAX_MONTHLY_PAY.toLocaleString('en-IN')}. Current earnings: ₹${currentMonthlyEarnings.toLocaleString('en-IN')}.`
+        );
+      }
     }
     // -------------------------------------
 
     setIsSubmitting(true);
-    setSuccessMessage("");
 
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
@@ -183,15 +223,14 @@ export default function MarkAttendanceList() {
       });
 
       if (response.data.success) {
-        setSuccessMessage("Attendance submitted successfully!");
+        showModal("success", "Record Saved", `Attendance successfully submitted for ${date}.`);
         setRemarks(""); 
         // Add the new record to local state so the limit check updates immediately
         setMonthlyRecords(prev => [...prev, response.data.data]);
-        setTimeout(() => setSuccessMessage(""), 4000); 
       }
     } catch (error) {
       console.error("Error submitting attendance:", error);
-      alert(error.response?.data?.message || "Failed to submit attendance. Please try again.");
+      showModal("error", "Submission Failed", error.response?.data?.message || "Failed to submit attendance. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -207,19 +246,12 @@ export default function MarkAttendanceList() {
   }
 
   return (
-    <div className="px-4 py-6 sm:px-8">
+    <div className="px-4 py-6 sm:px-8 relative">
       <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <h2 className="text-lg font-bold text-slate-900">Class Details</h2>
         <p className="mt-1 text-sm text-slate-500">
           Please fill in all required fields for the academic record.
         </p>
-
-        {successMessage && (
-          <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-50 p-3 text-sm font-medium text-green-700 border border-green-200">
-            <CheckCircle2 className="h-5 w-5" />
-            {successMessage}
-          </div>
-        )}
 
         <div className="mt-6 space-y-5">
           {/* Date Picker Restricted by New Rules */}
@@ -340,6 +372,42 @@ export default function MarkAttendanceList() {
           </button>
         </div>
       </div>
+
+      {/* --- CUSTOM MODAL FOR ALERTS (Success/Error) --- */}
+      {modalConfig.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm scale-100 overflow-hidden rounded-2xl bg-white shadow-xl animate-in zoom-in-95 duration-200 text-center">
+            <div className="p-6 text-center">
+              <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${
+                modalConfig.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+              }`}>
+                {modalConfig.type === 'success' ? (
+                  <CheckCircle2 size={28} strokeWidth={2.5} />
+                ) : (
+                  <AlertCircle size={28} strokeWidth={2.5} />
+                )}
+              </div>
+              <h3 className="mb-2 text-xl font-bold text-slate-800">{modalConfig.title}</h3>
+              <p className="text-sm text-slate-500 leading-relaxed px-2 whitespace-pre-line">
+                {modalConfig.message}
+              </p>
+            </div>
+            
+            <div className="border-t border-slate-100 bg-slate-50 p-4">
+              <button
+                onClick={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                className={`w-full rounded-lg px-5 py-2.5 text-sm font-medium text-white transition-colors ${
+                  modalConfig.type === 'success' 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                Okay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
