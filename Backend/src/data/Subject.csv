@@ -224,3 +224,180 @@ C9,9,,TM- 903,Service Marketing Strategies,Odd,2025
 C9,9,,TM-904,Travel Media Management,Odd,2025
 C9,9,,TM-905,Destination Planning and Development,Odd,2025
 C9,9,,TM-906,Business Ethics and Corporate Governance,Odd,2025
+C1,2,,IC-205C,Object Oriented Programming Using C++,Even,2025
+C1,2,,IC-202C,Internet & Web programming,Even,2025
+C1,2,,IC-204B,Digital Computer Organization,Even,2025
+C1,2,,IC-201,Mathematics–II,Even,2025
+C1,2,,IC-206D,Hindi,Even,2025
+C1,2,,IC-209D,OOPs using C++ Lab,Even,2025
+C1,2,,IC-210E,IWP Lab ,Even,2025
+C1,4,,IC-403D,Programming with Java,Even,2025
+C1,4,,IC-402A,Discrete Mathematics,Even,2025
+C1,4,,IC-405A,Unix OS,Even,2025
+C1,4,,IC-401C,Data& Computer Communication,Even,2025
+C1,4,,IC-406D,Entrepreneurship,Even,2025
+C1,4,,IC-408C,Prog with Java Lab (Lab 2),Even,2025
+C1,4,,IC-411C,Unix OS Lab (Lab2),Even,2025
+C1,6,,IC-601,Intro. to Cloud Computing,Even,2025
+C1,6,,IC-602,Human Computer Interface,Even,2025
+C1,6,,IC-604,Operating Systems,Even,2025
+C1,6,,IC-603,System Analysis& design,Even,2025
+C1,6,,IC-606,Android Prog lab ,Even,2025
+C1,8,,IC-801B,Mobile& Wireless Computing,Even,2025
+C1,8,,IC-812A,Soft Computing,Even,2025
+C1,8,,IC-812,Theory of Computation,Even,2025
+C1,8,,IC-811B,Data Mining& Warehousing,Even,2025
+C1,8,,IC-802B,Enterprise Computing Technique,Even,2025
+C1,8,,IC-810D,ECT Lab ,Even,2025
+C1,8,,IC-813,M&WC Lab ,Even,2025
+C2,2,,IT-201,Mathematics-II,Even,2025
+C2,2,,IT-201A,Chemistry and Environment Sciences,Even,2025
+C2,2,,IT-204A,Data & Computer Communication,Even,2025
+C2,2,,IT-206C,C++ Programming,Even,2025
+C2,2,,IT-203A,Digital Computer Organization,Even,2025
+C2,2,,IT-207B ,C++ Programming Lab ,Even,2025
+C2,4,,IT-401,Computer Architecture,Even,2025
+C2,4,,IT-402A,Numerical Analysis & Design,Even,2025
+C2,4,,IT-403B,Database Management Systems,Even,2025
+C2,4,,IT-404,System Programming,Even,2025
+C2,4,,IT-405,Python Programming,Even,2025
+C2,4,,IT-407B,DBMS Lab,Even,2025
+C2,4,,IT-407D,Python Lab ,Even,2025
+C2,6,,IT-601A,Theory of Computation,Even,2025
+C2,6,,IT-602,Software Engineering,Even,2025
+C2,6,,IT-605A,Analysis and Design of Algorithms,Even,2025
+C2,6,,IT-610,Advanced Java,Even,2025
+C2,6,,IT-603A,UNIXOS,Even,2025
+C2,6,,IT-608E,UNIX OS Lab ,Even,2025
+C2,6,,IT-609A,Advanced Java Lab ,Even,2025
+C2,8,,IT-801B,Principles of Programming Language,Even,2025
+C2,8,,IT-802A,Data Mining and Warehousing,Even,2025
+C2,8,,IT-803B,Artificial Intelligence,Even,2025
+C2,8,,IT-804B,Mobile and Wireless Computing,Even,2025
+C2,8,,IT-805A,Enterprise Computing Techniques,Even,2025
+C2,8,,IT-811A,Parallel Computing,Even,2025
+C3,2,,CS-201,Mathematics-II,Even,2025
+C3,2,,CS-202,Chemistry and Environmental Science,Even,2025
+C3,2,,CS-203,Engineering Drawing ,Even,2025
+C3,2,,CS-204,Digital Computer Organization,Even,2025
+C3,2,,CS-205,Object Oriented Programming using C++,Even,2025
+C3,2,,CS-206,C++Programming Lab,Even,2025
+C3,2,,CS-207,Engineering Drawing Lab,Even,2025
+C4,2,,IM-203,Cost Accounting,Even,2025
+C4,2,,IM-204A,Business Mathematics-II,Even,2025
+C4,2,,IM-210B,Programming Using C++,Even,2025
+C4,2,,IM-214,Business Law,Even,2025
+C4,2,,IM-217,Marketing Management,Even,2025
+C4,2,,IM-219A,Business Communication and Personality Development,Even,2025
+C4,4,,IM-406B,Macro Economics,Even,2025
+C4,4,,IM-414,Financial Management-I,Even,2025
+C4,4,,IM-416A,Business Statistics-II,Even,2025
+C4,4,,IM-401D,Marketing Strategies,Even,2025
+C4,4,,IM-420,Purchase and Materials Management,Even,2025
+C4,4,,IM-421,E-Business Fundamentals,Even,2025
+C4,6,,IM-602B,Research Methodology,Even,2025
+C4,6,,IM-604B,Indirect Taxes,Even,2025
+C4,6,,IM-603A,Forecasting Techniques,Even,2025
+C4,6,,IM-601E,Operations Research,Even,2025
+C4,6,,IM-613,Business Environment,Even,2025
+C4,6,,IM-606,Project Management,Even,2025
+C4,8,Core,IM-801B,Core: Decision Making Skills,Even,2025
+C4,8,MA,IM-815MA,MA: Product & Brand Mgt. ,Even,2025
+C4,8,MA,IM-816MA,MA: Strategies & Modelling in Marketing,Even,2025
+C4,8,MA,IM-817MA,MA: Service Marketing,Even,2025
+C4,8,FA,IM-815FA,FA: International Finance ,Even,2025
+C4,8,FA,IM-816FA,FA: Project Finance ,Even,2025
+C4,8,FA,IM-818FA,FA: Corporate Taxation,Even,2025
+C4,8,FB,IM-816FB,FB- Bank Management,Even,2025
+C4,8,FB,IM-820FB,FB- Corporate Valuation and Restructuring,Even,2025
+C4,8,FB,IM-821FB,FB- Financial Planning and wealth Management,Even,2025
+C4,8,HA,IM-815HA,HA: OD,Even,2025
+C4,8,HA,IM-816HA,HA: Performance Planning & Appraisal,Even,2025
+C4,8,HA,IM-817HA,HA: IR and Labour Laws ,Even,2025
+C4,8,BA,IM-810BA,BA: Digital Analytics ,Even,2025
+C4,8,BA,IM-811BA,BA: Predictive Modeling and Pattern Discovery ,Even,2025
+C4,8,BA,IM-812BA,BA: Big Data Technologies,Even,2025
+C5,2,,FT-201,Principles of Marketing Mgt.,Even,2025
+C5,2,,FT-202A,Interpersonal & Org. Behaviour,Even,2025
+C5,2,,FT-203B,Business Economics (Macro),Even,2025
+C5,2,,FT-210A,Research Methodology,Even,2025
+C5,2,,FT-205,Financial Management,Even,2025
+C5,2,,FT-215,Business accounting II,Even,2025
+C5,2,,FT-209A,E-Business and Database Management ,Even,2025
+C5,2,,FT-216,Lab: Research Tools,Even,2025
+C5,4,Core,FT-401C,Business Ethics and Sustainable Development,Even,2025
+C5,4,MA,FT-416MA,Product and Brand Management,Even,2025
+C5,4,MA,FT-405MA,Marketing Strategies,Even,2025
+C5,4,MA,FT-418MA,Service Marketing,Even,2025
+C5,4,FA,FT-416FA,International Finance,Even,2025
+C5,4,FA,FT-419FA,Tax Taxation for Managers,Even,2025
+C5,4,FA,FT-413FA,Project Management & Project Finance,Even,2025
+C5,4,HA,FT-416HA,Performance Planning and Appraisal,Even,2025
+C5,4,HA,FT-417HA,Industrial Relations and Labour Law,Even,2025
+C5,4,HA,FT-418HA,Organization Development,Even,2025
+C5,4,FB,FT-416FB,Bank Management,Even,2025
+C5,4,FB,FT-405FB,Corporate Valuation & restructuring ,Even,2025
+C5,4,FB,FT-406FB,Financial Planning and Wealth Management,Even,2025
+C5,4,BA,FT-415BA,Predictive Modeling and Pattern Discovery ,Even,2025
+C5,4,BA,FT-416BA,Digital Analytics,Even,2025
+C5,4,BA,FT-417BA,Big Data Technologies,Even,2025
+C6,2,,APR-201,Media Planning,Even,2025
+C6,2,,APR-201A,Public Relations,Even,2025
+C6,2,,APR-202A,Advertising & PR Research,Even,2025
+C6,2,,APR-203,Creative Writing,Even,2025
+C6,2,,APR-206A,Digital Marketing,Even,2025
+C6,2,,APR-209,Mass Communication,Even,2025
+C6,2,,APR-212,Client Servicing & Account Planning,Even,2025
+C6,4,,APR-401A,Rural & Retail Marketing,Even,2025
+C6,4,,APR-402B,Marketing Strategies,Even,2025
+C6,4,,APR-403,Direct Marketing & Event Management,Even,2025
+C6,4,,APR-408,Brand Management,Even,2025
+C6,4,,APR-415,Audio-Visual Production,Even,2025
+C6,4,,APR-417,BCPD,Even,2025
+C7,2,,ES-201A,Social Entrepreneurship,Even,2025
+C7,2,,ES-202B,Business Ethics,Even,2025
+C7,2,,ES-203A,Fundamentals of Finance-II ,Even,2025
+C7,2,,ES-205A,Service Management,Even,2025
+C7,2,,ES-208A,Emerging Trends in Business Environment,Even,2025
+C7,2,,ES-211,Human Resource Management,Even,2025
+C7,4,,ES-401A,Business Legislation,Even,2025
+C7,4,,ES-404A,International Business,Even,2025
+C7,4,,ES-408A,Logistics & Supply Chain Management,Even,2025
+C7,4,,ES-410,Management Information Systems,Even,2025
+C7,4,,ES-411,Business Analytics,Even,2025
+C7,4,,ES-412,Business Model Development,Even,2025
+C8,2,Core,IB-201N,Financial Accounting- II,Even,2025
+C8,2,Core,IB-207N,Management Accounting- I,Even,2025
+C8,2,Core,IB-203N,Business Law,Even,2025
+C8,2,Core,IB-208N,Human Resource Management,Even,2025
+C8,2,Elective-BCPD,IB-209NE,Business Communication and Personality Development,Even,2025
+C8,2,Elective-BusEnviron,IB-210NE,Business Environment,Even,2025
+C8,2,Elective-FinLiteracy,IB-211NE,Financial Literacy,Even,2025
+C8,4,Core,IB-401N,Corporate Accounting – I,Even,2025
+C8,4,Core,IB-402N,Indirect Taxes,Even,2025
+C8,4,Core,IB-403N,Company Law,Even,2025
+C8,4,Core,IB-404N,Entrepreneurship,Even,2025
+C8,4,Elective-AISP,IB-405NE,Accounting Information System & Packages (AISP),Even,2025
+C8,4,Elective-OR,IB-406NE,Operations Research,Even,2025
+C8,4,Elective-SecPractice,IB-407NE,Secretarial Practice,Even,2025
+C8,6,Core,IB-601N,Advanced Accounting ,Even,2025
+C8,6,Core,IB-602N,Financial Management-II,Even,2025
+C8,6,Elective-IB,IB-603NE,International Business ,Even,2025
+C8,6,Elective-Auditing,IB-604NE,Auditing ,Even,2025
+C8,6,Elective-PublicFin,IB-605NA,Public Finance And Treasury,Even,2025
+C8,6,Elective-CorporateTax,IB-606NE,Corporate Tax ,Even,2025
+C8,8,Core,IB-801N,Strategic Financial Management,Even,2025
+C8,8,Core,IB-802N,Entrepreneurial Finance,Even,2025
+C8,8,Elective-IR&LabourLaw,IB-804NE,IR and Labour Law,Even,2025
+C9,6,,TM-601,Business Environment,Even,2025
+C9,6,,TM-602,Tourism Resources,Even,2025
+C9,6,,TM-603,Air Ticketing and Fare Calculation,Even,2025
+C9,6,,TM-604,Business Statistics,Even,2025
+C9,6,,TM-605,Event Management,Even,2025
+C9,6,,TM-608,Travel Documentations,Even,2025
+C9,8,,TM-801,Entrepreneurship,Even,2025
+C9,8,,TM-809,Fundamentals of Financial Management,Even,2025
+C9,8,,TM-803,Consumer Behaviour,Even,2025
+C9,8,,TM-804,Eco Tourism ,Even,2025
+C9,8,,TM-805,Rural Tourism and Handicrafts,Even,2025
+C9,8,,TM-808,International Management in Tourism,Even,2025
