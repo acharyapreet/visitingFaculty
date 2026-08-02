@@ -39,7 +39,7 @@ export default function MarkAttendanceGrid() {
   const monthName = currentDate.toLocaleString('default', { month: 'long' });
   const monthIndex = currentDate.getMonth();
 
-  // --- NEW: GRACE PERIOD & DATE LOGIC ---
+  // --- UPDATED: PREVIOUS MONTH OPEN LOGIC ---
   const actualCurrentDate = new Date();
   const actualYear = actualCurrentDate.getFullYear();
   const actualMonth = actualCurrentDate.getMonth();
@@ -52,17 +52,14 @@ export default function MarkAttendanceGrid() {
   const isPreviousMonth = (year === actualYear && monthIndex === actualMonth - 1) || 
                           (year === actualYear - 1 && monthIndex === 11 && actualMonth === 0);
   
-  // Grace period: Allowed to edit previous month if today is <= 5
-  const isWithinGracePeriod = actualDay <= 5;
-  
   // Determines if the ENTIRE viewed month is open for editing
-  const canEditMonth = isCurrentMonth || (isPreviousMonth && isWithinGracePeriod);
+  const canEditMonth = isCurrentMonth || isPreviousMonth;
 
   // Function to check if a SPECIFIC day cell should be clickable/editable
   const isDayAllowed = (day) => {
     if (!day) return false;
     if (isCurrentMonth) return day <= actualDay; // Can't mark future days in current month
-    if (isPreviousMonth) return isWithinGracePeriod; // Can mark days in previous month IF within grace period
+    if (isPreviousMonth) return true; // All days in the previous month are open
     return false; // All other past/future months are locked
   };
 
@@ -141,7 +138,7 @@ export default function MarkAttendanceGrid() {
 
   // --- SUBMIT ATTENDANCE LOGIC ---
   const handleSubmit = async () => {
-    if (!canEditMonth) return showModal("error", "Action Not Allowed", "This month is locked. You can only mark attendance for the current month, or the previous month up to the 5th.");
+    if (!canEditMonth) return showModal("error", "Action Not Allowed", "This month is locked. You can only mark attendance for the current and previous month.");
     if (!isDayAllowed(selectedDay)) return showModal("error", "Invalid Date", "You cannot mark attendance for future or locked dates.");
     if (!selectedAllocationId) return showModal("error", "Missing Information", "Please select a subject before submitting.");
     
@@ -385,7 +382,7 @@ export default function MarkAttendanceGrid() {
               <AlertCircle className="h-4 w-4 shrink-0" />
               {isCurrentMonth && selectedDay > actualDay 
                 ? "You cannot mark attendance for future dates." 
-                : "This date is past the editing grace period and is now locked."}
+                : "This date is from a locked past month. Only the current and previous months are editable."}
             </div>
           )}
 

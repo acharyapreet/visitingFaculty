@@ -9,23 +9,20 @@ export default function MarkAttendanceList() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // --- NEW: GRACE PERIOD & DATE LOGIC ---
+  // --- UPDATED: PREVIOUS MONTH OPEN LOGIC ---
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth(); // 0-indexed
   const currentDateNum = now.getDate();
 
-  // Determine minimum allowed date based on the 5-day grace period rule
+  // The minimum allowed date is now the 1st of the previous month, regardless of what day today is.
   let minYear = currentYear;
-  let minMonth = currentMonth;
+  let minMonth = currentMonth - 1;
 
-  // If today is the 5th or earlier, allow selecting dates from the previous month
-  if (currentDateNum <= 5) {
-    minMonth = currentMonth - 1;
-    if (minMonth < 0) {
-      minMonth = 11;
-      minYear -= 1;
-    }
+  // Handle January (0) wrapping back to December (11) of the previous year
+  if (minMonth < 0) {
+    minMonth = 11;
+    minYear -= 1;
   }
 
   const minDate = `${minYear}-${String(minMonth + 1).padStart(2, '0')}-01`;
@@ -99,7 +96,7 @@ export default function MarkAttendanceList() {
       return;
     }
 
-    // --- DATE VALIDATION (Future Block & Grace Period) ---
+    // --- DATE VALIDATION (Future Block & Previous Month check) ---
     const selectedDateObj = new Date(date);
     selectedDateObj.setHours(0, 0, 0, 0);
     const todayObj = new Date(now);
@@ -115,16 +112,14 @@ export default function MarkAttendanceList() {
       (selectedDateObj.getFullYear() === now.getFullYear() && selectedDateObj.getMonth() === now.getMonth() - 1) ||
       (selectedDateObj.getFullYear() === now.getFullYear() - 1 && selectedDateObj.getMonth() === 11 && now.getMonth() === 0);
 
-    if (!isCurrentMonthRec) {
-      if (!isPreviousMonthRec || now.getDate() > 5) {
-        alert("You can only mark attendance for the current month, or the previous month up to the 5th day of the current month.");
+    if (!isCurrentMonthRec && !isPreviousMonthRec) {
+        alert("You can only mark attendance for the current and previous month.");
         return;
-      }
     }
     // -----------------------------------------------------
 
     // --- MAX PAY CONSTRAINT LOGIC ---
-    const MAX_MONTHLY_PAY = 25000; // Update this to your actual maximum allowed pay
+    const MAX_MONTHLY_PAY = 30000; // Update this to your actual maximum allowed pay
 
     const rate = parseFloat(activeAlloc.rate_per_hour) || 0;
     const potentialEarnings = parseFloat(hours) * rate;
@@ -211,7 +206,7 @@ export default function MarkAttendanceList() {
         )}
 
         <div className="mt-6 space-y-5">
-          {/* Date Picker Restricted by Grace Period Rules */}
+          {/* Date Picker Restricted by New Rules */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Date</label>
             <input
