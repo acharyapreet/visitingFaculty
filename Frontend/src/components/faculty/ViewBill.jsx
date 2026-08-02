@@ -153,9 +153,15 @@ export default function ViewBill({ facultyUserId }) {
     fetchMonthlyBill();
   }, [selectedMonth, selectedYear, facultyUserId]);
 
+  // --- NEW: Filter out records that are marked as non-billable (exceeded 30k limit) ---
+  const billableRecords = useMemo(() => {
+    return records.filter(r => r.is_billable !== false && r.is_billable !== 0);
+  }, [records]);
+
   const aggregatedRecords = useMemo(() => {
     const grouped = {};
-    records.forEach(r => {
+    // Iterate over billableRecords ONLY
+    billableRecords.forEach(r => {
       const key = `${r.course_name}_${r.semester_number}_${r.subject_code}_${r.rate_per_hour}`;
       if (!grouped[key]) {
         grouped[key] = {
@@ -178,7 +184,7 @@ export default function ViewBill({ facultyUserId }) {
       grouped[key].amount += (hrs * grouped[key].rate);
     });
     return Object.values(grouped);
-  }, [records, facultyInfo.course, facultyInfo.semester]);
+  }, [billableRecords, facultyInfo.course, facultyInfo.semester]);
 
   const totalAmount = useMemo(() => {
     return aggregatedRecords.reduce((sum, r) => sum + r.amount, 0);
@@ -206,6 +212,9 @@ export default function ViewBill({ facultyUserId }) {
 
   const monthShort = selectedMonth.substring(0, 3).toUpperCase();
   const billReferenceCode = `VFB/${selectedYear}/${monthShort}/001`;
+
+  // Display a warning if some records were excluded from this bill
+  const excludedRecordsCount = records.length - billableRecords.length;
 
   return (
     <div className="pb-12 print:pb-0 print:bg-white">
@@ -295,6 +304,16 @@ export default function ViewBill({ facultyUserId }) {
 
         {/* MOBILE RESPONSIVE FIGMA CARD VIEW */}
         <div className={`max-w-md mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-5 print-hide ${isFullDocumentView ? 'hidden' : 'block lg:hidden'}`}>
+          
+          {excludedRecordsCount > 0 && (
+            <div className="rounded-xl bg-orange-50 border border-orange-200 p-3 mb-4">
+              <p className="text-xs font-semibold text-orange-800">Payment Cap Applied</p>
+              <p className="text-[11px] text-orange-700 mt-1">
+                {excludedRecordsCount} attendance session(s) were excluded from this bill as they exceed the ₹30,000 maximum limit.
+              </p>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <span className="px-3 py-1 bg-indigo-50 text-[#004DD2] text-xs font-semibold rounded-full">
               PREVIEW MODE
@@ -316,7 +335,7 @@ export default function ViewBill({ facultyUserId }) {
               <p className="text-xs text-slate-500 truncate">{facultyInfo.email || "No email provided"}</p>
             </div>
             <div>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Hours</p>
+              <p className="text-[11px] font-semibold text-slate-400 uppercase">Total Billable Hours</p>
               <p className="text-sm font-semibold text-slate-800 mt-0.5">{totalHours} Hours</p>
             </div>
           </div>
@@ -340,7 +359,7 @@ export default function ViewBill({ facultyUserId }) {
 
           <div className="space-y-3 pt-2">
             <button 
-              disabled={records.length === 0}
+              disabled={billableRecords.length === 0}
               onClick={handleDownloadPDF}
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-3 text-sm font-semibold text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
             >
@@ -380,13 +399,13 @@ export default function ViewBill({ facultyUserId }) {
                 <Loader2 className="mb-3 h-8 w-8 animate-spin text-[#004DD2]" />
                 <p>Generating official document...</p>
               </div>
-            ) : records.length === 0 ? (
+            ) : billableRecords.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-32 text-center text-slate-500 print-hide">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-slate-100 bg-slate-50">
                   <Calendar className="h-8 w-8 text-slate-400" />
                 </div>
-                <p className="text-lg font-semibold text-slate-900">No Attendance Records Found</p>
-                <p className="mt-1">You have no marked attendance for {selectedMonth} {selectedYear}.</p>
+                <p className="text-lg font-semibold text-slate-900">No Billable Records Found</p>
+                <p className="mt-1 max-w-md">You have no marked attendance for {selectedMonth} {selectedYear}, or all marked sessions exceeded the ₹30,000 maximum limit.</p>
               </div>
             ) : (
               <div className="p-4 sm:p-8 print:p-0">
@@ -621,7 +640,8 @@ export default function ViewBill({ facultyUserId }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {records.map((r, i) => (
+                        {/* ONLY Map billable records for the official PDF */}
+                        {billableRecords.map((r, i) => (
                           <tr key={i}>
                             <td className="border border-black p-2.5">{formatDate(r.attendance_date)}</td>
                             <td className="border border-black p-2.5 font-semibold">{r.subject_code}</td>
@@ -633,7 +653,6 @@ export default function ViewBill({ facultyUserId }) {
                       </tbody>
                     </table>
 
-                    {/* --- UPDATED: PAGE 2 SIGNATURE SECTION WITH GRID SPACING & NO WRAP --- */}
                     <div className="grid grid-cols-3 gap-4 font-bold text-[12px] whitespace-nowrap mt-20 px-4" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                       <div className="text-left">
                         <p>Name & Sign. of Visiting Faculty</p>
@@ -682,7 +701,7 @@ export default function ViewBill({ facultyUserId }) {
         {/* Desktop Download Button Footer */}
         <div className="mt-4 hidden lg:flex justify-end print-hide">
           <button 
-            disabled={records.length === 0}
+            disabled={billableRecords.length === 0}
             onClick={handleDownloadPDF}
             className="flex items-center gap-2 rounded-lg bg-[#004DD2] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
           >

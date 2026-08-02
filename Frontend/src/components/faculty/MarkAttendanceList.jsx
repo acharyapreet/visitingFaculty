@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Send, Loader2, CheckCircle2, ChevronUp, ChevronDown, AlertCircle } from "lucide-react";
+import { Send, Loader2, CheckCircle2, ChevronUp, ChevronDown, AlertCircle, AlertTriangle } from "lucide-react";
 import axios from "axios";
 
 export default function MarkAttendanceList() {
@@ -20,17 +20,22 @@ export default function MarkAttendanceList() {
     setModalConfig({ isOpen: true, type, title, message });
   };
 
+  // New Cap Warning State
+  const [capWarning, setCapWarning] = useState({
+    isOpen: false,
+    payload: null,
+    details: null
+  });
+
   // --- PREVIOUS MONTH OPEN LOGIC ---
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth(); // 0-indexed
   const currentDateNum = now.getDate();
 
-  // The minimum allowed date is now the 1st of the previous month, regardless of what day today is.
   let minYear = currentYear;
   let minMonth = currentMonth - 1;
 
-  // Handle January (0) wrapping back to December (11) of the previous year
   if (minMonth < 0) {
     minMonth = 11;
     minYear -= 1;
@@ -93,7 +98,7 @@ export default function MarkAttendanceList() {
         }
       } catch (error) {
         console.error("Error fetching monthly records:", error);
-        setMonthlyRecords([]); // Fallback to empty if not found
+        setMonthlyRecords([]); 
       }
     };
     
@@ -116,7 +121,6 @@ export default function MarkAttendanceList() {
     if (type === 'end') setEndTime(newTime);
   };
 
-  // Auto-calculate hours
   const calculateHours = () => {
     if (!startTime || !endTime) return 0;
     const [sHours, sMinutes] = startTime.split(':').map(Number);
@@ -131,15 +135,38 @@ export default function MarkAttendanceList() {
 
   const hours = calculateHours();
 
-  // Find the currently selected allocation to auto-fill the display data
   const activeAlloc = allocations.find(a => a.allocation_id.toString() === selectedAllocationId);
+
+  const processSubmission = async (payload) => {
+    setIsSubmitting(true);
+    setCapWarning({ isOpen: false, payload: null, details: null });
+    try {
+      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+      const response = await axios.post("http://localhost:5000/api/attendance/", payload, {
+        headers: { 
+          'Authorization': `Bearer ${session.token}`,
+          'Content-Type': 'application/json' 
+        }
+      });
+
+      if (response.data.success) {
+        showModal("success", "Record Saved", `Attendance successfully submitted for ${payload.attendance_date}.`);
+        setRemarks(""); 
+        setMonthlyRecords(prev => [...prev, response.data.data]);
+      }
+    } catch (error) {
+      console.error("Error submitting attendance:", error);
+      showModal("error", "Submission Failed", error.response?.data?.message || "Failed to submit attendance. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!selectedAllocationId || hours <= 0 || !date) {
       return showModal("error", "Missing Information", "Please ensure all fields are filled correctly and End Time is after Start Time.");
     }
 
-    // --- DATE VALIDATION (Future Block & Previous Month check) ---
     const selectedDateObj = new Date(date);
     selectedDateObj.setHours(0, 0, 0, 0);
     const todayObj = new Date(now);
@@ -157,83 +184,44 @@ export default function MarkAttendanceList() {
     if (!isCurrentMonthRec && !isPreviousMonthRec) {
         return showModal("error", "Action Not Allowed", "You can only mark attendance for the current and previous month.");
     }
-    // -----------------------------------------------------
 
-    // --- MAX PAY CONSTRAINT LOGIC ---
-    const MAX_MONTHLY_PAY = 30000; // Maximum allowed pay
-
+    const MAX_MONTHLY_PAY = 30000; 
     const rate = parseFloat(activeAlloc.rate_per_hour) || 0;
     const potentialEarnings = parseFloat(hours) * rate;
 
-    // Calculate how much they have already made this month
     const currentMonthlyEarnings = monthlyRecords.reduce((sum, record) => {
       return sum + (parseFloat(record.hours || 0) * parseFloat(record.rate_per_hour || 0));
     }, 0);
 
+    const d = new Date(date);
+    const monthName = d.toLocaleString('default', { month: 'long' });
+    const yearStr = d.getFullYear();
+
+    const payload = {
+      user_id: userId,
+      course_id: activeAlloc.course_id,
+      semester_id: activeAlloc.semester_id,
+      subject_id: activeAlloc.subject_id,
+      attendance_date: date,
+      start_time: `${startTime}:00`,
+      end_time: `${endTime}:00`,
+      hours: parseFloat(hours),
+      month: monthName,
+      year: yearStr,
+      status: "Pending",
+      remarks: remarks
+    };
+
     if (currentMonthlyEarnings + potentialEarnings > MAX_MONTHLY_PAY) {
-      const remainingPay = MAX_MONTHLY_PAY - currentMonthlyEarnings;
-      const possibleHours = Math.floor(remainingPay / rate);
-
-      // If they logged multiple hours, but there is still budget for at least 1 hour
-      if (parseFloat(hours) > 1 && possibleHours >= 1) {
-        return showModal(
-          "error", 
-          "Decrease Session Duration", 
-          `Adding a ${hours}-hour session exceeds the monthly limit of ₹${MAX_MONTHLY_PAY.toLocaleString('en-IN')}. Please decrease the number of hours. You can log a maximum of ${possibleHours} more hour(s) for this subject.`
-        );
-      } else {
-        // Fallback for when they are fully maxed out or trying to log 1 hour that pushes them over
-        return showModal(
-          "error", 
-          "Payment Limit Exceeded", 
-          `Adding this session (₹${potentialEarnings}) exceeds the maximum monthly limit of ₹${MAX_MONTHLY_PAY.toLocaleString('en-IN')}. Current earnings: ₹${currentMonthlyEarnings.toLocaleString('en-IN')}.`
-        );
-      }
-    }
-    // -------------------------------------
-
-    setIsSubmitting(true);
-
-    try {
-      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-      const d = new Date(date);
-      const monthName = d.toLocaleString('default', { month: 'long' });
-      const yearStr = d.getFullYear();
-
-      const payload = {
-        user_id: userId,
-        course_id: activeAlloc.course_id,
-        semester_id: activeAlloc.semester_id,
-        subject_id: activeAlloc.subject_id,
-        attendance_date: date,
-        start_time: `${startTime}:00`,
-        end_time: `${endTime}:00`,
-        hours: parseFloat(hours),
-        month: monthName,
-        year: yearStr,
-        status: "Pending",
-        remarks: remarks
-      };
-
-      const response = await axios.post("http://localhost:5000/api/attendance/", payload, {
-        headers: { 
-          'Authorization': `Bearer ${session.token}`,
-          'Content-Type': 'application/json' 
-        }
+      setCapWarning({
+        isOpen: true,
+        payload: payload,
+        details: { potentialEarnings, currentMonthlyEarnings }
       });
-
-      if (response.data.success) {
-        showModal("success", "Record Saved", `Attendance successfully submitted for ${date}.`);
-        setRemarks(""); 
-        // Add the new record to local state so the limit check updates immediately
-        setMonthlyRecords(prev => [...prev, response.data.data]);
-      }
-    } catch (error) {
-      console.error("Error submitting attendance:", error);
-      showModal("error", "Submission Failed", error.response?.data?.message || "Failed to submit attendance. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+      return;
     }
+
+    processSubmission(payload);
   };
 
   if (isLoading) {
@@ -372,6 +360,44 @@ export default function MarkAttendanceList() {
           </button>
         </div>
       </div>
+
+      {/* --- CUSTOM CAP EXCEEDED CONFIRMATION MODAL --- */}
+      {capWarning.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md scale-100 overflow-hidden rounded-2xl bg-white shadow-xl animate-in zoom-in-95 duration-200 text-center">
+            <div className="p-6">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-orange-100 text-orange-600">
+                <AlertTriangle size={28} strokeWidth={2.5} />
+              </div>
+              <h3 className="mb-2 text-xl font-bold text-slate-800">Payment Limit Exceeded</h3>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                Adding this session (₹{capWarning.details?.potentialEarnings?.toLocaleString('en-IN')}) exceeds the maximum monthly limit of ₹30,000. Current earnings: ₹{capWarning.details?.currentMonthlyEarnings?.toLocaleString('en-IN')}.
+              </p>
+              <div className="mt-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-xs text-orange-800 font-medium">
+                You can still submit this record for academic tracking, but the excess hours will be marked as non-billable and will not be paid.
+              </div>
+              <p className="text-sm font-semibold text-slate-700 mt-4">Do you want to proceed?</p>
+            </div>
+            
+            <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 p-4">
+              <button
+                onClick={() => setCapWarning({ isOpen: false, payload: null, details: null })}
+                disabled={isSubmitting}
+                className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => processSubmission(capWarning.payload)}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
+              >
+                {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : "Yes, Submit as Unpaid"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- CUSTOM MODAL FOR ALERTS (Success/Error) --- */}
       {modalConfig.isOpen && (

@@ -35,45 +35,43 @@ export default function MarkAttendanceGrid() {
     label: ""
   });
 
+  // New Cap Warning State
+  const [capWarning, setCapWarning] = useState({
+    isOpen: false,
+    payload: null,
+    details: null
+  });
+
   const year = currentDate.getFullYear();
   const monthName = currentDate.toLocaleString('default', { month: 'long' });
   const monthIndex = currentDate.getMonth();
 
-  // --- UPDATED: PREVIOUS MONTH OPEN LOGIC ---
   const actualCurrentDate = new Date();
   const actualYear = actualCurrentDate.getFullYear();
   const actualMonth = actualCurrentDate.getMonth();
   const actualDay = actualCurrentDate.getDate();
 
-  // Check if viewed month is exactly the current month
   const isCurrentMonth = year === actualYear && monthIndex === actualMonth;
-  
-  // Check if viewed month is exactly the previous month (handles Dec -> Jan rollover)
   const isPreviousMonth = (year === actualYear && monthIndex === actualMonth - 1) || 
                           (year === actualYear - 1 && monthIndex === 11 && actualMonth === 0);
   
-  // Determines if the ENTIRE viewed month is open for editing
   const canEditMonth = isCurrentMonth || isPreviousMonth;
 
-  // Function to check if a SPECIFIC day cell should be clickable/editable
   const isDayAllowed = (day) => {
     if (!day) return false;
-    if (isCurrentMonth) return day <= actualDay; // Can't mark future days in current month
-    if (isPreviousMonth) return true; // All days in the previous month are open
-    return false; // All other past/future months are locked
+    if (isCurrentMonth) return day <= actualDay; 
+    if (isPreviousMonth) return true; 
+    return false; 
   };
 
-  // Helper to trigger the alert modal
   const showModal = (type, title, message) => {
     setModalConfig({ isOpen: true, type, title, message });
   };
 
-  // Load Initial Data
   useEffect(() => {
     const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
     if (session.userId) setUserId(session.userId);
     
-    // Fetch Allocations
     if (session.userId) {
       axios.get(`http://localhost:5000/api/attendance/my-allocations/${session.userId}`, {
         headers: { 'Authorization': `Bearer ${session.token}` }
@@ -83,7 +81,6 @@ export default function MarkAttendanceGrid() {
     }
   }, []);
 
-  // Fetch Monthly Data
   const fetchMonthlyRecords = async () => {
     if (!userId) return;
     try {
@@ -101,7 +98,6 @@ export default function MarkAttendanceGrid() {
     fetchMonthlyRecords();
   }, [userId, monthName, year]);
 
-  // Calendar Logic
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const firstDayOfMonth = new Date(year, monthIndex, 1).getDay();
 
@@ -110,7 +106,6 @@ export default function MarkAttendanceGrid() {
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
 
-  // Group records by day
   const eventsByDay = useMemo(() => {
     const grouped = {};
     monthlyRecords.forEach(record => {
@@ -136,9 +131,8 @@ export default function MarkAttendanceGrid() {
     setSelectedDay(1);
   };
 
-  // --- CUSTOM WHOLE-HOUR TIME HANDLER ---
   const handleTimeChange = (type, direction) => {
-    if (!isDayAllowed(selectedDay)) return; // Prevent change if date is locked
+    if (!isDayAllowed(selectedDay)) return;
 
     const currentTime = type === 'start' ? startTime : endTime;
     let hour = parseInt(currentTime.split(':')[0], 10);
@@ -154,82 +148,17 @@ export default function MarkAttendanceGrid() {
     if (type === 'end') setEndTime(newTime);
   };
 
-  // --- SUBMIT ATTENDANCE LOGIC ---
-  const handleSubmit = async () => {
-    if (!canEditMonth) return showModal("error", "Action Not Allowed", "This month is locked. You can only mark attendance for the current and previous month.");
-    if (!isDayAllowed(selectedDay)) return showModal("error", "Invalid Date", "You cannot mark attendance for future or locked dates.");
-    if (!selectedAllocationId) return showModal("error", "Missing Information", "Please select a subject before submitting.");
-    
-    const sTime = new Date(`1970-01-01T${startTime}`);
-    const eTime = new Date(`1970-01-01T${endTime}`);
-    const diffHours = (eTime - sTime) / 1000 / 60 / 60;
-    
-    if (diffHours <= 0) return showModal("error", "Invalid Time", "End time must be after the start time.");
-
-    // --- MAX PAY CONSTRAINT LOGIC ---
-    const MAX_MONTHLY_PAY = 30000; // Maximum allowed pay
-    
-    const activeAlloc = allocations.find(a => a.allocation_id.toString() === selectedAllocationId);
-    const rate = parseFloat(activeAlloc.rate_per_hour) || 0;
-    const potentialEarnings = diffHours * rate;
-
-    // Calculate how much they have already made this month
-    const currentMonthlyEarnings = monthlyRecords.reduce((sum, record) => {
-      return sum + (parseFloat(record.hours || 0) * parseFloat(record.rate_per_hour || 0));
-    }, 0);
-
-    if (currentMonthlyEarnings + potentialEarnings > MAX_MONTHLY_PAY) {
-      const remainingPay = MAX_MONTHLY_PAY - currentMonthlyEarnings;
-      const possibleHours = Math.floor(remainingPay / rate);
-
-      // If they logged multiple hours, but there is still budget for at least 1 hour
-      if (diffHours > 1 && possibleHours >= 1) {
-        return showModal(
-          "error", 
-          "Decrease Session Duration", 
-          `Adding a ${diffHours}-hour session exceeds the monthly limit of ₹${MAX_MONTHLY_PAY.toLocaleString('en-IN')}. Please decrease the number of hours. You can log a maximum of ${possibleHours} more hour(s) for this subject.`
-        );
-      } else {
-        // Fallback for when they are fully maxed out or trying to log 1 hour that pushes them over
-        return showModal(
-          "error", 
-          "Payment Limit Exceeded", 
-          `Adding this session (₹${potentialEarnings}) exceeds the maximum monthly limit of ₹${MAX_MONTHLY_PAY.toLocaleString('en-IN')}. Current earnings: ₹${currentMonthlyEarnings.toLocaleString('en-IN')}.`
-        );
-      }
-    }
-    // -------------------------------------
-
+  const processSubmission = async (payload) => {
     setIsSubmitting(true);
+    setCapWarning({ isOpen: false, payload: null, details: null });
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-      
-      const submitDate = new Date(year, monthIndex, selectedDay);
-      const dateString = submitDate.getFullYear() + "-" + 
-        String(submitDate.getMonth() + 1).padStart(2, '0') + "-" + 
-        String(submitDate.getDate()).padStart(2, '0');
-
-      const payload = {
-        user_id: userId,
-        course_id: activeAlloc.course_id,
-        semester_id: activeAlloc.semester_id,
-        subject_id: activeAlloc.subject_id,
-        attendance_date: dateString,
-        start_time: `${startTime}:00`,
-        end_time: `${endTime}:00`,
-        hours: diffHours.toFixed(2),
-        month: monthName,
-        year: year,
-        status: "Pending",
-        remarks: remarks
-      };
-
       const res = await axios.post("http://localhost:5000/api/attendance/", payload, {
         headers: { 'Authorization': `Bearer ${session.token}` }
       });
 
       if (res.data.success) {
-        showModal("success", "Record Saved", `Attendance successfully submitted for ${dateString}.`);
+        showModal("success", "Record Saved", `Attendance successfully submitted for ${payload.attendance_date}.`);
         setMonthlyRecords(prev => [...prev, res.data.data]);
         setRemarks("");
       }
@@ -241,7 +170,58 @@ export default function MarkAttendanceGrid() {
     }
   };
 
-  // --- BULK DELETE LOGIC ---
+  const handleSubmit = async () => {
+    if (!canEditMonth) return showModal("error", "Action Not Allowed", "This month is locked. You can only mark attendance for the current and previous month.");
+    if (!isDayAllowed(selectedDay)) return showModal("error", "Invalid Date", "You cannot mark attendance for future or locked dates.");
+    if (!selectedAllocationId) return showModal("error", "Missing Information", "Please select a subject before submitting.");
+    
+    const sTime = new Date(`1970-01-01T${startTime}`);
+    const eTime = new Date(`1970-01-01T${endTime}`);
+    const diffHours = (eTime - sTime) / 1000 / 60 / 60;
+    
+    if (diffHours <= 0) return showModal("error", "Invalid Time", "End time must be after the start time.");
+
+    const MAX_MONTHLY_PAY = 30000; 
+    const activeAlloc = allocations.find(a => a.allocation_id.toString() === selectedAllocationId);
+    const rate = parseFloat(activeAlloc.rate_per_hour) || 0;
+    const potentialEarnings = diffHours * rate;
+
+    const currentMonthlyEarnings = monthlyRecords.reduce((sum, record) => {
+      return sum + (parseFloat(record.hours || 0) * parseFloat(record.rate_per_hour || 0));
+    }, 0);
+
+    const submitDate = new Date(year, monthIndex, selectedDay);
+    const dateString = submitDate.getFullYear() + "-" + 
+      String(submitDate.getMonth() + 1).padStart(2, '0') + "-" + 
+      String(submitDate.getDate()).padStart(2, '0');
+
+    const payload = {
+      user_id: userId,
+      course_id: activeAlloc.course_id,
+      semester_id: activeAlloc.semester_id,
+      subject_id: activeAlloc.subject_id,
+      attendance_date: dateString,
+      start_time: `${startTime}:00`,
+      end_time: `${endTime}:00`,
+      hours: diffHours.toFixed(2),
+      month: monthName,
+      year: year,
+      status: "Pending",
+      remarks: remarks
+    };
+
+    if (currentMonthlyEarnings + potentialEarnings > MAX_MONTHLY_PAY) {
+      setCapWarning({
+        isOpen: true,
+        payload: payload,
+        details: { potentialEarnings, currentMonthlyEarnings }
+      });
+      return;
+    }
+
+    processSubmission(payload);
+  };
+
   const openDayDelete = () => {
     const dStr = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
     setDeleteConfig({ isOpen: true, type: 'day', dateString: dStr, label: `${selectedDay} ${monthName}` });
@@ -265,23 +245,15 @@ export default function MarkAttendanceGrid() {
 
       if (res.data.success) {
         showModal("success", "Records Cleared", res.data.message || "Attendance records successfully deleted.");
-        fetchMonthlyRecords(); // Refresh the grid
+        fetchMonthlyRecords(); 
       }
     } catch (error) {
       console.error("Bulk Delete Error:", error);
       
       if (error.response?.status === 404) {
-        showModal(
-          "error", 
-          "No Records Found", 
-          error.response?.data?.message || "Could not find any pending records to delete for this selection."
-        );
+        showModal("error", "No Records Found", error.response?.data?.message || "Could not find any pending records to delete for this selection.");
       } else {
-        showModal(
-          "error", 
-          "Deletion Failed", 
-          error.response?.data?.message || "Failed to delete records. Some records may already be verified."
-        );
+        showModal("error", "Deletion Failed", error.response?.data?.message || "Failed to delete records. Some records may already be verified.");
       }
     } finally {
       setIsSubmitting(false);
@@ -312,7 +284,6 @@ export default function MarkAttendanceGrid() {
                 <span className="h-1.5 w-1.5 rounded-full bg-[#004DD2]" />
                 {monthlyRecords.length} Sessions Logged
               </span>
-              {/* Bulk Delete Month Button */}
               {monthlyRecords.length > 0 && (
                 <button
                   onClick={() => setDeleteConfig({ isOpen: true, type: 'month', dateString: '', label: `${monthName} ${year}` })}
@@ -343,7 +314,6 @@ export default function MarkAttendanceGrid() {
                   onClick={() => {
                     if (day) {
                       setSelectedDay(day);
-                      // Trigger a warning if they click a future date
                       if (!isDayAllowed(day) && isCurrentMonth && day > actualDay) {
                         showModal("error", "Future Date", "You cannot mark attendance for a date that hasn't happened yet.");
                       }
@@ -356,7 +326,7 @@ export default function MarkAttendanceGrid() {
                         ? "bg-blue-50 border-blue-200 cursor-pointer" 
                         : isAllowed
                           ? "bg-white hover:bg-slate-50 cursor-pointer"
-                          : "bg-slate-50/50 cursor-pointer opacity-60" // Grayed out for locked/future days
+                          : "bg-slate-50/50 cursor-pointer opacity-60" 
                   }`}
                 >
                   {day && (
@@ -437,7 +407,6 @@ export default function MarkAttendanceGrid() {
           <div className="mt-5">
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Session Duration</label>
             <div className="grid grid-cols-2 gap-3">
-              {/* CUSTOM Start Time Input */}
               <div>
                 <p className="mb-1 text-[11px] font-medium uppercase text-slate-400">Start</p>
                 <div className={`flex items-center w-full rounded-lg border border-slate-300 overflow-hidden bg-white focus-within:border-[#004DD2] focus-within:ring-1 focus-within:ring-[#004DD2] ${!isDayAllowed(selectedDay) ? 'opacity-60 bg-slate-50' : ''}`}>
@@ -469,7 +438,6 @@ export default function MarkAttendanceGrid() {
                 </div>
               </div>
               
-              {/* CUSTOM End Time Input */}
               <div>
                 <p className="mb-1 text-[11px] font-medium uppercase text-slate-400">End</p>
                 <div className={`flex items-center w-full rounded-lg border border-slate-300 overflow-hidden bg-white focus-within:border-[#004DD2] focus-within:ring-1 focus-within:ring-[#004DD2] ${!isDayAllowed(selectedDay) ? 'opacity-60 bg-slate-50' : ''}`}>
@@ -524,7 +492,6 @@ export default function MarkAttendanceGrid() {
             {isSubmitting && !deleteConfig.isOpen ? "Submitting..." : "Submit Attendance"}
           </button>
 
-          {/* Bulk Delete Specific Day Button (Only visible if day has records) */}
           {hasRecordsToClear && (
             <div className="mt-4 border-t border-slate-100 pt-4">
               <button 
@@ -537,6 +504,44 @@ export default function MarkAttendanceGrid() {
           )}
         </div>
       </div>
+
+      {/* --- CUSTOM CAP EXCEEDED CONFIRMATION MODAL --- */}
+      {capWarning.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md scale-100 overflow-hidden rounded-2xl bg-white shadow-xl animate-in zoom-in-95 duration-200 text-center">
+            <div className="p-6">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-orange-100 text-orange-600">
+                <AlertTriangle size={28} strokeWidth={2.5} />
+              </div>
+              <h3 className="mb-2 text-xl font-bold text-slate-800">Payment Limit Exceeded</h3>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                Adding this session (₹{capWarning.details?.potentialEarnings?.toLocaleString('en-IN')}) exceeds the maximum monthly limit of ₹30,000. Current earnings: ₹{capWarning.details?.currentMonthlyEarnings?.toLocaleString('en-IN')}.
+              </p>
+              <div className="mt-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-xs text-orange-800 font-medium">
+                You can still submit this record for academic tracking, but the excess hours will be marked as non-billable and will not be paid.
+              </div>
+              <p className="text-sm font-semibold text-slate-700 mt-4">Do you want to proceed?</p>
+            </div>
+            
+            <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 p-4">
+              <button
+                onClick={() => setCapWarning({ isOpen: false, payload: null, details: null })}
+                disabled={isSubmitting}
+                className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => processSubmission(capWarning.payload)}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
+              >
+                {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : "Yes, Submit as Unpaid"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- CUSTOM DELETE CONFIRMATION MODAL --- */}
       {deleteConfig.isOpen && (

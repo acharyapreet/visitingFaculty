@@ -219,8 +219,13 @@ export default function AttendanceHistory() {
     return result;
   }, [history, selectedSubject, selectedTimeRange, sortOrder]);
 
+  // --- UPDATED: SUMMARY CALCULATION (Respects is_billable) ---
   const summary = useMemo(() => {
     const totalEarnings = processedRecords.reduce((sum, record) => {
+      // If the backend flagged this as exceeding the cap, it pays ₹0
+      if (record.is_billable === false || record.is_billable === 0) {
+        return sum;
+      }
       const hrs = parseFloat(record.hours) || 0;
       const rate = parseFloat(record.rate_per_hour) || 0;
       return sum + (hrs * rate);
@@ -398,7 +403,6 @@ export default function AttendanceHistory() {
             <div className="py-20 flex flex-col items-center justify-center text-slate-500">
               <Filter className="w-8 h-8 text-slate-300 mb-3" />
               <p>No records found matching your filters.</p>
-              {/* --- UPDATE THIS CONDITION AND ONCLICK --- */}
               {(selectedSubject !== 'All' || selectedTimeRange !== 'This Month') && (
                 <button 
                   onClick={() => { setSelectedSubject('All'); setSelectedTimeRange('This Month'); }}
@@ -428,12 +432,13 @@ export default function AttendanceHistory() {
                   </thead>
                   <tbody>
                     {currentRecords.map((r, index) => {
-                      const amount = (parseFloat(r.hours) || 0) * (parseFloat(r.rate_per_hour) || 0);
+                      const baseAmount = (parseFloat(r.hours) || 0) * (parseFloat(r.rate_per_hour) || 0);
+                      const isBillable = r.is_billable !== false && r.is_billable !== 0;
                       const sessionType = r.session_type || "Theory";
                       const canDelete = r.status === "Pending";
                       
                       return (
-                        <tr key={r.attendance_id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors last:border-b-0">
+                        <tr key={r.attendance_id} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors last:border-b-0 ${!isBillable ? 'bg-orange-50/30' : ''}`}>
                           <td className="px-4 py-4 text-slate-500">{indexOfFirstRecord + index + 1}</td>
                           <td className="px-4 py-4 text-slate-700">{formatDate(r.attendance_date)}</td>
                           <td className="px-4 py-4 font-semibold text-brand-600">{r.subject_code}</td>
@@ -447,7 +452,18 @@ export default function AttendanceHistory() {
                             {formatTime(r.start_time)} - {formatTime(r.end_time)}
                           </td>
                           <td className="px-4 py-4 font-semibold text-slate-800">{parseFloat(r.hours)}</td>
-                          <td className="px-4 py-4 font-bold text-brand-600">₹{amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                          
+                          {/* UPDATED AMOUNT RENDER WITH CAP BADGE */}
+                          <td className="px-4 py-4 font-bold">
+                            {isBillable ? (
+                              <span className="text-brand-600">₹{baseAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                            ) : (
+                              <div className="flex flex-col">
+                                <span className="text-slate-400 line-through text-xs font-normal">₹{baseAmount.toLocaleString('en-IN')}</span>
+                                <span className="text-orange-500 text-xs">₹0 (Capped)</span>
+                              </div>
+                            )}
+                          </td>
                           
                           {/* DELETE ACTION COLUMN */}
                           <td className="px-4 py-4 text-center">
@@ -470,12 +486,13 @@ export default function AttendanceHistory() {
               {/* Mobile cards */}
               <div className="divide-y divide-slate-100 lg:hidden">
                 {currentRecords.map((r) => {
-                  const amount = (parseFloat(r.hours) || 0) * (parseFloat(r.rate_per_hour) || 0);
+                  const baseAmount = (parseFloat(r.hours) || 0) * (parseFloat(r.rate_per_hour) || 0);
+                  const isBillable = r.is_billable !== false && r.is_billable !== 0;
                   const sessionType = r.session_type || "Theory";
                   const canDelete = r.status === "Pending";
 
                   return (
-                    <div key={r.attendance_id} className="p-4">
+                    <div key={r.attendance_id} className={`p-4 ${!isBillable ? 'bg-orange-50/30' : ''}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold text-brand-600">{r.subject_code}</span>
@@ -504,7 +521,18 @@ export default function AttendanceHistory() {
                       </div>
                       <div className="mt-2 flex items-center justify-between text-sm">
                         <span className="text-slate-500">Rate ₹{parseFloat(r.rate_per_hour || 0)}</span>
-                        <span className="font-bold text-brand-600">₹{amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                        
+                        {/* UPDATED AMOUNT RENDER WITH CAP BADGE (MOBILE) */}
+                        <span className="font-bold">
+                          {isBillable ? (
+                            <span className="text-brand-600">₹{baseAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                          ) : (
+                            <div className="flex flex-col items-end">
+                              <span className="text-slate-400 line-through text-xs font-normal">₹{baseAmount.toLocaleString('en-IN')}</span>
+                              <span className="text-orange-500 text-xs">₹0 (Capped)</span>
+                            </div>
+                          )}
+                        </span>
                       </div>
                     </div>
                   );

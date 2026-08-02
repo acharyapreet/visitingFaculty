@@ -211,7 +211,7 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
 
           <h2 className="text-2xl font-bold text-[#141B2B]">Registration Submitted!</h2>
           <p className="mt-4 text-sm leading-6 text-[#6B7280]">
-            Thank you, {successData.fullName}. Your account is currently <strong>pending approval</strong> from the Super Admin. Once approved, you will receive an email containing your confirmation as Visiting Faculty.
+            Thank you, {successData.fullName}. Your account is currently <strong>pending approval</strong> from the Program Incharge. Once approved, you will receive an email containing your confirmation as Visiting Faculty.
           </p>
 
           <div className="mt-6 rounded-xl bg-[#EEF3FF] px-5 py-4 text-sm text-[#424656]">
