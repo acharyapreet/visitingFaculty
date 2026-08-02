@@ -198,6 +198,7 @@ export default function BillGeneration() {
         address: facultyData.address || "",
         mobile: facultyData.phone_number || "",
         pan: facultyData.pan_card_no || "",
+        aadhaar: facultyData.aadhaar_no || "",
         account: facultyData.account_no || "",
         bankName: facultyData.bank_name || "",
         ifsc: facultyData.ifsc_code || "",
@@ -273,6 +274,7 @@ export default function BillGeneration() {
         address: facultyData.address || "",
         mobile: facultyData.phone_number || "",
         pan: facultyData.pan_card_no || "",
+        aadhaar: facultyData.aadhaar_no || "",
         account: facultyData.account_no || "",
         bankName: facultyData.bank_name || "",
         ifsc: facultyData.ifsc_code || "",
@@ -822,8 +824,7 @@ function BillPreview({ bill, onDownload }) {
                     <p>A/c No. <span className="border-b border-black inline-block w-48">{bill.account}</span></p>
                     <p>Bank Name <span className="border-b border-black inline-block w-44">{bill.bankName}</span><br/><span className="text-[10px] font-normal italic">(State bank of India Compulsory)</span></p>
                     <p>IFSC Code <span className="border-b border-black inline-block w-44">{bill.ifsc}</span></p>
-                    {/* Compliance Fix: Using generic placeholder for Aadhaar No. */}
-                    <p>Aadhaar No. <span className="border-b border-black inline-block w-40">[Aadhaar Redacted]</span></p>
+                    <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{bill.aadhaar}</span></p>
                   </div>
                   
                   <div className="mt-20 flex flex-col items-center font-bold text-[14px]">
@@ -921,11 +922,16 @@ function BillPreview({ bill, onDownload }) {
                 </tbody>
               </table>
 
-              <div className="flex justify-between font-bold text-[14px] mt-16 px-4" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                <p>Name & Sign. of Faculty</p>
-                <div className="text-right flex flex-col gap-16">
-                  <p>Name & Sign. of Coordinator</p>
-                  <p>Name & Sign. of Head</p>
+              <div className="grid grid-cols-3 gap-4 font-bold text-[12px] whitespace-nowrap mt-20 px-4" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                <div className="text-left">
+                  <p>Name & Sign. of Visiting Faculty</p>
+                </div>
+                <div className="text-center">
+                  <p>Name & Sign. of Program Incharge</p>
+                </div>
+                <div className="text-right flex flex-col gap-24">
+                  <p>Name & Sign. of Batch Mentor</p>
+                  <p>Name & Sign. of Director</p>
                 </div>
               </div>
             </div>
