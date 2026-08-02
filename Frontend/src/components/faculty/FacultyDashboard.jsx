@@ -42,7 +42,7 @@ function DashboardOverview({ facultyInfo, allocatedSubjects, isLoading }) {
               </div>
               <h3 className="text-base font-bold text-slate-900">No Subjects Allocated</h3>
               <p className="mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
-                You have not been assigned any subjects for the current session yet. Please check back later once the administrator has allocated your courses.
+                You have not been assigned any subjects for the current session yet. Please check back later once the Program Incharge has allocated your courses.
               </p>
             </div>
           ) : (

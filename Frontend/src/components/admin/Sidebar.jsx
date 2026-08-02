@@ -173,7 +173,7 @@ function AdminProfileModal({ isOpen, onClose, userId, token }) {
               <User className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Admin Profile</h2>
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Program Incharge Profile</h2>
               <p className="text-sm text-slate-500 font-medium">Manage your identity</p>
             </div>
           </div>
@@ -294,7 +294,7 @@ function AdminProfileModal({ isOpen, onClose, userId, token }) {
                     </div>
                     <div>
                       <p className="font-semibold text-slate-800 text-sm">Change Password</p>
-                      <p className="text-[11px] font-medium text-slate-500 mt-0.5">Update your administrator login password</p>
+                      <p className="text-[11px] font-medium text-slate-500 mt-0.5">Update your Program Incharge login password</p>
                     </div>
                   </button>
                 ) : (
@@ -440,7 +440,7 @@ function AdminProfileModal({ isOpen, onClose, userId, token }) {
 export default function Sidebar({ activeTab, setActiveTab, onSignOut }) {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [adminName, setAdminName] = useState("Loading...");
-  const [adminRole, setAdminRole] = useState("Administrator");
+  const [adminRole, setAdminRole] = useState("Program Incharge");
   const [sessionData, setSessionData] = useState(null);
 
   useEffect(() => {
@@ -449,9 +449,9 @@ export default function Sidebar({ activeTab, setActiveTab, onSignOut }) {
       try {
         const session = JSON.parse(sessionStr);
         setSessionData(session);
-        setAdminName(session.full_name || session.name || session.user?.full_name || "Admin User");
+        setAdminName(session.full_name || session.name || session.user?.full_name || "Program Incharge User");
         if (session.role) {
-          setAdminRole(session.role.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase()));
+          setAdminRole(session.role === "admin" ? "Program Incharge" : session.role.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase()));
         }
       } catch (e) {
         console.error("Error parsing session data", e);
@@ -477,7 +477,7 @@ export default function Sidebar({ activeTab, setActiveTab, onSignOut }) {
           </div>
           <div>
             <p className="text-xl font-black leading-tight text-[#004DD2] tracking-tight">IIPS</p>
-            <p className="text-xs font-semibold leading-tight text-slate-500 uppercase tracking-wider mt-0.5">Admin Portal</p>
+            <p className="text-xs font-semibold leading-tight text-slate-500 uppercase tracking-wider mt-0.5">Program Incharge Portal</p>
           </div>
         </div>
 

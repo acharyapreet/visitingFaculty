@@ -36,7 +36,7 @@ export default function AdminDashboard({ onSignOut }) {
   // Notification Toast State
   const [toastConfig, setToastConfig] = useState(null);
 
-  const admin = JSON.parse(localStorage.getItem("iipsCurrentSession") || "{}") || { name: "Admin" };
+  const admin = JSON.parse(localStorage.getItem("iipsCurrentSession") || "{}") || { name: "Program Incharge" };
 
   const fetchPending = useCallback(async () => {
       setLoading(true);
@@ -114,7 +114,7 @@ export default function AdminDashboard({ onSignOut }) {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-bold text-slate-800">
-                  Welcome {admin.name || "Admin"}
+                  Welcome {admin.name || "Program Incharge"}
                 </h1>
                 <p className="text-sm text-slate-400">Here's the overview for {monthLabel}</p>
               </div>

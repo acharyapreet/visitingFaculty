@@ -31,10 +31,12 @@ const LoginCard = ({ onNavigate, initialEmail = "" }) => {
 
       const userData = response.data.data;
 
-      // 2. Format the role for the UI popup (e.g. 'super_admin' -> 'Super Admin')
-      const formattedRole = userData.role
-        .replace("_", " ")
-        .replace(/\b\w/g, (l) => l.toUpperCase());
+      // 2. Format the role for the UI popup (e.g. 'super_admin' -> 'Super Admin', 'admin' -> 'Program Incharge')
+      const formattedRole = userData.role === 'admin'
+        ? "Program Incharge"
+        : userData.role
+            .replace("_", " ")
+            .replace(/\b\w/g, (l) => l.toUpperCase());
       setSuccessRole(formattedRole);
 
       // 3. CRITICAL: Save the token exactly where axiosInstance.js is looking for it!

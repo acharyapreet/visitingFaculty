@@ -5,7 +5,7 @@ import axios from "axios";
 /**
  * Shared top bar for all admin pages.
  * title: page heading shown top-left (e.g. "Unified Visiting Faculty Management, IIPS, DAVV")
- * breadcrumb: array of strings, e.g. ["Admin", "Faculty Management"]
+ * breadcrumb: array of strings, e.g. ["Program Incharge", "Faculty Management"]
  */
 export default function Topbar({
   title = "Unified Visiting Faculty Management, IIPS, DAVV",

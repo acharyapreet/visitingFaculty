@@ -106,7 +106,7 @@ export default function AllAdminsPage({ onNavigate }) {
         a.email, 
         a.department || "N/A", 
         formatDate(a.updated_at || a.created_at), 
-        "Admin",
+        "Program Incharge",
         a.is_active !== false ? "Active" : "Inactive"
       ].join(","))
     ].join("\n");
@@ -153,9 +153,9 @@ export default function AllAdminsPage({ onNavigate }) {
 
         {/* Stat cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
-          <StatCard label="Total Admins" value={totalProgramIncharge} icon={Users} bg="bg-blue-50" color="text-blue-500" />
-          <StatCard label="Active Accounts" value={activeProgramIncharge} icon={UserCheck} bg="bg-green-50" color="text-green-500" />
-          <StatCard label="Pending Review" value={pendingProgramIncharge} icon={ClipboardList} bg="bg-amber-50" color="text-amber-500" />
+          <StatCard label="Total Program Incharge" value={totalAdmins} icon={Users} bg="bg-blue-50" color="text-blue-500" />
+          <StatCard label="Active Accounts" value={activeAdmins} icon={UserCheck} bg="bg-green-50" color="text-green-500" />
+          <StatCard label="Pending Review" value={pendingAdmins} icon={ClipboardList} bg="bg-amber-50" color="text-amber-500" />
         </div>
 
         {/* Table card */}
@@ -201,7 +201,7 @@ export default function AllAdminsPage({ onNavigate }) {
                           </td>
                           <td className="py-4 pr-4">
                             <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200 inline-block">
-                              Admin
+                              Program Incharge
                             </span>
                           </td>
                           <td className="py-4 pr-4">
@@ -225,7 +225,7 @@ export default function AllAdminsPage({ onNavigate }) {
                   ) : (
                     <tr>
                       <td colSpan="5" className="py-16 text-center text-gray-500 text-sm">
-                        No administrators found matching "{searchTerm}".
+                        No Program Incharges found matching "{searchTerm}".
                       </td>
                     </tr>
                   )}
@@ -307,7 +307,7 @@ export default function AllAdminsPage({ onNavigate }) {
                       Active Program Incharge
                     </p>
                     <p className="text-sm font-bold text-[#1F2937]">
-                      {selectedAdmin.full_name || 'Admin Candidate'}
+                      {selectedAdmin.full_name || 'Program Incharge Candidate'}
                     </p>
                     <p className="text-[10px] mt-0.5 font-medium text-green-600">
                       This PI account is active and has full portal access.
@@ -324,7 +324,7 @@ export default function AllAdminsPage({ onNavigate }) {
                       Inactive Program Incharge
                     </p>
                     <p className="text-sm font-bold text-[#1F2937]">
-                      {selectedAdmin.full_name || 'Admin Candidate'}
+                      {selectedAdmin.full_name || 'Program Incharge Candidate'}
                     </p>
                     <p className="text-[10px] mt-0.5 font-medium text-slate-500">
                       This PI account is deactivated. Portal access is currently restricted.

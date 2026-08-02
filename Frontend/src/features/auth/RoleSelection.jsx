@@ -13,7 +13,7 @@ export default function RoleSelection({ onNavigate }) {
       {/* Cards Container */}
       <div className="flex flex-col sm:flex-row items-stretch justify-center gap-4 sm:gap-6 mb-10 sm:mb-12 w-full max-w-3xl">
         
-        {/* Admin Card */}
+        {/* Program Incharge Card */}
         <button 
           type="button"
           onClick={() => onNavigate('admin-register')}

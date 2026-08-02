@@ -15,7 +15,7 @@ export default function AdminRegistrationSuccess({ onNavigate }) {
         {/* Title & Body */}
         <h2 className="mb-4 text-2xl font-bold text-[#141B2B]">Registration Submitted!</h2>
         <p className="mb-6 text-sm leading-relaxed text-[#6B7280] px-2">
-          Thank you for registering. Your account is currently <strong>pending approval</strong> from the Super Admin. Once approved, you will receive an email containing your confirmation as Administrator.
+          Thank you for registering. Your account is currently <strong>pending approval</strong> from the Super Admin. Once approved, you will receive an email containing your confirmation as Program Incharge.
         </p>
 
         {/* Info Box */}

@@ -149,7 +149,7 @@ export default function AdminRegister({ onNavigate }) {
       {/* Main Registration Card */}
       <div className="w-full max-w-[520px] bg-white border border-[#C3C5D8] rounded-2xl p-8 shadow-sm">
         
-        {/* Admin Portal Badge */}
+        {/* Program Incharge Portal Badge */}
         <div className="mx-auto w-fit bg-[#F1F3FF] border border-[#DBE1FF] text-[#004DD2] text-xs font-semibold px-4 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm mb-5">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -158,7 +158,7 @@ export default function AdminRegister({ onNavigate }) {
         </div>
 
         <div className="mb-8 text-center">
-          <h2 className="text-[22px] font-bold text-[#141B2B] mb-1.5">Create Your PI Account</h2>
+          <h2 className="text-[22px] font-bold text-[#141B2B] mb-1.5">Create Your Program Incharge Account</h2>
           <p className="text-sm text-[#6B7280]">Enter your professional details to access the university dashboard.</p>
         </div>
 
