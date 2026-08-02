@@ -75,6 +75,16 @@ const Attendance = sequelize.define('Attendance', {
     entered_date: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
+    },
+    // ── ₹30k Cap Flag ─────────────────────────────────────────────────────────
+    // true  = session counts toward the bill payout (default)
+    // false = attendance recorded but exceeds ₹30k cap — shown in history
+    //         but treated as ₹0 for billing purposes
+    is_billable: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+        comment: 'false = attendance recorded but exceeds ₹30k cap — not counted in payout'
     }
 }, {
     tableName: 'attendance',

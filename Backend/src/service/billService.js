@@ -105,20 +105,39 @@ const generateBill = async (facultyId, month, year, extraDetails = {}) => {
         const billDetails = [];
 
         // ==========================
-        // Calculate Bill
+        // ₹30,000 Bill Cap Logic
         // ==========================
+        // Faculty CAN always mark attendance freely.
+        // However, a single bill must not exceed ₹30,000.
+        // We include attendance rows one by one (sorted by date) until
+        // the running total would cross ₹30,000 — then we stop adding.
+        // Rows beyond the cap are NOT deleted; they remain in the DB
+        // and can be billed in the next month's bill.
+        const BILL_CAP = 30000;
+        let capReached = false;
+        let skippedRows = 0;
+
+        // Separate rows into billable and capped
+        const billableRows = [];
+        const cappedRows   = [];
+
         for (const attendance of attendanceRecords) {
 
-            const hours = Number(attendance.hours);
-
-            const rate = Number(
-                attendance.Allocation.rate_per_hour
-            );
-
+            const hours  = Number(attendance.hours);
+            const rate   = Number(attendance.Allocation.rate_per_hour);
             const amount = hours * rate;
 
-            totalHours += hours;
+            // If adding this row would exceed the ₹30,000 cap, mark it non-billable
+            if (totalAmount + amount > BILL_CAP) {
+                capReached = true;
+                skippedRows++;
+                cappedRows.push(attendance); // collect for DB update
+                continue;
+            }
+
+            totalHours  += hours;
             totalAmount += amount;
+            billableRows.push(attendance);
 
             billDetails.push({
 
@@ -149,6 +168,23 @@ const generateBill = async (facultyId, month, year, extraDetails = {}) => {
 
             });
 
+        }
+
+        // ── Stamp capped rows as is_billable = false in the DB ────────────────
+        // This lets the attendance history show these sessions with ₹0 rate.
+        // They are NOT deleted — they remain visible in the faculty's history.
+        if (cappedRows.length > 0) {
+            const cappedIds = cappedRows.map(a => a.attendance_id);
+            await Attendance.update(
+                { is_billable: false },
+                { where: { attendance_id: cappedIds }, transaction }
+            );
+        }
+
+        if (billDetails.length === 0) {
+            throw new Error(
+                "No attendance rows could be billed. All sessions exceed the ₹30,000 cap."
+            );
         }
 
         // ==========================
@@ -244,7 +280,13 @@ const generateBill = async (facultyId, month, year, extraDetails = {}) => {
 
             success: true,
 
-            message: "Bill generated successfully.",
+            message: capReached
+                ? `Bill generated with ₹30,000 cap applied. ${skippedRows} attendance session(s) were excluded from this bill.`
+                : "Bill generated successfully.",
+
+            capReached,
+
+            skippedRows,
 
             billId: bill.bill_id,
 

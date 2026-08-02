@@ -201,6 +201,8 @@ const buildAttendanceResult = (newAttendance, allocation) => ({
     year:              newAttendance.year,
     attendance_period: newAttendance.attendance_period,
     week_number:       newAttendance.week_number ?? null,
+    // ── ₹30k cap flag — true = counted in bill, false = beyond cap ────────
+    is_billable:       newAttendance.is_billable ?? true,
 
     // Allocation details — flat for easy frontend use
     // rate_per_hour is ENUM string ('200'/'400'/'800') — cast to Number
