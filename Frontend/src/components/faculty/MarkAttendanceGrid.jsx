@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Info, CheckCircle2, Plus, Loader2, AlertCircle, Trash2, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info, CheckCircle2, Plus, Loader2, AlertCircle, Trash2, AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
 import axios from "axios";
 
 const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -134,6 +134,24 @@ export default function MarkAttendanceGrid() {
   const handleNextMonth = () => {
     setCurrentDate(new Date(year, monthIndex + 1, 1));
     setSelectedDay(1);
+  };
+
+  // --- CUSTOM WHOLE-HOUR TIME HANDLER ---
+  const handleTimeChange = (type, direction) => {
+    if (!isDayAllowed(selectedDay)) return; // Prevent change if date is locked
+
+    const currentTime = type === 'start' ? startTime : endTime;
+    let hour = parseInt(currentTime.split(':')[0], 10);
+    
+    if (direction === 'up') {
+      hour = hour === 23 ? 0 : hour + 1;
+    } else if (direction === 'down') {
+      hour = hour === 0 ? 23 : hour - 1;
+    }
+    
+    const newTime = `${String(hour).padStart(2, '0')}:00`;
+    if (type === 'start') setStartTime(newTime);
+    if (type === 'end') setEndTime(newTime);
   };
 
   // --- SUBMIT ATTENDANCE LOGIC ---
@@ -406,25 +424,68 @@ export default function MarkAttendanceGrid() {
           <div className="mt-5">
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Session Duration</label>
             <div className="grid grid-cols-2 gap-3">
+              {/* CUSTOM Start Time Input */}
               <div>
                 <p className="mb-1 text-[11px] font-medium uppercase text-slate-400">Start</p>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  disabled={!isDayAllowed(selectedDay)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2] disabled:bg-slate-50 disabled:text-slate-400"
-                />
+                <div className={`flex items-center w-full rounded-lg border border-slate-300 overflow-hidden bg-white focus-within:border-[#004DD2] focus-within:ring-1 focus-within:ring-[#004DD2] ${!isDayAllowed(selectedDay) ? 'opacity-60 bg-slate-50' : ''}`}>
+                  <input
+                    type="text"
+                    readOnly
+                    value={startTime}
+                    disabled={!isDayAllowed(selectedDay)}
+                    className="w-full px-3 py-2 text-sm text-slate-700 bg-transparent outline-none cursor-default select-none tracking-wider font-medium disabled:text-slate-400"
+                  />
+                  <div className="flex flex-col border-l border-slate-200 bg-slate-50">
+                    <button 
+                      type="button" 
+                      onClick={() => handleTimeChange('start', 'up')}
+                      disabled={!isDayAllowed(selectedDay)}
+                      className="p-0.5 hover:bg-slate-200 text-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => handleTimeChange('start', 'down')}
+                      disabled={!isDayAllowed(selectedDay)}
+                      className="p-0.5 hover:bg-slate-200 text-slate-600 transition-colors border-t border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
               </div>
+              
+              {/* CUSTOM End Time Input */}
               <div>
                 <p className="mb-1 text-[11px] font-medium uppercase text-slate-400">End</p>
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  disabled={!isDayAllowed(selectedDay)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2] disabled:bg-slate-50 disabled:text-slate-400"
-                />
+                <div className={`flex items-center w-full rounded-lg border border-slate-300 overflow-hidden bg-white focus-within:border-[#004DD2] focus-within:ring-1 focus-within:ring-[#004DD2] ${!isDayAllowed(selectedDay) ? 'opacity-60 bg-slate-50' : ''}`}>
+                  <input
+                    type="text"
+                    readOnly
+                    value={endTime}
+                    disabled={!isDayAllowed(selectedDay)}
+                    className="w-full px-3 py-2 text-sm text-slate-700 bg-transparent outline-none cursor-default select-none tracking-wider font-medium disabled:text-slate-400"
+                  />
+                  <div className="flex flex-col border-l border-slate-200 bg-slate-50">
+                    <button 
+                      type="button" 
+                      onClick={() => handleTimeChange('end', 'up')}
+                      disabled={!isDayAllowed(selectedDay)}
+                      className="p-0.5 hover:bg-slate-200 text-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => handleTimeChange('end', 'down')}
+                      disabled={!isDayAllowed(selectedDay)}
+                      className="p-0.5 hover:bg-slate-200 text-slate-600 transition-colors border-t border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

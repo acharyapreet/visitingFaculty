@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Send, Loader2, CheckCircle2 } from "lucide-react";
+import { Send, Loader2, CheckCircle2, ChevronUp, ChevronDown } from "lucide-react";
 import axios from "axios";
 
 export default function MarkAttendanceList() {
@@ -9,7 +9,7 @@ export default function MarkAttendanceList() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // --- UPDATED: PREVIOUS MONTH OPEN LOGIC ---
+  // --- PREVIOUS MONTH OPEN LOGIC ---
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth(); // 0-indexed
@@ -71,6 +71,22 @@ export default function MarkAttendanceList() {
     };
     fetchData();
   }, []);
+
+  // --- NEW: CUSTOM WHOLE-HOUR TIME HANDLER ---
+  const handleTimeChange = (type, direction) => {
+    const currentTime = type === 'start' ? startTime : endTime;
+    let hour = parseInt(currentTime.split(':')[0], 10);
+    
+    if (direction === 'up') {
+      hour = hour === 23 ? 0 : hour + 1;
+    } else if (direction === 'down') {
+      hour = hour === 0 ? 23 : hour - 1;
+    }
+    
+    const newTime = `${String(hour).padStart(2, '0')}:00`;
+    if (type === 'start') setStartTime(newTime);
+    if (type === 'end') setEndTime(newTime);
+  };
 
   // Auto-calculate hours
   const calculateHours = () => {
@@ -236,25 +252,62 @@ export default function MarkAttendanceList() {
             </select>
           </div>
 
-          {/* Time Pickers */}
+          {/* CUSTOM Time Pickers (Whole Hours Only) */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">Start Time</label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2]"
-              />
+              <div className="flex items-center w-full rounded-lg border border-slate-300 overflow-hidden bg-white focus-within:border-[#004DD2] focus-within:ring-1 focus-within:ring-[#004DD2]">
+                <input
+                  type="text"
+                  readOnly
+                  value={startTime}
+                  className="w-full px-3.5 py-2.5 text-sm text-slate-700 bg-transparent outline-none cursor-default select-none tracking-wider font-medium"
+                />
+                <div className="flex flex-col border-l border-slate-200 bg-slate-50">
+                  <button 
+                    type="button" 
+                    onClick={() => handleTimeChange('start', 'up')}
+                    className="p-1 hover:bg-slate-200 text-slate-600 transition-colors"
+                  >
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleTimeChange('start', 'down')}
+                    className="p-1 hover:bg-slate-200 text-slate-600 transition-colors border-t border-slate-200"
+                  >
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
+            
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">End Time</label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-700 focus:border-[#004DD2] focus:outline-none focus:ring-1 focus:ring-[#004DD2]"
-              />
+              <div className="flex items-center w-full rounded-lg border border-slate-300 overflow-hidden bg-white focus-within:border-[#004DD2] focus-within:ring-1 focus-within:ring-[#004DD2]">
+                <input
+                  type="text"
+                  readOnly
+                  value={endTime}
+                  className="w-full px-3.5 py-2.5 text-sm text-slate-700 bg-transparent outline-none cursor-default select-none tracking-wider font-medium"
+                />
+                <div className="flex flex-col border-l border-slate-200 bg-slate-50">
+                  <button 
+                    type="button" 
+                    onClick={() => handleTimeChange('end', 'up')}
+                    className="p-1 hover:bg-slate-200 text-slate-600 transition-colors"
+                  >
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleTimeChange('end', 'down')}
+                    className="p-1 hover:bg-slate-200 text-slate-600 transition-colors border-t border-slate-200"
+                  >
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
