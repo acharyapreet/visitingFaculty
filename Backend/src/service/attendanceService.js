@@ -78,25 +78,72 @@ const getWeekBounds = (dateStr) => {
 };
 
 // ==========================
+// Helper: Sync is_billable status for a faculty's monthly attendance records
+// Evaluates records in chronological order up to ₹30,000 max.
+// ==========================
+const MONTHLY_BILL_CAP = 30000;
+
+const syncMonthlyBillableStatus = async (userId, month, year, transaction = null) => {
+    const records = await Attendance.findAll({
+        where: { user_id: userId, month, year: Number(year) },
+        include: [{
+            model: Allocation,
+            attributes: ['rate_per_hour']
+        }],
+        order: [["attendance_date", "ASC"], ["start_time", "ASC"], ["attendance_id", "ASC"]],
+        transaction
+    });
+
+    let runningTotal = 0;
+    for (const rec of records) {
+        const rate = rec.Allocation?.rate_per_hour ? Number(rec.Allocation.rate_per_hour) : 0;
+        const amount = Number(rec.hours) * rate;
+
+        let shouldBeBillable = true;
+        if (runningTotal + amount > MONTHLY_BILL_CAP) {
+            shouldBeBillable = false;
+        } else {
+            runningTotal += amount;
+        }
+
+        if (rec.is_billable !== shouldBeBillable) {
+            await rec.update({ is_billable: shouldBeBillable }, { transaction });
+        }
+    }
+    return runningTotal;
+};
+
+// ==========================
 // Helper: Flatten a raw Attendance Sequelize record
 // Extracts Subject, Course, Semester, Section from nested Allocation
 // ==========================
 const flattenAttendance = (item) => {
     const alloc = item.Allocation || {};
     const user  = item.User  || null;
+    const rate  = alloc.rate_per_hour != null ? Number(alloc.rate_per_hour) : null;
+    const hours = Number(item.hours);
+    const is_billable = item.is_billable ?? true;
+
+    const uncapped_amount = rate !== null ? Number((hours * rate).toFixed(2)) : 0;
+    const billable_amount = is_billable ? uncapped_amount : 0;
+
     return {
         // --- Core attendance fields ---
         attendance_id:     item.attendance_id,
         attendance_date:   item.attendance_date,
         start_time:        item.start_time,
         end_time:          item.end_time,
-        hours:             Number(item.hours),
+        hours:             hours,
         status:            item.status,
         remarks:           item.remarks,
         month:             item.month,
         year:              item.year,
         attendance_period: item.attendance_period,
         week_number:       item.week_number,
+        is_billable:       is_billable,
+        billable_amount:   billable_amount,
+        uncapped_amount:   uncapped_amount,
+        amount:            billable_amount,
 
         // --- Faculty (only present in admin queries) ---
         ...(user ? {
@@ -110,7 +157,7 @@ const flattenAttendance = (item) => {
         allocation_id:   alloc.allocation_id   ?? null,
         session_type:    alloc.session_type    ?? null,
         // rate_per_hour is ENUM('200','400','800') — always return as Number
-        rate_per_hour:   alloc.rate_per_hour != null ? Number(alloc.rate_per_hour) : null,
+        rate_per_hour:   rate,
 
         // --- Course ---
         course_id:       alloc.Course?.course_id       ?? null,
@@ -189,45 +236,56 @@ const findAllocation = async (numericUserId, { allocation_id, course_id, semeste
 // ==========================
 // Helper: build a rich return object after saving an attendance row
 // ==========================
-const buildAttendanceResult = (newAttendance, allocation) => ({
-    attendance_id:     newAttendance.attendance_id,
-    attendance_date:   newAttendance.attendance_date,
-    start_time:        newAttendance.start_time,
-    end_time:          newAttendance.end_time,
-    hours:             Number(newAttendance.hours),
-    status:            newAttendance.status,
-    remarks:           newAttendance.remarks,
-    month:             newAttendance.month,
-    year:              newAttendance.year,
-    attendance_period: newAttendance.attendance_period,
-    week_number:       newAttendance.week_number ?? null,
-    // ── ₹30k cap flag — true = counted in bill, false = beyond cap ────────
-    is_billable:       newAttendance.is_billable ?? true,
+const buildAttendanceResult = (newAttendance, allocation) => {
+    const rate = allocation.rate_per_hour != null ? Number(allocation.rate_per_hour) : 0;
+    const hours = Number(newAttendance.hours);
+    const is_billable = newAttendance.is_billable ?? true;
+    const uncapped_amount = Number((hours * rate).toFixed(2));
+    const billable_amount = is_billable ? uncapped_amount : 0;
 
-    // Allocation details — flat for easy frontend use
-    // rate_per_hour is ENUM string ('200'/'400'/'800') — cast to Number
-    allocation_id:     allocation.allocation_id,
-    session_type:      allocation.session_type,
-    rate_per_hour:     Number(allocation.rate_per_hour),
+    return {
+        attendance_id:     newAttendance.attendance_id,
+        attendance_date:   newAttendance.attendance_date,
+        start_time:        newAttendance.start_time,
+        end_time:          newAttendance.end_time,
+        hours:             hours,
+        status:            newAttendance.status,
+        remarks:           newAttendance.remarks,
+        month:             newAttendance.month,
+        year:              newAttendance.year,
+        attendance_period: newAttendance.attendance_period,
+        week_number:       newAttendance.week_number ?? null,
+        // ── ₹30k cap flag — true = counted in bill, false = beyond cap ────────
+        is_billable:       is_billable,
+        billable_amount:   billable_amount,
+        uncapped_amount:   uncapped_amount,
+        amount:            billable_amount,
 
-    // Course
-    course_id:         allocation.Course   ? allocation.Course.course_id       : null,
-    course_name:       allocation.Course   ? allocation.Course.course_name     : null,
-    course_code:       allocation.Course   ? allocation.Course.course_code     : null,
+        // Allocation details — flat for easy frontend use
+        // rate_per_hour is ENUM string ('200'/'400'/'800') — cast to Number
+        allocation_id:     allocation.allocation_id,
+        session_type:      allocation.session_type,
+        rate_per_hour:     rate,
 
-    // Semester
-    semester_id:       allocation.Semester ? allocation.Semester.semester_id   : null,
-    semester_number:   allocation.Semester ? allocation.Semester.semester_number : null,
+        // Course
+        course_id:         allocation.Course   ? allocation.Course.course_id       : null,
+        course_name:       allocation.Course   ? allocation.Course.course_name     : null,
+        course_code:       allocation.Course   ? allocation.Course.course_code     : null,
 
-    // Section
-    section_id:        allocation.Section  ? allocation.Section.section_id     : null,
-    section_name:      allocation.Section  ? allocation.Section.section_name   : null,
+        // Semester
+        semester_id:       allocation.Semester ? allocation.Semester.semester_id   : null,
+        semester_number:   allocation.Semester ? allocation.Semester.semester_number : null,
 
-    // Subject
-    subject_id:        allocation.Subject  ? allocation.Subject.subject_id     : null,
-    subject_code:      allocation.Subject  ? allocation.Subject.subject_code   : null,
-    subject_name:      allocation.Subject  ? allocation.Subject.subject_name   : null
-});
+        // Section
+        section_id:        allocation.Section  ? allocation.Section.section_id     : null,
+        section_name:      allocation.Section  ? allocation.Section.section_name   : null,
+
+        // Subject
+        subject_id:        allocation.Subject  ? allocation.Subject.subject_id     : null,
+        subject_code:      allocation.Subject  ? allocation.Subject.subject_code   : null,
+        subject_name:      allocation.Subject  ? allocation.Subject.subject_name   : null
+    };
+};
 
 // ==========================
 // Standard include block (reused in all findAll queries)
@@ -300,6 +358,9 @@ const _insertAttendanceRow = async ({
         attendance_period,
         week_number:       week_number ?? null
     });
+
+    await syncMonthlyBillableStatus(numericUserId, month, year);
+    await newAttendance.reload();
 
     return buildAttendanceResult(newAttendance, allocation);
 };
@@ -605,8 +666,10 @@ const getMonthlyAttendance = async (facultyId, month, year) => {
     try {
         const numericUserId = await resolveUserId(facultyId);
 
+        await syncMonthlyBillableStatus(numericUserId, month, year);
+
         const attendance = await Attendance.findAll({
-            where: { user_id: numericUserId, month, year },
+            where: { user_id: numericUserId, month, year: Number(year) },
             include: allocationInclude,
             order: [["attendance_date", "ASC"], ["start_time", "ASC"]]
         });
@@ -617,14 +680,21 @@ const getMonthlyAttendance = async (facultyId, month, year) => {
         const workingDays  = 26; // Adjust per college calendar
         const daysAbsent   = Math.max(workingDays - daysPresent, 0);
 
+        const totalBillableEarnings = attendance.reduce((sum, item) => {
+            const isB = item.is_billable ?? true;
+            const r = item.Allocation?.rate_per_hour ? Number(item.Allocation.rate_per_hour) : 0;
+            return sum + (isB ? Number(item.hours) * r : 0);
+        }, 0);
+
         return {
             month,
-            year,
+            year: Number(year),
             workingDays,
             daysPresent,
             daysAbsent,
             totalClasses,
             totalHours,
+            totalEarnings: Number(totalBillableEarnings.toFixed(2)),
             data: attendance.map(flattenAttendance)
         };
 
@@ -641,6 +711,16 @@ const getAttendanceHistory = async (facultyId) => {
     try {
         const numericUserId = await resolveUserId(facultyId);
 
+        const monthsYears = await Attendance.findAll({
+            where: { user_id: numericUserId },
+            attributes: ['month', 'year'],
+            group: ['month', 'year']
+        });
+
+        for (const my of monthsYears) {
+            await syncMonthlyBillableStatus(numericUserId, my.month, my.year);
+        }
+
         const attendance = await Attendance.findAll({
             where: { user_id: numericUserId },
             include: allocationInclude,
@@ -651,10 +731,17 @@ const getAttendanceHistory = async (facultyId) => {
         const totalClasses = attendance.length;
         const daysPresent  = new Set(attendance.map(item => item.attendance_date)).size;
 
+        const totalBillableEarnings = attendance.reduce((sum, item) => {
+            const isB = item.is_billable ?? true;
+            const r = item.Allocation?.rate_per_hour ? Number(item.Allocation.rate_per_hour) : 0;
+            return sum + (isB ? Number(item.hours) * r : 0);
+        }, 0);
+
         return {
             totalClasses,
             totalHours,
             daysPresent,
+            totalEarnings: Number(totalBillableEarnings.toFixed(2)),
             data: attendance.map(flattenAttendance)
         };
 
@@ -863,10 +950,15 @@ const deleteAttendanceById = async (attendanceId) => {
         throw new Error(`Attendance record with id=${attendanceId} not found.`);
     }
 
+    const { user_id, month, year } = record;
+
     // 2. Delete only THIS specific row
     await record.destroy();
 
-    // 3. Return the deleted record's key info
+    // 3. Sync billable status after deletion
+    await syncMonthlyBillableStatus(user_id, month, year);
+
+    // 4. Return the deleted record's key info
     return {
         attendance_id:   record.attendance_id,
         attendance_date: record.attendance_date,
@@ -916,6 +1008,20 @@ const deleteAttendanceByFaculty = async (facultyId, filters = {}) => {
 
     // 3. Delete matching rows
     const deletedCount = await Attendance.destroy({ where });
+
+    // 4. Re-sync billable status after bulk delete
+    if (filters.month && filters.year) {
+        await syncMonthlyBillableStatus(userId, filters.month, filters.year);
+    } else {
+        const remainingMonthsYears = await Attendance.findAll({
+            where: { user_id: userId },
+            attributes: ['month', 'year'],
+            group: ['month', 'year']
+        });
+        for (const my of remainingMonthsYears) {
+            await syncMonthlyBillableStatus(userId, my.month, my.year);
+        }
+    }
 
     return {
         user_id:      userId,

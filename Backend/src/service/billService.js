@@ -91,6 +91,8 @@ const generateBill = async (facultyId, month, year, extraDetails = {}) => {
                 }
             ],
 
+            order: [["attendance_date", "ASC"], ["start_time", "ASC"]],
+
             transaction
 
         });
