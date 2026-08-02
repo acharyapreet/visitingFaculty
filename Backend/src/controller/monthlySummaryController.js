@@ -1,7 +1,8 @@
 const {
     getMonthlySummary,
     getAllCoursesMonthlySummary,
-    downloadMonthlySummaryPDF
+    downloadMonthlySummaryPDF,
+    generateMonthlySummaryPDF
 } = require("../service/monthlySummaryService");
 
 // const { runMonthlySummaryJob } = require("../scheduler/monthlySummaryScheduler");
@@ -108,6 +109,46 @@ const downloadSummaryPDFController = async (req, res) => {
 };
 
 // =================================================================
+// GET /api/monthly-summary/super-admin-pdf?month=July&year=2026
+// Super Admin — Full Monthly Summary PDF
+// Format: S.No. | UVFIN | Name of Faculty | Total Amount
+//         Grand Total row
+//         All 9 Program Incharge blocks (3×3 grid)
+//         Director signature
+// =================================================================
+const generateSummaryPDFController = async (req, res) => {
+    try {
+        const { month, year } = req.query;
+
+        if (!month || !year) {
+            return res.status(400).json({
+                success: false,
+                message: "Query params 'month' and 'year' are required."
+            });
+        }
+
+        const pdfPath = await generateMonthlySummaryPDF(month, year);
+
+        return res.download(pdfPath, `Monthly-Summary-${month}-${year}.pdf`, (err) => {
+            if (err && !res.headersSent) {
+                console.error("generateSummaryPDFController [res.download]:", err);
+                return res.status(500).json({
+                    success: false,
+                    message: "Failed to send PDF file: " + err.message
+                });
+            }
+        });
+
+    } catch (error) {
+        console.error("generateSummaryPDFController:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// =================================================================
 // POST /api/monthly-summary/trigger-now
 // Manually triggers the cron job (for testing / emergency re-run).
 // Body: { month: "June", year: 2026 } — optional; defaults to previous month
@@ -137,5 +178,6 @@ module.exports = {
     getMonthlySummaryController,
     getAllCoursesSummaryController,
     downloadSummaryPDFController,
+    generateSummaryPDFController,
     triggerMonthlySummaryNow
 };
