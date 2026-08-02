@@ -104,7 +104,7 @@ export default function PendingApprovalsPage() {
       });
 
       if (status === 'approved') {
-        showToast('success', 'Admin Approved', `Credentials emailed to ${selectedAdmin.email}`);
+        showToast('success', 'Program Incharge Approved', `Credentials emailed to ${selectedAdmin.email}`);
       } else {
         showToast('error', 'Application Rejected', `Rejection notice sent to ${selectedAdmin.email}`);
       }
@@ -154,13 +154,13 @@ export default function PendingApprovalsPage() {
     if (status === 'approved') {
       boxStyles = "border-green-200 bg-green-50/30";
       iconStyles = "bg-green-100 text-green-600";
-      title = "Approved Admin";
-      subtitle = "This admin account is active and has portal access.";
+      title = "Approved Program Incharge";
+      subtitle = "This PI account is active and has portal access.";
       Icon = <CheckCircle className="w-5 h-5" />;
     } else if (status === 'rejected') {
       boxStyles = "border-red-200 bg-red-50/30";
       iconStyles = "bg-red-100 text-red-600";
-      title = "Rejected Admin";
+      title = "Rejected Program Incharge";
       subtitle = "This registration application was declined.";
       Icon = <XCircle className="w-5 h-5" />;
     } else {
@@ -185,7 +185,7 @@ export default function PendingApprovalsPage() {
             {title}
           </p>
           <p className="text-sm font-bold text-[#1F2937]">
-            {selectedAdmin.full_name || 'Admin Candidate'}
+            {selectedAdmin.full_name || 'Program Incharge Candidate'}
           </p>
           <p className={`text-[10px] mt-0.5 font-medium ${status === 'approved' ? 'text-green-600' : status === 'rejected' ? 'text-red-600' : 'text-[#7E22CE]'}`}>
             {subtitle}
@@ -216,11 +216,11 @@ export default function PendingApprovalsPage() {
         </div>
       )}
 
-      <Topbar title="Pending Admin Approvals" subtitle="Review, approve or reject admin registration requests" showSearch={false} />
+      <Topbar title="Pending Program Incharge Approvals" subtitle="Review, approve or reject PI registration requests" showSearch={false} />
 
       <div className="px-8 py-8 pb-24">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Admin Registration Approvals</h1>
-        <p className="text-gray-400 mb-6">Review, approve, or reject pending admin account requests</p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Program Incharge Registration Approvals</h1>
+        <p className="text-gray-400 mb-6">Review, approve, or reject pending PI account requests</p>
 
         <div className="inline-flex bg-gray-100 rounded-full p-1 mb-6">
           {tabs.map((tab) => (
@@ -263,7 +263,7 @@ export default function PendingApprovalsPage() {
                 <thead>
                   <tr className="text-xs font-semibold text-gray-400 border-b border-gray-100">
                     <th className="py-3 pr-4 font-semibold uppercase">Registration ID</th>
-                    <th className="py-3 pr-4 font-semibold uppercase">Admin Name</th>
+                    <th className="py-3 pr-4 font-semibold uppercase">Program Incharge Name</th>
                     <th className="py-3 pr-4 font-semibold uppercase">Designation</th>
                     <th className="py-3 pr-4 font-semibold uppercase">Employee ID</th>
                     <th className="py-3 pr-4 font-semibold uppercase">Submitted</th>
@@ -290,7 +290,7 @@ export default function PendingApprovalsPage() {
                           </div>
                         </td>
                         <td className="py-4 pr-4 text-sm">
-                          <div className="text-gray-800 font-medium">Admin</div>
+                          <div className="text-gray-800 font-medium">Program Incharge</div>
                           <div className="text-gray-400 text-xs">{r.department || "N/A"}</div>
                         </td>
                         <td className="py-4 pr-4 text-gray-700 text-sm">{r.employee_id || "Unassigned"}</td>
@@ -373,7 +373,7 @@ export default function PendingApprovalsPage() {
             <div className="flex items-start justify-between p-6 border-b border-gray-100">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">
-                  {modalType === 'details' ? 'Admin Application Details' : modalType === 'approve' ? 'Review Admin Application' : 'Reject Admin Application'}
+                  {modalType === 'details' ? 'Program Incharge Application Details' : modalType === 'approve' ? 'Review Program Incharge Application' : 'Reject Program Incharge Application'}
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">Ref: {selectedAdmin.user_id || 'AR00X'} - Submitted {formatDate(selectedAdmin.created_at || selectedAdmin.submitted_date)}</p>
               </div>
@@ -416,7 +416,7 @@ export default function PendingApprovalsPage() {
                   </div>
                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                     <p className="text-xs text-gray-400 mb-1">Designation</p>
-                    <p className="text-sm font-semibold text-gray-900">Admin</p>
+                    <p className="text-sm font-semibold text-gray-900">Program Incharge</p>
                     <p className="text-xs text-gray-500 mt-0.5">{selectedAdmin.department || 'N/A'}</p>
                   </div>
                 </div>
@@ -431,7 +431,7 @@ export default function PendingApprovalsPage() {
                   <textarea
                     value={rejectReason}
                     onChange={(e) => { setRejectReason(e.target.value); if (updateError) setUpdateError(""); }}
-                    placeholder="Explain why this admin application is being rejected..."
+                    placeholder="Explain why this Program Incharge application is being rejected..."
                     disabled={isUpdating}
                     className="w-full border border-gray-200 rounded-xl p-4 text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 min-h-[100px] resize-none disabled:bg-gray-50"
                   ></textarea>
@@ -457,13 +457,13 @@ export default function PendingApprovalsPage() {
                     <span className="text-gray-400">To:</span>
                     <span className="font-medium text-gray-900">{selectedAdmin.email}</span>
                     <span className="text-gray-400">Subj:</span>
-                    <span className="font-medium text-gray-900">DAVV VFM System — Admin Registration Update</span>
+                    <span className="font-medium text-gray-900">DAVV VFM System — Program Incharge Registration Update</span>
                   </div>
                   <p>Dear {selectedAdmin.full_name},</p>
                   
                   {getPreviewMode() === 'approve' ? (
                     <>
-                      <p>Your admin registration request for the DAVV Visiting Faculty Management System has been <strong>approved</strong>.</p>
+                      <p>Your Program Incharge registration request for the DAVV Visiting Faculty Management System has been <strong>approved</strong>.</p>
                       <p>Your login credentials are as follows:</p>
                       
                       {/* UPDATED: Removed User ID, showing Email instead */}
@@ -482,7 +482,7 @@ export default function PendingApprovalsPage() {
                     </>
                   ) : (
                     <>
-                      <p>After review, your admin registration for the DAVV VFM System has not been approved at this time.</p>
+                      <p>After review, your Program Incharge registration for the DAVV VFM System has not been approved at this time.</p>
                       {(rejectReason || getAdminRejectionReason(selectedAdmin)) && (
                         <div className="p-3 bg-red-50 border-l-4 border-red-500 text-red-700 my-2 italic">
                           "{rejectReason || getAdminRejectionReason(selectedAdmin)}"

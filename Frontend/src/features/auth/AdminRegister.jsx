@@ -154,11 +154,11 @@ export default function AdminRegister({ onNavigate }) {
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
-          Admin Portal
+          Program Incharge Portal
         </div>
 
         <div className="mb-8 text-center">
-          <h2 className="text-[22px] font-bold text-[#141B2B] mb-1.5">Create Your Admin Account</h2>
+          <h2 className="text-[22px] font-bold text-[#141B2B] mb-1.5">Create Your PI Account</h2>
           <p className="text-sm text-[#6B7280]">Enter your professional details to access the university dashboard.</p>
         </div>
 
@@ -345,7 +345,7 @@ export default function AdminRegister({ onNavigate }) {
         {/* Footer Link */}
         <div className="text-center mt-6">
           <p className="text-sm text-[#424656]">
-            Already have an admin account?{' '}
+            Already have a Program Incharge account?{' '}
             <button 
               onClick={() => onNavigate('login')}
               className="text-[#004DD2] font-semibold hover:underline focus:outline-none"

@@ -6,7 +6,7 @@ export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 
   
   const navItems = [
     { key: "pending", label: "Pending Approvals", icon: ClipboardList, badge: pendingCount },
-    { key: "admins", label: "All Admins", icon: Users },
+    { key: "programincharges", label: "All Program Incharge", icon: Users },
     { key: "programs", label: "Programs", icon: BookOpen }, 
     { key: "settings", label: "Settings", icon: Settings }, 
   ];

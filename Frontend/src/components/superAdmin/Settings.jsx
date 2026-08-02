@@ -7,8 +7,8 @@ const tabs = ["General", "Security", "Audit Log"];
 
 const systemInfo = [
   { label: "System Version", value: "VFM v2.0.1" },
-  { label: "Total Admin Requests", value: "5" },
-  { label: "Approved Admins", value: "1" },
+  { label: "Total Program Incharge Requests", value: "5" },
+  { label: "Approved Program Incharges", value: "1" },
   { label: "Pending Reviews", value: "3" },
   { label: "Last Activity", value: "24 Dec 2024, 10:45 AM" },
 ];
@@ -186,7 +186,7 @@ export default function Settings() {
   });
 
   const exportToCSV = () => {
-    const headers = ["Sr.", "Action", "Admin Name", "User ID", "Date", "Remarks"];
+    const headers = ["Sr.", "Action", "Program Incharge Name", "User ID", "Date", "Remarks"];
     const csvContent = [
       headers.join(","), 
       ...filteredLogs.map((l, i) => [
@@ -461,7 +461,7 @@ export default function Settings() {
                   <tr className="text-xs font-semibold text-gray-400 border-b border-gray-100 uppercase">
                     <th className="py-3">Sr.</th>
                     <th className="py-3">Action</th>
-                    <th className="py-3">Admin Name</th>
+                    <th className="py-3">Program Incharge Name</th>
                     <th className="py-3">User ID Issued</th>
                     <th className="py-3">Performed By</th>
                     <th className="py-3">Date</th>
@@ -473,7 +473,7 @@ export default function Settings() {
                     <tr>
                       <td colSpan="7" className="py-16 text-center text-gray-500 text-sm">
                         {searchQuery ? (
-                          <span>No administrators found matching "{searchQuery}".</span>
+                          <span>No Program Incharges found matching "{searchQuery}".</span>
                         ) : (
                           <span>No audit logs found in the system.</span>
                         )}

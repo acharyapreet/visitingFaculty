@@ -53,7 +53,7 @@ export default function Topbar({ title, subtitle, onSearch, onPendingClick, show
             <Search className="w-4 h-4 text-gray-400 shrink-0" />
             <input
               type="text"
-              placeholder="Search admins..."
+              placeholder="Search Program Incharges..."
               onChange={(e) => onSearch && onSearch(e.target.value)}
               className="bg-transparent outline-none text-sm text-gray-600 w-full placeholder:text-gray-400"
             />

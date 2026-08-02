@@ -127,7 +127,7 @@ export default function AllAdminsPage({ onNavigate }) {
   return (
     <div className="flex-1 bg-gray-50 min-h-screen relative overflow-hidden">
       <Topbar 
-        title="All Admin Accounts" 
+        title="All Program Incharge Accounts" 
         subtitle="Active and approved VFM System administrators"
         showSearch={true}
         onPendingClick={() => onNavigate("pending")} 
@@ -140,7 +140,7 @@ export default function AllAdminsPage({ onNavigate }) {
       <div className="px-8 py-8 pb-24">
         <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">All Admin Accounts</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">All Program Incharge</h1>
             <p className="text-gray-400">Active and approved VFM System administrators</p>
           </div>
           <button 
@@ -153,9 +153,9 @@ export default function AllAdminsPage({ onNavigate }) {
 
         {/* Stat cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
-          <StatCard label="Total Admins" value={totalAdmins} icon={Users} bg="bg-blue-50" color="text-blue-500" />
-          <StatCard label="Active Accounts" value={activeAdmins} icon={UserCheck} bg="bg-green-50" color="text-green-500" />
-          <StatCard label="Pending Review" value={pendingAdmins} icon={ClipboardList} bg="bg-amber-50" color="text-amber-500" />
+          <StatCard label="Total Admins" value={totalProgramIncharge} icon={Users} bg="bg-blue-50" color="text-blue-500" />
+          <StatCard label="Active Accounts" value={activeProgramIncharge} icon={UserCheck} bg="bg-green-50" color="text-green-500" />
+          <StatCard label="Pending Review" value={pendingProgramIncharge} icon={ClipboardList} bg="bg-amber-50" color="text-amber-500" />
         </div>
 
         {/* Table card */}
@@ -170,7 +170,7 @@ export default function AllAdminsPage({ onNavigate }) {
               <table className="w-full text-left">
                 <thead>
                   <tr className="text-xs font-semibold text-gray-400 border-b border-gray-100 uppercase tracking-wider">
-                    <th className="py-3 pr-4">ADMIN NAME</th>
+                    <th className="py-3 pr-4">Program Incharge NAME</th>
                     <th className="py-3 pr-4">APPROVED ON</th>
                     <th className="py-3 pr-4">ROLE</th>
                     <th className="py-3 pr-4">STATUS</th>
@@ -267,7 +267,7 @@ export default function AllAdminsPage({ onNavigate }) {
             
             <div className="flex items-start justify-between p-6 border-b border-gray-100">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Admin Application Details</h2>
+                <h2 className="text-xl font-bold text-gray-900">Program Incharge Application Details</h2>
                 <p className="text-sm text-gray-500 mt-1">Ref: {selectedAdmin.user_id || 'AR00X'} - Submitted {formatDate(selectedAdmin.created_at || selectedAdmin.submitted_date)}</p>
               </div>
               <button onClick={closeModal} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors">
@@ -291,7 +291,7 @@ export default function AllAdminsPage({ onNavigate }) {
                 </div>
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                   <p className="text-xs text-gray-400 mb-1">Designation</p>
-                  <p className="text-sm font-semibold text-gray-900">Admin</p>
+                  <p className="text-sm font-semibold text-gray-900">Program Incharge</p>
                   <p className="text-xs text-gray-500 mt-0.5">{selectedAdmin.department || 'N/A'}</p>
                 </div>
               </div>
@@ -304,13 +304,13 @@ export default function AllAdminsPage({ onNavigate }) {
                   </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5 text-green-600">
-                      Active Admin
+                      Active Program Incharge
                     </p>
                     <p className="text-sm font-bold text-[#1F2937]">
                       {selectedAdmin.full_name || 'Admin Candidate'}
                     </p>
                     <p className="text-[10px] mt-0.5 font-medium text-green-600">
-                      This admin account is active and has full portal access.
+                      This PI account is active and has full portal access.
                     </p>
                   </div>
                 </div>
@@ -321,13 +321,13 @@ export default function AllAdminsPage({ onNavigate }) {
                   </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5 text-slate-500">
-                      Inactive Admin
+                      Inactive Program Incharge
                     </p>
                     <p className="text-sm font-bold text-[#1F2937]">
                       {selectedAdmin.full_name || 'Admin Candidate'}
                     </p>
                     <p className="text-[10px] mt-0.5 font-medium text-slate-500">
-                      This admin account is deactivated. Portal access is currently restricted.
+                      This PI account is deactivated. Portal access is currently restricted.
                     </p>
                   </div>
                 </div>

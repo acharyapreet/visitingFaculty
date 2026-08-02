@@ -42,7 +42,7 @@ export default function AuditLog({ searchQuery = "" }) {
   const handlePrint = () => window.print();
 
   const exportToCSV = () => {
-    const headers = ["Sr.", "Action", "Admin Name", "User ID", "Performed By", "Date", "Remarks"];
+    const headers = ["Sr.", "Action", "Program Incharge Name", "User ID", "Performed By", "Date", "Remarks"];
     const csvContent = "data:text/csv;charset=utf-8," + 
       headers.join(",") + "\n" +
       filteredLogs.map((l, i) => [
@@ -93,7 +93,7 @@ export default function AuditLog({ searchQuery = "" }) {
             <tr className="text-xs font-semibold text-gray-400 border-b border-gray-100 uppercase">
               <th className="py-3">Sr.</th>
               <th className="py-3">Action</th>
-              <th className="py-3">Admin Name</th>
+              <th className="py-3">Program Incharge Name</th>
               <th className="py-3">User ID Issued</th>
               <th className="py-3">Performed By</th>
               <th className="py-3">Date</th>
@@ -105,7 +105,7 @@ export default function AuditLog({ searchQuery = "" }) {
               <tr>
                 <td colSpan="7" className="py-16 text-center text-gray-500 text-sm">
                   {searchQuery ? (
-                    <>No administrators found matching "{searchQuery}".</>
+                    <>No Program Incharges found matching "{searchQuery}".</>
                   ) : (
                     "No audit logs found in the system."
                   )}
