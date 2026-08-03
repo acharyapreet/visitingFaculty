@@ -5,6 +5,7 @@ import PendingApprovalsPage from "./PendingApprovals";
 import AllAdminsPage from './AllAdminsPage'; 
 import SettingsPage from "./Settings"; 
 import ProgramsPage from "./ProgramPage";
+import MonthlySummary from "./MonthlySummary";
 
 export default function SuperAdminDashboard({ onSignOut }) {
   // 1. Bulletproof State Initialization
@@ -70,6 +71,8 @@ export default function SuperAdminDashboard({ onSignOut }) {
         return <AllAdminsPage onNavigate={setActiveTab} />;
       case "programs":
         return <ProgramsPage onNavigate={setActiveTab} />;
+      case "monthly-summary":
+        return <MonthlySummary />;
       case "settings":
         return <SettingsPage onNavigate={setActiveTab} />;
       default:
