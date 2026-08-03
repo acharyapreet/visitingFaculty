@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Search, Download, FileText, TableProperties, Calendar, Trash2, Users, Eye } from "lucide-react";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 import LoadingSpinner from "./LoadingSpinner"; 
 
 import davvLogo from "../../assets/image.png";
@@ -47,16 +47,6 @@ const UVFINBlocks = ({ uvfin }) => {
 };
 
 export default function BillGeneration() {
-  const getAxiosConfig = () => {
-    const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-    return {
-      headers: {
-        Authorization: `Bearer ${session.token}`,
-        "Content-Type": "application/json"
-      }
-    };
-  };
-
   const [facultySearch, setFacultySearch] = useState("");
   const [selectedFacultyId, setSelectedFacultyId] = useState("");
   const [facultyOptions, setFacultyOptions] = useState([]);
@@ -65,7 +55,7 @@ export default function BillGeneration() {
   const [allFaculties, setAllFaculties] = useState([]);
   const [facultiesLoading, setFacultiesLoading] = useState(true);
 
-  const [month, setMonth] = useState("July");
+  const [month, setMonth] = useState(MONTHS[new Date().getMonth()]);
   const [sessionYear, setSessionYear] = useState("2026-27");
   const [bill, setBill] = useState(null);
   const [generating, setGenerating] = useState(false);
@@ -97,7 +87,7 @@ export default function BillGeneration() {
   const loadAllFaculties = async () => {
     setFacultiesLoading(true);
     try {
-      const res = await axios.get("http://localhost:5000/api/admin/search-faculty?q=", getAxiosConfig());
+      const res = await api.get("/admin/search-faculty?q=");
       setAllFaculties(res.data.data || []);
     } catch (err) {
       console.error("Failed to load faculties for quick select");
@@ -109,7 +99,7 @@ export default function BillGeneration() {
   const loadHistory = async () => {
     setHistoryLoading(true);
     try {
-      const res = await axios.get("http://localhost:5000/api/bills", getAxiosConfig());
+      const res = await api.get("/bills");
       setHistory(res.data.data || res.data || []);
     } catch {
       setHistory([]); 
@@ -125,10 +115,7 @@ export default function BillGeneration() {
         return;
       }
       try {
-        const res = await axios.get(
-          `http://localhost:5000/api/admin/search-faculty?q=${facultySearch}`, 
-          getAxiosConfig()
-        );
+        const res = await api.get(`/admin/search-faculty?q=${facultySearch}`);
         setFacultyOptions(res.data.data || []);
       } catch (err) {
         setFacultyOptions([]);
@@ -157,26 +144,16 @@ export default function BillGeneration() {
         year: yearInt
       };
 
-      const generatedDbRes = await axios.post(
-        "http://localhost:5000/api/bills/generate", 
-        generatePayload, 
-        getAxiosConfig()
-      );
+      const generatedDbRes = await api.post("/bills/generate", generatePayload);
 
       const responseData = generatedDbRes.data?.data || generatedDbRes.data || {};
       const realDbId = responseData.id || responseData.bill_id || responseData.billId;
       const displayBillNo = realDbId ? realDbId : `BILL-${Date.now().toString().slice(-6)}`;
 
-      const profileRes = await axios.get(
-        `http://localhost:5000/api/admin/faculty/${selectedFacultyId}`, 
-        getAxiosConfig()
-      );
+      const profileRes = await api.get(`/admin/faculty/${selectedFacultyId}`);
       const facultyData = profileRes.data.data;
 
-      const attendanceRes = await axios.get(
-        `http://localhost:5000/api/attendance/monthly/${selectedFacultyId}?month=${month}&year=${yearInt}`, 
-        getAxiosConfig()
-      );
+      const attendanceRes = await api.get(`/attendance/monthly/${selectedFacultyId}?month=${month}&year=${yearInt}`);
       const records = attendanceRes.data.data || [];
 
       if (records.length === 0) {
@@ -218,6 +195,39 @@ export default function BillGeneration() {
     }
   };
 
+  const handleForceRegenerate = async () => {
+    const yearInt = parseInt(sessionYear.split("-")[0]);
+    
+    // 1. Grab the exact name of the selected faculty
+    const selectedFacultyName = allFaculties.find(f => f.user_id === selectedFacultyId)?.full_name;
+
+    // 2. Find their existing bill in the history state for this specific month/year
+    const existingBill = history.find((b) => {
+      const billMonth = typeof b.month === "number" ? MONTHS[b.month - 1] : b.month;
+      const historyName = b.facultyName || b.User?.full_name;
+      return historyName === selectedFacultyName && billMonth === month && b.year === yearInt;
+    });
+
+    if (!existingBill) {
+      setError("Could not automatically locate the old bill. Please delete it manually from the history table below.");
+      return;
+    }
+
+    // 3. Auto-delete the old bill, then trigger a fresh generation
+    setGenerating(true);
+    setError("");
+    try {
+      const billIdToDelete = existingBill.id || existingBill.bill_id || existingBill.billNo;
+      await api.delete(`/bills/${billIdToDelete}`);
+      
+      // The old bill is gone, instantly generate the new one
+      await handleGenerate();
+    } catch (err) {
+      setError("Failed to delete the existing bill for regeneration.");
+      setGenerating(false);
+    }
+  };
+
   const handleDeleteClick = (billId) => {
     setBillToDelete(billId);
   };
@@ -227,7 +237,7 @@ export default function BillGeneration() {
     setIsDeleting(true);
     
     try {
-      await axios.delete(`http://localhost:5000/api/bills/${billToDelete}`, getAxiosConfig());
+      await api.delete(`/bills/${billToDelete}`);
       
       setHistory(prev => prev.filter(b => b.id !== billToDelete && b.bill_id !== billToDelete && b.billNo !== billToDelete));
       
@@ -245,7 +255,7 @@ export default function BillGeneration() {
 
   const handleViewBill = async (billId) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/bills/details/${billId}`, getAxiosConfig());
+      const res = await api.get(`/bills/details/${billId}`);
       const data = res.data?.data || res.data;
 
       const items = data.BillDetails || [];
@@ -253,7 +263,7 @@ export default function BillGeneration() {
       let facultyData = {};
       if (data.user_id) {
         try {
-          const profileRes = await axios.get(`http://localhost:5000/api/admin/faculty/${data.user_id}`, getAxiosConfig());
+          const profileRes = await api.get(`/admin/faculty/${data.user_id}`);
           facultyData = profileRes.data?.data || {};
         } catch (profileErr) {
           console.error("Could not fetch faculty profile for preview", profileErr);
@@ -400,9 +410,9 @@ export default function BillGeneration() {
               onChange={(e) => setSessionYear(e.target.value)}
               className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:border-[#004DD2]"
             >
-              <option value="2024-25">2024-25</option>
-              <option value="2025-26">2025-26</option>
               <option value="2026-27">2026-27</option>
+              <option value="2027-28">2027-28</option>
+              <option value="2028-29">2028-29</option>
             </select>
           </div>
 
@@ -454,7 +464,25 @@ export default function BillGeneration() {
           )}
         </div>
 
-        {error && <p className="text-sm text-red-500 bg-red-50 p-3 rounded-lg border border-red-100 mb-6">{error}</p>}
+        {error && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-red-50 p-4 rounded-lg border border-red-100 mb-6 gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-red-500 font-bold">⚠️</span>
+              <p className="text-sm text-red-700 font-medium">{error}</p>
+            </div>
+            
+            {/* Show the Regenerate button only if the error is about an existing bill */}
+            {(error.toLowerCase().includes("already") || error.toLowerCase().includes("exists")) && (
+              <button 
+                onClick={handleForceRegenerate}
+                disabled={generating}
+                className="shrink-0 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {generating ? "Regenerating..." : "Delete Old & Regenerate"}
+              </button>
+            )}
+          </div>
+        )}
         {generating && <div className="py-12 flex justify-center text-slate-500">Generating official document preview...</div>}
       </div>
 
@@ -757,7 +785,7 @@ function BillPreview({ bill, onDownload }) {
                   </div>
                   <div className="flex items-end gap-2">
                     <span className="font-medium">Theory/Practical</span>
-                    <span className="w-20 border-b border-black pb-0.5 text-center font-bold"></span>
+                    <span className="w-20 border-b border-black pb-0.5 text-center font-bold">{totalHours}</span>
                     <span className="font-medium">per week</span>
                   </div>
                 </div>

@@ -15,9 +15,9 @@ import {
   X,
   Building2,
 } from "lucide-react";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
-const API_BASE = "http://localhost:5000/api/monthly-summary";
+const API_BASE = "/monthly-summary";
 
 const MONTHS = [
   "January","February","March","April","May","June",
@@ -106,7 +106,7 @@ export default function MonthlySummary() {
   // ── Fetch all-courses grouped data (for course list + grand view)
   const fetchAllCourses = async (month, year) => {
     try {
-      const { data } = await axios.get(`${API_BASE}/all`, {
+      const { data } = await api.get(`${API_BASE}/all`, {
         params: { month, year },
       });
       if (data.success) {
@@ -127,7 +127,7 @@ export default function MonthlySummary() {
     try {
       const params = { month, year };
       if (courseId) params.courseId = courseId;
-      const { data } = await axios.get(API_BASE, { params });
+      const { data } = await api.get(API_BASE, { params });
       if (data.success) {
         setSummaryData(data.data);
       } else {
@@ -170,7 +170,7 @@ export default function MonthlySummary() {
     }
     setIsDownloading(true);
     try {
-      const response = await axios.get(`${API_BASE}/download`, {
+      const response = await api.get(`${API_BASE}/download`, {
         params: { month: selectedMonth, year: selectedYear, courseId: selectedCourseId },
         responseType: "blob",
       });
@@ -195,7 +195,7 @@ export default function MonthlySummary() {
   const handleDownloadInstitutePDF = async () => {
     setIsDownloadingInstitute(true);
     try {
-      const response = await axios.get(`${API_BASE}/super-admin-pdf`, {
+      const response = await api.get(`${API_BASE}/super-admin-pdf`, {
         params: { month: selectedMonth, year: selectedYear },
         responseType: "blob",
       });
@@ -220,7 +220,7 @@ export default function MonthlySummary() {
   const handleTriggerNow = async () => {
     setIsTriggering(true);
     try {
-      const { data } = await axios.post(`${API_BASE}/trigger-now`);
+      const { data } = await api.post(`${API_BASE}/trigger-now`);
       if (data.success) {
         showToast(data.message || "Monthly summary job triggered successfully!");
         // Refresh data after a short delay to allow the backend to process

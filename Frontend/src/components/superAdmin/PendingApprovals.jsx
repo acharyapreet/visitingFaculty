@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Topbar from "./Topbar";
 import { Search, Eye, CheckCircle, XCircle, X, ChevronLeft, ChevronRight, Loader2, Mail } from "lucide-react";
-import axios from "axios";
+import api from "../api/axiosInstance";
 
 const tabs = [
   { key: "pendingAdmin", label: "Pending" },
@@ -39,9 +39,7 @@ export default function PendingApprovalsPage() {
     setError("");
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-      const response = await axios.get(`http://localhost:5000/api/super_admin/${endpointKey}`, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      const response = await api.get(`/super_admin/${endpointKey}`);
       setAdmins(response.data.data || []); 
     } catch (err) {
       console.error("Error fetching admins:", err);
@@ -99,9 +97,7 @@ export default function PendingApprovalsPage() {
       const payload = { status: status };
       if (status === 'rejected') payload.rejection_reason = rejectReason;
 
-      await axios.put(`http://localhost:5000/api/super_admin/admin/${targetUserId}/approve`, payload, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      await api.put(`/super_admin/admin/${targetUserId}/approve`, payload);
 
       if (status === 'approved') {
         showToast('success', 'Program Incharge Approved', `Credentials emailed to ${selectedAdmin.email}`);

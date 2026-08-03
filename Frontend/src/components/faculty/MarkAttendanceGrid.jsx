@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Info, CheckCircle2, Plus, Loader2, AlertCircle, Trash2, AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
 const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
@@ -73,9 +73,7 @@ export default function MarkAttendanceGrid() {
     if (session.userId) setUserId(session.userId);
     
     if (session.userId) {
-      axios.get(`http://localhost:5000/api/attendance/my-allocations/${session.userId}`, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      }).then(res => {
+      api.get(`/attendance/my-allocations/${session.userId}`).then(res => {
         if (res.data.success) setAllocations(res.data.allocations || []);
       }).catch(err => console.error("Error fetching allocations:", err));
     }
@@ -84,10 +82,7 @@ export default function MarkAttendanceGrid() {
   const fetchMonthlyRecords = async () => {
     if (!userId) return;
     try {
-      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-      const res = await axios.get(`http://localhost:5000/api/attendance/monthly/${userId}?month=${monthName}&year=${year}`, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      const res = await api.get(`/attendance/monthly/${userId}?month=${monthName}&year=${year}`);
       if (res.data.success) setMonthlyRecords(res.data.data || []);
     } catch (err) {
       console.error("Error fetching monthly attendance:", err);
@@ -152,10 +147,7 @@ export default function MarkAttendanceGrid() {
     setIsSubmitting(true);
     setCapWarning({ isOpen: false, payload: null, details: null });
     try {
-      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-      const res = await axios.post("http://localhost:5000/api/attendance/", payload, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      const res = await api.post("/attendance/", payload);
 
       if (res.data.success) {
         showModal("success", "Record Saved", `Attendance successfully submitted for ${payload.attendance_date}.`);
@@ -234,8 +226,7 @@ export default function MarkAttendanceGrid() {
   const executeBulkDelete = async () => {
     setIsSubmitting(true);
     try {
-      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-      let url = `http://localhost:5000/api/attendance/faculty/${userId}`;
+      let url = `/attendance/faculty/${userId}`;
       
       if (deleteConfig.type === 'day') {
         url += `?attendance_date=${deleteConfig.dateString}`;
@@ -243,9 +234,7 @@ export default function MarkAttendanceGrid() {
         url += `?month=${monthName}&year=${year}`;
       }
 
-      const res = await axios.delete(url, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      const res = await api.delete(url);
 
       if (res.data.success) {
         showModal("success", "Records Cleared", res.data.message || "Attendance records successfully deleted.");

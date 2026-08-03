@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api/axiosInstance";
 import Sidebar from "./Sidebar"; 
 import PendingApprovalsPage from "./PendingApprovals"; 
 import AllAdminsPage from './AllAdminsPage'; 
@@ -26,7 +26,7 @@ export default function SuperAdminDashboard({ onSignOut }) {
     const fetchPendingCount = async () => {
       try {
         const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-        const response = await axios.get("http://localhost:5000/api/super_admin/pendingAdmin", {
+        const response = await api.get("/super_admin/pendingAdmin", {
           headers: { 'Authorization': `Bearer ${session.token}` }
         });
         setPendingCount(response.data.data.length);
@@ -44,7 +44,7 @@ export default function SuperAdminDashboard({ onSignOut }) {
       
       // UNCOMMENT THIS when your teammate gives you the logout URL
       /*
-      await axios.post("http://localhost:5000/api/auth/logout", {}, {
+      await api.post("/auth/logout" {}, {
         headers: { 'Authorization': `Bearer ${session.token}` }
       });
       */

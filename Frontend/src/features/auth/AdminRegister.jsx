@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import api from "../../api/axiosInstance";
 import AdminRegistrationSuccess from './AdminRegistrationSuccess';
 
 export default function AdminRegister({ onNavigate }) {
@@ -57,8 +57,7 @@ export default function AdminRegister({ onNavigate }) {
     setIsLoading(true);
 
     try {
-      await axios.post('http://localhost:5000/api/auth/register/admin', {
-        email: formData.email.trim(),
+      await api.post('/auth/register/admin', {
         password: formData.password,
         full_name: formData.fullName.trim(),
         phone_number: formData.mobile.trim()

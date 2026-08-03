@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Send, Loader2, CheckCircle2, ChevronUp, ChevronDown, AlertCircle, AlertTriangle } from "lucide-react";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
 export default function MarkAttendanceList() {
   const [allocations, setAllocations] = useState([]);
@@ -63,8 +63,7 @@ export default function MarkAttendanceList() {
         if (!targetId) return;
         setUserId(targetId);
 
-        const headers = { 'Authorization': `Bearer ${session.token}` };
-        const allocationsRes = await axios.get(`http://localhost:5000/api/attendance/my-allocations/${targetId}`, { headers });
+        const allocationsRes = await api.get(`/attendance/my-allocations/${targetId}`);
 
         if (allocationsRes.data.success) {
           setAllocations(allocationsRes.data.allocations || []);
@@ -91,8 +90,7 @@ export default function MarkAttendanceList() {
         const monthName = d.toLocaleString('default', { month: 'long' });
         const yearStr = d.getFullYear();
 
-        const monthlyRes = await axios.get(`http://localhost:5000/api/attendance/monthly/${userId}?month=${monthName}&year=${yearStr}`, { headers });
-        
+        const monthlyRes = await api.get(`/attendance/monthly/${userId}?month=${monthName}&year=${yearStr}`);
         if (monthlyRes.data.success) {
           setMonthlyRecords(monthlyRes.data.data || []);
         }
@@ -142,12 +140,7 @@ export default function MarkAttendanceList() {
     setCapWarning({ isOpen: false, payload: null, details: null });
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-      const response = await axios.post("http://localhost:5000/api/attendance/", payload, {
-        headers: { 
-          'Authorization': `Bearer ${session.token}`,
-          'Content-Type': 'application/json' 
-        }
-      });
+      const response = await api.post("/attendance/", payload);
 
       if (response.data.success) {
         showModal("success", "Record Saved", `Attendance successfully submitted for ${payload.attendance_date}.`);

@@ -26,8 +26,7 @@ import {
   KeyRound     
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import axios from "axios";
-
+import api from "../../../api/axiosInstance";
 const navItems = [
   { view: "dashboard", label: "Dashboard", icon: LayoutGrid },
   { view: "mark-attendance", label: "Mark Attendance", icon: CalendarCheck },
@@ -79,14 +78,12 @@ function ProfileModal({ isOpen, onClose, userId, token }) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  useEffect(() => {
+useEffect(() => {
     if (isOpen && userId) {
       setIsLoading(true);
       setSaveSuccess(false);
-      axios
-        .get(`http://localhost:5000/api/admin/faculty/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+      api
+        .get(`/admin/faculty/${userId}`)
         .then((res) => {
           if (res.data.success) {
             setProfileData(res.data.data);
@@ -99,7 +96,7 @@ function ProfileModal({ isOpen, onClose, userId, token }) {
         .catch((err) => console.error("Error fetching profile:", err))
         .finally(() => setIsLoading(false));
     }
-  }, [isOpen, userId, token]);
+  }, [isOpen, userId]);
 
   if (!isOpen) return null;
 
@@ -111,9 +108,7 @@ function ProfileModal({ isOpen, onClose, userId, token }) {
         phone_number: formData.phone_number.trim()
       };
 
-      const response = await axios.put(`http://localhost:5000/api/auth/update/${userId}`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+     const response = await api.put(`/auth/update/${userId}`, payload);
 
       if (response.data.success) {
         setProfileData(prev => ({ ...prev, ...formData }));
@@ -139,12 +134,10 @@ function ProfileModal({ isOpen, onClose, userId, token }) {
     setPasswordMessage({ type: "", text: "" });
 
     try {
-      await axios.put("http://localhost:5000/api/auth/changePassword", {
+      await api.put("/auth/changePassword", {
         user_id: userId,
         oldPassword: passwordData.oldPassword,
         newPassword: passwordData.newPassword
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
 
       setPasswordMessage({ type: "success", text: "Password changed successfully!" });

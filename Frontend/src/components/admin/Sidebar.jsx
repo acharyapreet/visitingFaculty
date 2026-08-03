@@ -25,7 +25,7 @@ import {
   Shield,
   KeyRound
 } from "lucide-react";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
@@ -65,10 +65,8 @@ function AdminProfileModal({ isOpen, onClose, userId, token }) {
     if (isOpen && userId) {
       setIsLoading(true);
       setSaveSuccess(false);
-      axios
-        .get(`http://localhost:5000/api/super_admin/admin/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+      api
+        .get(`/super_admin/admin/${userId}`)
         .then((res) => {
           if (res.data.success) {
             setProfileData(res.data.data);
@@ -81,7 +79,7 @@ function AdminProfileModal({ isOpen, onClose, userId, token }) {
         .catch((err) => console.error("Error fetching admin profile:", err))
         .finally(() => setIsLoading(false));
     }
-  }, [isOpen, userId, token]);
+  }, [isOpen, userId]);
 
   if (!isOpen) return null;
 
@@ -93,9 +91,7 @@ function AdminProfileModal({ isOpen, onClose, userId, token }) {
         phone_number: formData.phone_number.trim()
       };
 
-      const response = await axios.put(`http://localhost:5000/api/auth/update/${userId}`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.put(`/auth/update/${userId}`, payload);
 
       if (response.data.success || response.status === 200) {
         setProfileData(prev => ({ ...prev, ...formData }));
@@ -125,12 +121,10 @@ function AdminProfileModal({ isOpen, onClose, userId, token }) {
     setPasswordMessage({ type: "", text: "" });
 
     try {
-      await axios.put("http://localhost:5000/api/auth/changePassword", {
+      await api.put("/auth/changePassword", {
         user_id: userId,
         oldPassword: passwordData.oldPassword,
         newPassword: passwordData.newPassword
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
 
       setPasswordMessage({ type: "success", text: "Password changed successfully!" });

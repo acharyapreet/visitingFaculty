@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
 /**
  * Shared top bar for all admin pages.
@@ -27,7 +27,7 @@ export default function Topbar({
         };
         
         // Using the pendingFaculty endpoint to get the count
-        const res = await axios.get("http://localhost:5000/api/admin/pendingFaculty", config);
+        const res = await api.get("/admin/pendingFaculty");
         
         // API returns { success: true, count: X, data: [...] }
         setPendingCount(res.data?.count || 0);

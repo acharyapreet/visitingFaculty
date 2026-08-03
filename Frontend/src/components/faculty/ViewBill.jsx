@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Download, ChevronDown, Loader2, Calendar, FileText, TableProperties, Eye, CheckCircle } from "lucide-react";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 import PageHeader from "./shared/PageHeader";
 
 // Import the logo correctly for Vite/React
@@ -84,9 +84,7 @@ export default function ViewBill({ facultyUserId }) {
       const session = JSON.parse(sessionStr);
       const targetId = facultyUserId || session.userId;
 
-      const response = await axios.get(`http://localhost:5000/api/admin/faculty/${targetId}`, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      const response = await api.get(`/admin/faculty/${targetId}`);
 
       if (response.data.success) {
         const data = response.data.data;
@@ -121,9 +119,7 @@ export default function ViewBill({ facultyUserId }) {
       const session = JSON.parse(sessionStr);
       const targetId = facultyUserId || session.userId;
 
-      const response = await axios.get(`http://localhost:5000/api/attendance/monthly/${targetId}?month=${selectedMonth}&year=${selectedYear}`, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      const response = await api.get(`/attendance/monthly/${targetId}?month=${selectedMonth}&year=${selectedYear}`);
 
       if (response.data.success) {
         const data = response.data.data || [];
@@ -485,7 +481,7 @@ export default function ViewBill({ facultyUserId }) {
                         </div>
                         <div className="flex items-end gap-2">
                           <span className="font-medium">Theory/Practical</span>
-                          <span className="w-20 border-b border-black pb-0.5 text-center font-bold"></span>
+                          <span className="w-20 border-b border-black pb-0.5 text-center font-bold">{totalHours}</span>
                           <span className="font-medium">per week</span>
                         </div>
                       </div>

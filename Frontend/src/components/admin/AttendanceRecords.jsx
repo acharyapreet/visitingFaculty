@@ -1,22 +1,11 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Search, Download, Calendar, Clock, IndianRupee, Filter, Users } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
 const PAGE_SIZE = 7;
 
 export default function AttendanceRecords() {
-  // --- STATE: Data & Auth ---
-  const getAxiosConfig = () => {
-    const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-    return {
-      headers: {
-        Authorization: `Bearer ${session.token}`,
-        "Content-Type": "application/json"
-      }
-    };
-  };
-
   // --- STATE: Faculty Search ---
   const [facultySearch, setFacultySearch] = useState("");
   const [selectedFacultyId, setSelectedFacultyId] = useState("");
@@ -38,7 +27,7 @@ export default function AttendanceRecords() {
   
   // Filters & Sort
   const [subjectFilter, setSubjectFilter] = useState("");
-  const [timelineFilter, setTimelineFilter] = useState(""); // "", "day", "week", "month"
+  const [timelineFilter, setTimelineFilter] = useState("month"); // "", "day", "week", "month"
   const [sortOrder, setSortOrder] = useState("newest"); // "newest", "oldest"
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   
@@ -62,11 +51,10 @@ export default function AttendanceRecords() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- NEW: Fetch all faculties for quick select ---
   const loadAllFaculties = async () => {
     setFacultiesLoading(true);
     try {
-      const res = await axios.get("http://localhost:5000/api/admin/search-faculty?q=", getAxiosConfig());
+      const res = await api.get("/admin/search-faculty?q=");
       setAllFaculties(res.data.data || []);
     } catch (err) {
       console.error("Failed to load faculties for quick select");
@@ -85,10 +73,7 @@ export default function AttendanceRecords() {
         return;
       }
       try {
-        const res = await axios.get(
-          `http://localhost:5000/api/admin/search-faculty?q=${facultySearch}`, 
-          getAxiosConfig()
-        );
+        const res = await api.get(`/admin/search-faculty?q=${facultySearch}`);
         setFacultyOptions(res.data.data || []);
       } catch (err) {
         setFacultyOptions([]);
@@ -99,7 +84,7 @@ export default function AttendanceRecords() {
   }, [facultySearch]);
 
   // ==========================================
-  // 3. FETCH HISTORY (Updated to accept an ID directly)
+  // 3. FETCH HISTORY 
   // ==========================================
   const handleSearch = async (idToSearch = null) => {
     const targetId = idToSearch || selectedFacultyId;
@@ -113,17 +98,15 @@ export default function AttendanceRecords() {
     setError("");
     
     try {
-      // Endpoint 5: Attendance History
-      const res = await axios.get(`http://localhost:5000/api/attendance/history/${targetId}`, getAxiosConfig());
+      const res = await api.get(`/attendance/history/${targetId}`);
       
       const fetchedRecords = res.data.data || [];
       setRecords(Array.isArray(fetchedRecords) ? fetchedRecords : []);
       
-      // Save active faculty details for the dashboard header
       const selected = facultyOptions.find(f => f.user_id === targetId) || allFaculties.find(f => f.user_id === targetId);
       setActiveFaculty({
         name: selected?.full_name || facultySearch || "Selected Faculty",
-        session: "2024-25" // Defaulting to current session
+        session: "2024-25" 
       });
       
     } catch (err) {
@@ -145,24 +128,19 @@ export default function AttendanceRecords() {
 
   const filteredAndSorted = useMemo(() => {
     let result = records.filter((r) => {
-      // 1. Subject Filter
       const matchesSubject = !subjectFilter || r.subject_name === subjectFilter;
       
-      // 2. Timeline Filter Logic
       let matchesTimeline = true;
       if (timelineFilter && r.attendance_date) {
         const recordDate = new Date(r.attendance_date);
         const today = new Date();
         
         if (timelineFilter === "day") {
-          // Exact same day
           matchesTimeline = recordDate.toDateString() === today.toDateString();
         } else if (timelineFilter === "week") {
-          // Within the last 7 days
           const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
           matchesTimeline = recordDate >= oneWeekAgo && recordDate <= today;
         } else if (timelineFilter === "month") {
-          // Same Month and Year
           matchesTimeline = recordDate.getMonth() === today.getMonth() && recordDate.getFullYear() === today.getFullYear();
         }
       }
@@ -170,7 +148,6 @@ export default function AttendanceRecords() {
       return matchesSubject && matchesTimeline;
     });
 
-    // 3. Sorting
     result.sort((a, b) => {
       const dateA = new Date(a.attendance_date || 0).getTime();
       const dateB = new Date(b.attendance_date || 0).getTime();
@@ -185,11 +162,16 @@ export default function AttendanceRecords() {
   
   useEffect(() => setPage(1), [subjectFilter, timelineFilter, sortOrder, records]);
 
-  // Map and calculate totals dynamically based on flat API properties
+  // ==========================================
+  // TOTALS CALCULATION (With 30k Cap Logic)
+  // ==========================================
   const totals = useMemo(() => {
     const classes = filteredAndSorted.length;
     const hours = filteredAndSorted.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
     const earnings = filteredAndSorted.reduce((sum, r) => {
+      // Ignore sessions that exceeded the 30k limit
+      if (r.is_billable === false || r.is_billable === 0) return sum;
+      
       const rate = Number(r.rate_per_hour) || 0;
       const hrs = Number(r.hours) || 0;
       return sum + (hrs * rate);
@@ -201,11 +183,12 @@ export default function AttendanceRecords() {
   // 5. EXPORT
   // ==========================================
   const handleExport = () => {
-    const headers = ["Date", "Subject Code", "Subject Name", "Type", "Hours", "Rate", "Amount"];
+    const headers = ["Date", "Subject Code", "Subject Name", "Type", "Hours", "Rate", "Amount", "Status"];
     
     const rows = filteredAndSorted.map((r) => {
       const rate = Number(r.rate_per_hour) || 0;
       const hrs = Number(r.hours) || 0;
+      const isCapped = r.is_billable === false || r.is_billable === 0;
       
       // Format date to "30-Jul-2026" so Excel doesn't hide it behind ########
       let formattedDate = r.attendance_date || "N/A";
@@ -223,7 +206,8 @@ export default function AttendanceRecords() {
         r.session_type || "N/A",
         r.hours,
         rate,
-        (hrs * rate)
+        isCapped ? 0 : (hrs * rate),
+        isCapped ? "Capped (Unpaid)" : "Billable"
       ];
     });
 
@@ -448,28 +432,33 @@ export default function AttendanceRecords() {
                   {paginated.map((r, idx) => {
                     const rate = Number(r.rate_per_hour) || 0;
                     const hours = Number(r.hours) || 0;
-                    const amount = rate * hours;
+                    const isCapped = r.is_billable === false || r.is_billable === 0;
+                    const amount = isCapped ? 0 : (rate * hours);
 
                     return (
-                      <tr key={r.attendance_id || idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors last:border-0">
+                      <tr key={r.attendance_id || idx} className={`border-b border-slate-100 transition-colors last:border-0 ${isCapped ? 'bg-orange-50/40 hover:bg-orange-50/60' : 'hover:bg-slate-50/50'}`}>
                         <td className="px-5 py-4 text-slate-500">{(page - 1) * PAGE_SIZE + idx + 1}</td>
-                        <td className="px-5 py-4 text-slate-700 font-medium">{r.attendance_date}</td>
-                        <td className="px-5 py-4 font-bold text-slate-900">{r.subject_code || "N/A"}</td>
-                        <td className="px-5 py-4 text-slate-600">{r.subject_name || "N/A"}</td>
+                        <td className={`px-5 py-4 font-medium ${isCapped ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{r.attendance_date}</td>
+                        <td className={`px-5 py-4 font-bold ${isCapped ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{r.subject_code || "N/A"}</td>
+                        <td className={`px-5 py-4 ${isCapped ? 'text-slate-400 line-through' : 'text-slate-600'}`}>{r.subject_name || "N/A"}</td>
                         <td className="px-5 py-4">
                           <span
                             className={`px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase ${
-                              r.session_type?.toLowerCase() === "practical"
-                                ? "bg-purple-50 text-purple-600"
-                                : "bg-blue-50 text-blue-600"
+                              isCapped 
+                                ? "bg-orange-100 text-orange-700"
+                                : r.session_type?.toLowerCase() === "practical"
+                                  ? "bg-purple-50 text-purple-600"
+                                  : "bg-blue-50 text-blue-600"
                             }`}
                           >
-                            {r.session_type || "N/A"}
+                            {isCapped ? "Capped" : (r.session_type || "N/A")}
                           </span>
                         </td>
-                        <td className="px-5 py-4 font-medium text-slate-700">{hours}h</td>
-                        <td className="px-5 py-4 text-slate-500">₹{rate}</td>
-                        <td className="px-5 py-4 font-semibold text-blue-600">₹{amount}</td>
+                        <td className={`px-5 py-4 font-medium ${isCapped ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{hours}h</td>
+                        <td className={`px-5 py-4 ${isCapped ? 'text-slate-400 line-through' : 'text-slate-500'}`}>₹{rate}</td>
+                        <td className={`px-5 py-4 font-semibold ${isCapped ? 'text-orange-600' : 'text-blue-600'}`}>
+                          {isCapped ? "₹0 (Capped)" : `₹${amount}`}
+                        </td>
                       </tr>
                     );
                   })}
@@ -519,7 +508,6 @@ export default function AttendanceRecords() {
         </>
       )}
 
-      {/* I modified this bottom message slightly since the Quick Select is handling the empty state too */}
       {!loading && !activeFaculty && !error && allFaculties.length > 0 && (
         <p className="text-center text-slate-400 text-sm py-16">
           Search or select a faculty member above to view their attendance history.
