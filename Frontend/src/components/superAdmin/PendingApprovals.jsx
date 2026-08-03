@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Topbar from "./Topbar";
 import { Search, Eye, CheckCircle, XCircle, X, ChevronLeft, ChevronRight, Loader2, Mail } from "lucide-react";
-import api from "../api/axiosInstance";
+import api from "../../api/axiosInstance";
 
 const tabs = [
   { key: "pendingAdmin", label: "Pending" },
