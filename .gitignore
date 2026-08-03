@@ -1,3 +1,4 @@
 node_modules
 .env
 Backend/src/uploads/bills/*.pdf
+package-lock.json
