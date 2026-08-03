@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, ClipboardList, Users, Settings, LogOut, BookOpen } from "lucide-react";
+import { ShieldCheck, ClipboardList, Users, Settings, LogOut, BookOpen, CalendarDays } from "lucide-react";
 import axios from "axios";
 
 export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 3 }) {
@@ -8,6 +8,7 @@ export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 
     { key: "pending", label: "Pending Approvals", icon: ClipboardList, badge: pendingCount },
     { key: "programincharges", label: "All Program Incharge", icon: Users },
     { key: "programs", label: "Programs", icon: BookOpen }, 
+    { key: "monthly-summary", label: "Monthly Summary", icon: CalendarDays },
     { key: "settings", label: "Settings", icon: Settings }, 
   ];
 
