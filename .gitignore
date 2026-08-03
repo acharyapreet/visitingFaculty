@@ -1,3 +1,3 @@
 node_modules
 .env
-src/uploads/
+Backend/src/uploads/bills/*.pdf

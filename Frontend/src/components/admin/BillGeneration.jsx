@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Search, Download, FileText, TableProperties, Calendar, Trash2, Users, Eye } from "lucide-react";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 import LoadingSpinner from "./LoadingSpinner"; 
 
 import davvLogo from "../../assets/image.png";
@@ -47,16 +47,6 @@ const UVFINBlocks = ({ uvfin }) => {
 };
 
 export default function BillGeneration() {
-  const getAxiosConfig = () => {
-    const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-    return {
-      headers: {
-        Authorization: `Bearer ${session.token}`,
-        "Content-Type": "application/json"
-      }
-    };
-  };
-
   const [facultySearch, setFacultySearch] = useState("");
   const [selectedFacultyId, setSelectedFacultyId] = useState("");
   const [facultyOptions, setFacultyOptions] = useState([]);
@@ -65,7 +55,7 @@ export default function BillGeneration() {
   const [allFaculties, setAllFaculties] = useState([]);
   const [facultiesLoading, setFacultiesLoading] = useState(true);
 
-  const [month, setMonth] = useState("July");
+  const [month, setMonth] = useState(MONTHS[new Date().getMonth()]);
   const [sessionYear, setSessionYear] = useState("2026-27");
   const [bill, setBill] = useState(null);
   const [generating, setGenerating] = useState(false);
@@ -97,7 +87,7 @@ export default function BillGeneration() {
   const loadAllFaculties = async () => {
     setFacultiesLoading(true);
     try {
-      const res = await axios.get("http://localhost:5000/api/admin/search-faculty?q=", getAxiosConfig());
+      const res = await api.get("/admin/search-faculty?q=");
       setAllFaculties(res.data.data || []);
     } catch (err) {
       console.error("Failed to load faculties for quick select");
@@ -109,7 +99,7 @@ export default function BillGeneration() {
   const loadHistory = async () => {
     setHistoryLoading(true);
     try {
-      const res = await axios.get("http://localhost:5000/api/bills", getAxiosConfig());
+      const res = await api.get("/bills");
       setHistory(res.data.data || res.data || []);
     } catch {
       setHistory([]); 
@@ -125,10 +115,7 @@ export default function BillGeneration() {
         return;
       }
       try {
-        const res = await axios.get(
-          `http://localhost:5000/api/admin/search-faculty?q=${facultySearch}`, 
-          getAxiosConfig()
-        );
+        const res = await api.get(`/admin/search-faculty?q=${facultySearch}`);
         setFacultyOptions(res.data.data || []);
       } catch (err) {
         setFacultyOptions([]);
@@ -157,26 +144,16 @@ export default function BillGeneration() {
         year: yearInt
       };
 
-      const generatedDbRes = await axios.post(
-        "http://localhost:5000/api/bills/generate", 
-        generatePayload, 
-        getAxiosConfig()
-      );
+      const generatedDbRes = await api.post("/bills/generate", generatePayload);
 
       const responseData = generatedDbRes.data?.data || generatedDbRes.data || {};
       const realDbId = responseData.id || responseData.bill_id || responseData.billId;
       const displayBillNo = realDbId ? realDbId : `BILL-${Date.now().toString().slice(-6)}`;
 
-      const profileRes = await axios.get(
-        `http://localhost:5000/api/admin/faculty/${selectedFacultyId}`, 
-        getAxiosConfig()
-      );
+      const profileRes = await api.get(`/admin/faculty/${selectedFacultyId}`);
       const facultyData = profileRes.data.data;
 
-      const attendanceRes = await axios.get(
-        `http://localhost:5000/api/attendance/monthly/${selectedFacultyId}?month=${month}&year=${yearInt}`, 
-        getAxiosConfig()
-      );
+      const attendanceRes = await api.get(`/attendance/monthly/${selectedFacultyId}?month=${month}&year=${yearInt}`);
       const records = attendanceRes.data.data || [];
 
       if (records.length === 0) {
@@ -218,6 +195,39 @@ export default function BillGeneration() {
     }
   };
 
+  const handleForceRegenerate = async () => {
+    const yearInt = parseInt(sessionYear.split("-")[0]);
+    
+    // 1. Grab the exact name of the selected faculty
+    const selectedFacultyName = allFaculties.find(f => f.user_id === selectedFacultyId)?.full_name;
+
+    // 2. Find their existing bill in the history state for this specific month/year
+    const existingBill = history.find((b) => {
+      const billMonth = typeof b.month === "number" ? MONTHS[b.month - 1] : b.month;
+      const historyName = b.facultyName || b.User?.full_name;
+      return historyName === selectedFacultyName && billMonth === month && b.year === yearInt;
+    });
+
+    if (!existingBill) {
+      setError("Could not automatically locate the old bill. Please delete it manually from the history table below.");
+      return;
+    }
+
+    // 3. Auto-delete the old bill, then trigger a fresh generation
+    setGenerating(true);
+    setError("");
+    try {
+      const billIdToDelete = existingBill.id || existingBill.bill_id || existingBill.billNo;
+      await api.delete(`/bills/${billIdToDelete}`);
+      
+      // The old bill is gone, instantly generate the new one
+      await handleGenerate();
+    } catch (err) {
+      setError("Failed to delete the existing bill for regeneration.");
+      setGenerating(false);
+    }
+  };
+
   const handleDeleteClick = (billId) => {
     setBillToDelete(billId);
   };
@@ -227,7 +237,7 @@ export default function BillGeneration() {
     setIsDeleting(true);
     
     try {
-      await axios.delete(`http://localhost:5000/api/bills/${billToDelete}`, getAxiosConfig());
+      await api.delete(`/bills/${billToDelete}`);
       
       setHistory(prev => prev.filter(b => b.id !== billToDelete && b.bill_id !== billToDelete && b.billNo !== billToDelete));
       
@@ -245,7 +255,7 @@ export default function BillGeneration() {
 
   const handleViewBill = async (billId) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/bills/details/${billId}`, getAxiosConfig());
+      const res = await api.get(`/bills/details/${billId}`);
       const data = res.data?.data || res.data;
 
       const items = data.BillDetails || [];
@@ -253,7 +263,7 @@ export default function BillGeneration() {
       let facultyData = {};
       if (data.user_id) {
         try {
-          const profileRes = await axios.get(`http://localhost:5000/api/admin/faculty/${data.user_id}`, getAxiosConfig());
+          const profileRes = await api.get(`/admin/faculty/${data.user_id}`);
           facultyData = profileRes.data?.data || {};
         } catch (profileErr) {
           console.error("Could not fetch faculty profile for preview", profileErr);
@@ -400,9 +410,9 @@ export default function BillGeneration() {
               onChange={(e) => setSessionYear(e.target.value)}
               className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:border-[#004DD2]"
             >
-              <option value="2024-25">2024-25</option>
-              <option value="2025-26">2025-26</option>
               <option value="2026-27">2026-27</option>
+              <option value="2027-28">2027-28</option>
+              <option value="2028-29">2028-29</option>
             </select>
           </div>
 
@@ -454,7 +464,25 @@ export default function BillGeneration() {
           )}
         </div>
 
-        {error && <p className="text-sm text-red-500 bg-red-50 p-3 rounded-lg border border-red-100 mb-6">{error}</p>}
+        {error && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-red-50 p-4 rounded-lg border border-red-100 mb-6 gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-red-500 font-bold">⚠️</span>
+              <p className="text-sm text-red-700 font-medium">{error}</p>
+            </div>
+            
+            {/* Show the Regenerate button only if the error is about an existing bill */}
+            {(error.toLowerCase().includes("already") || error.toLowerCase().includes("exists")) && (
+              <button 
+                onClick={handleForceRegenerate}
+                disabled={generating}
+                className="shrink-0 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {generating ? "Regenerating..." : "Delete Old & Regenerate"}
+              </button>
+            )}
+          </div>
+        )}
         {generating && <div className="py-12 flex justify-center text-slate-500">Generating official document preview...</div>}
       </div>
 
@@ -626,9 +654,15 @@ function BillPreview({ bill, onDownload }) {
   const [billPage, setBillPage] = useState(1);
   const items = bill.items || [];
 
+  // 1. Filter out records that exceeded the 30k limit
+  const billableRecords = useMemo(() => {
+    return items.filter(r => r.is_billable !== false && r.is_billable !== 0);
+  }, [items]);
+
   const aggregatedRecords = useMemo(() => {
     const grouped = {};
-    items.forEach(r => {
+    // 2. Iterate over billableRecords ONLY
+    billableRecords.forEach(r => {
       const key = `${r.course_name}_${r.semester_number}_${r.subject_code}_${r.rate_per_hour}`;
       if (!grouped[key]) {
         grouped[key] = {
@@ -651,7 +685,7 @@ function BillPreview({ bill, onDownload }) {
       grouped[key].amount += (hrs * grouped[key].rate);
     });
     return Object.values(grouped);
-  }, [items, bill.program, bill.semester]);
+  }, [billableRecords, bill.program, bill.semester]);
 
   const totalAmount = useMemo(() => {
     return aggregatedRecords.reduce((sum, r) => sum + r.amount, 0);
@@ -662,6 +696,9 @@ function BillPreview({ bill, onDownload }) {
   }, [aggregatedRecords]);
 
   const amountInWords = convertAmountToWords(totalAmount);
+
+  // 3. Define submission date to fix the crash
+  const submissionDate = bill.submittedOn || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "-";
@@ -744,11 +781,11 @@ function BillPreview({ bill, onDownload }) {
                   </div>
                   <div className="flex items-end gap-2">
                     <span className="font-medium">Date of Submission</span>
-                    <span className="w-24 border-b border-black pb-0.5 text-center font-bold">{bill.submittedOn}</span>
+                    <span className="w-24 border-b border-black pb-0.5 text-center font-bold">{submissionDate}</span>
                   </div>
                   <div className="flex items-end gap-2">
                     <span className="font-medium">Theory/Practical</span>
-                    <span className="w-20 border-b border-black pb-0.5 text-center font-bold"></span>
+                    <span className="w-20 border-b border-black pb-0.5 text-center font-bold">{totalHours}</span>
                     <span className="font-medium">per week</span>
                   </div>
                 </div>
@@ -818,37 +855,45 @@ function BillPreview({ bill, onDownload }) {
                   I was directed and permitted by the Head to engage the above Classes. For this I have submitted this bill. I therefore, request you to deduct _______% against Income Tax Returns from my payment. Further, I certify that total amount received per month doesn't exceed the maximum permissible limit of remuneration of any amount paid by D.A.V.V. which is Rs. 30,000/- at present.
                 </p>
                 
-                <div className="flex items-start justify-between">
-                  <div className="w-72 border-2 border-black p-3 text-left space-y-1.5 font-semibold">
-                    <p>Pan Card No. <span className="border-b border-black inline-block w-40">{bill.pan}</span></p>
-                    <p>A/c No. <span className="border-b border-black inline-block w-48">{bill.account}</span></p>
-                    <p>Bank Name <span className="border-b border-black inline-block w-44">{bill.bankName}</span><br/><span className="text-[10px] font-normal italic">(State bank of India Compulsory)</span></p>
-                    <p>IFSC Code <span className="border-b border-black inline-block w-44">{bill.ifsc}</span></p>
-                    <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{bill.aadhaar}</span></p>
+                <div className="flex justify-between mt-8" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                        
+                  {/* LEFT COLUMN: Bank Details & Payment Info */}
+                  <div className="flex flex-col justify-between">
+                    <div className="w-72 border-2 border-black p-3 text-left space-y-1.5 font-semibold text-[13px]">
+                      <p>Pan Card No. <span className="border-b border-black inline-block w-40">{bill.pan}</span></p>
+                      <p>A/c No. <span className="border-b border-black inline-block w-48">{bill.account}</span></p>
+                      <p>Bank Name <span className="border-b border-black inline-block w-44">{bill.bankName}</span><br/><span className="text-[10px] font-normal italic">(State bank of India Compulsory)</span></p>
+                      <p>IFSC Code <span className="border-b border-black inline-block w-44">{bill.ifsc}</span></p>
+                      <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{bill.aadhaar}</span></p>
+                    </div>
+                    
+                    <div className="font-semibold space-y-2 text-[14px] mt-10">
+                      <p>Date : {submissionDate}</p>
+                      <p>Received Payments of Rs. <span className="font-bold underline underline-offset-4">{totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span></p>
+                      <p>Cheque No. ____________</p>
+                    </div>
                   </div>
-                  
-                  <div className="mt-20 flex flex-col items-center font-bold text-[14px]">
-                    <p>_____________________________________</p>
-                    <p>Name & Signature of Visiting Faculty</p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="flex flex-col items-end gap-14 font-bold text-[14px]" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                <div className="text-center">
-                  <p>_____________________________________</p>
-                  <p>Verified by Coordinator (Name & Signature)</p>
-                </div>
-                <div className="w-full flex justify-between items-end">
-                  <div className="font-semibold space-y-2">
-                    <p>Date : {bill.submittedOn}</p>
-                    <p>Received Payments of Rs. ____________</p>
-                    <p>Cheque No. ____________</p>
+                  {/* RIGHT COLUMN: All Signatures Perfectly Aligned */}
+                  <div className="flex flex-col justify-between items-center font-bold text-[12px] gap-8">
+                    <div className="text-center mt-2">
+                      <p>_____________________________________</p>
+                      <p className="mt-1">Name & Signature of Visiting Faculty</p>
+                    </div>
+                    <div className="text-center">
+                      <p>_____________________________________</p>
+                      <p className="mt-1">Name & Signature of Batch Mentor</p>
+                    </div>
+                    <div className="text-center">
+                      <p>_____________________________________</p>
+                      <p className="mt-1">Verified by Coordinator (Name & Signature)</p>
+                    </div>
+                    <div className="text-center">
+                      <p>_____________________________________</p>
+                      <p className="mt-1">Signature Director/Head (Name & Seal)</p>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <p>_____________________________________</p>
-                    <p>Signature Director/Head (Name & Seal)</p>
-                  </div>
+
                 </div>
               </div>
             </div>
@@ -903,7 +948,7 @@ function BillPreview({ bill, onDownload }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((r, i) => (
+                  {billableRecords.map((r, i) => (
                     <tr key={i}>
                       <td className="border border-black p-2.5">{formatDate(r.attendance_date)}</td>
                       <td className="border border-black p-2.5 font-semibold">{r.subject_code}</td>
@@ -913,7 +958,7 @@ function BillPreview({ bill, onDownload }) {
                     </tr>
                   ))}
                   {/* FIX: Ensure a minimum of 15 rows so the page is fully structured regardless of record count */}
-                  {[...Array(Math.max(0, 0 - items.length))].map((_, i) => (
+                  {[...Array(Math.max(0, 15 - billableRecords.length))].map((_, i) => (
                     <tr key={`empty-att-${i}`}>
                       <td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td>
                       <td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td>

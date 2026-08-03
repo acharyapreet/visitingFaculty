@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import adminApi from "../../api/adminApi";
 import LoadingSpinner from "./LoadingSpinner";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
 export default function FacultyModal({ userId, onClose, onActionSuccess, initialView = "profile" }) {
   const [faculty, setFaculty] = useState(null);
@@ -126,9 +126,7 @@ const handleApproveSubmit = async () => {
       const action = faculty.is_active ? "deactivate" : "activate";
       const facultyId = faculty.id || faculty.user_id;
       
-      await axios.put(`http://localhost:5000/api/account-status/admin/faculty/${facultyId}/${action}`, {}, {
-        headers: getAuthHeaders()
-      });
+      await api.put(`/account-status/admin/faculty/${facultyId}/${action}`, {});
       
       setFaculty(prev => ({ ...prev, is_active: !prev.is_active }));
       setNotification({ type: 'success', text: `Account successfully ${action}d.` });
@@ -151,9 +149,7 @@ const handleApproveSubmit = async () => {
     setNotification(null);
     try {
       const facultyId = faculty.id || faculty.user_id;
-      const response = await axios.put(`http://localhost:5000/api/admin/updateFaculty/${facultyId}`, { uvfin: newUvfin }, {
-        headers: getAuthHeaders()
-      });
+      const response = await api.put(`/admin/updateFaculty/${facultyId}`, { uvfin: newUvfin });
       
       // Update local state gracefully 
       setFaculty(prev => ({

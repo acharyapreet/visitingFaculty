@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api/axiosInstance";
 import Sidebar from "./Sidebar"; 
 import PendingApprovalsPage from "./PendingApprovals"; 
 import AllAdminsPage from './AllAdminsPage'; 
 import SettingsPage from "./Settings"; 
 import ProgramsPage from "./ProgramPage";
+import MonthlySummary from "./MonthlySummary";
 
 export default function SuperAdminDashboard({ onSignOut }) {
   // 1. Bulletproof State Initialization
-  // By passing a function into useState, React runs this BEFORE the first render.
   const [activeTab, setActiveTab] = useState(() => {
     const savedTab = localStorage.getItem("superAdminActiveTab");
     console.log("On refresh, found saved main tab:", savedTab); // For debugging
-    return savedTab || "pending"; // Default to pending if nothing is saved
+    return savedTab || "pending"; 
   });
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -24,10 +24,8 @@ export default function SuperAdminDashboard({ onSignOut }) {
   useEffect(() => {
     const fetchPendingCount = async () => {
       try {
-        const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-        const response = await axios.get("http://localhost:5000/api/super_admin/pendingAdmin", {
-          headers: { 'Authorization': `Bearer ${session.token}` }
-        });
+        // CLEANED: Manual headers removed!
+        const response = await api.get("/super_admin/pendingAdmin");
         setPendingCount(response.data.data.length);
       } catch (err) {
         console.error("Error fetching pending count", err);
@@ -39,25 +37,21 @@ export default function SuperAdminDashboard({ onSignOut }) {
 
   const handleSignOut = async () => {
     try {
-      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-      
-      // UNCOMMENT THIS when your teammate gives you the logout URL
+      // CLEANED: Manual headers removed for your future logout logic!
       /*
-      await axios.post("http://localhost:5000/api/auth/logout", {}, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      await api.post("/auth/logout", {});
       */
 
       // Clear all local storage on sign out
       localStorage.removeItem('iipsCurrentSession');
-      localStorage.removeItem('superAdminActiveTab'); // Clear the saved tab too!
+      localStorage.removeItem('superAdminActiveTab'); 
       
       if (onSignOut) onSignOut();
       
     } catch (err) {
       console.error("Error signing out", err);
       localStorage.removeItem('iipsCurrentSession');
-      localStorage.removeItem('iipsAdminActiveTab');
+      localStorage.removeItem('superAdminActiveTab'); 
       if (onSignOut) onSignOut();
     }
   };
@@ -66,13 +60,20 @@ export default function SuperAdminDashboard({ onSignOut }) {
     switch (activeTab) {
       case "pending":
         return <PendingApprovalsPage onNavigate={setActiveTab} />;
-      case "admins":
+        
+      // 🛑 CHECK YOUR SIDEBAR.JSX! 🛑 
+      // If your sidebar passes "allAdmins" or "all_admins", change the string below to match it!
+      case "programincharges":
         return <AllAdminsPage onNavigate={setActiveTab} />;
+        
       case "programs":
         return <ProgramsPage onNavigate={setActiveTab} />;
+      case "monthly-summary":
+        return <MonthlySummary />;
       case "settings":
         return <SettingsPage onNavigate={setActiveTab} />;
       default:
+        // This default fallback is why PendingApprovals kept showing up!
         return <PendingApprovalsPage onNavigate={setActiveTab} />;
     }
   };

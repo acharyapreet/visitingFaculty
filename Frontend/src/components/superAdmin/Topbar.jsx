@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { AlertCircle, Search, ShieldCheck, Menu } from "lucide-react";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
 export default function Topbar({ title, subtitle, onSearch, onPendingClick, showSearch = true, onMenuClick }) {
   const [pendingCount, setPendingCount] = useState(0);
@@ -9,7 +9,7 @@ export default function Topbar({ title, subtitle, onSearch, onPendingClick, show
     const fetchTopbarCount = async () => {
       try {
         const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-        const response = await axios.get("http://localhost:5000/api/super_admin/pendingAdmin", {
+        const response = await api.get("/super_admin/pendingAdmin", {
           headers: { 'Authorization': `Bearer ${session.token}` }
         });
         setPendingCount(response.data.data.length);

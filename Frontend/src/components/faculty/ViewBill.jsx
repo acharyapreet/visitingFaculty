@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Download, ChevronDown, Loader2, Calendar, FileText, TableProperties, Eye, CheckCircle } from "lucide-react";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 import PageHeader from "./shared/PageHeader";
 
 // Import the logo correctly for Vite/React
@@ -84,9 +84,7 @@ export default function ViewBill({ facultyUserId }) {
       const session = JSON.parse(sessionStr);
       const targetId = facultyUserId || session.userId;
 
-      const response = await axios.get(`http://localhost:5000/api/admin/faculty/${targetId}`, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      const response = await api.get(`/admin/faculty/${targetId}`);
 
       if (response.data.success) {
         const data = response.data.data;
@@ -121,9 +119,7 @@ export default function ViewBill({ facultyUserId }) {
       const session = JSON.parse(sessionStr);
       const targetId = facultyUserId || session.userId;
 
-      const response = await axios.get(`http://localhost:5000/api/attendance/monthly/${targetId}?month=${selectedMonth}&year=${selectedYear}`, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      const response = await api.get(`/attendance/monthly/${targetId}?month=${selectedMonth}&year=${selectedYear}`);
 
       if (response.data.success) {
         const data = response.data.data || [];
@@ -485,7 +481,7 @@ export default function ViewBill({ facultyUserId }) {
                         </div>
                         <div className="flex items-end gap-2">
                           <span className="font-medium">Theory/Practical</span>
-                          <span className="w-20 border-b border-black pb-0.5 text-center font-bold"></span>
+                          <span className="w-20 border-b border-black pb-0.5 text-center font-bold">{totalHours}</span>
                           <span className="font-medium">per week</span>
                         </div>
                       </div>
@@ -555,42 +551,49 @@ export default function ViewBill({ facultyUserId }) {
                         I was directed and permitted by the Head to engage the above Classes. For this I have submitted this bill. I therefore, request you to deduct _______% against Income Tax Returns from my payment. Further, I certify that total amount received per month doesn't exceed the maximum permissible limit of remuneration of any amount paid by D.A.V.V. which is Rs. 30,000/- at present.
                       </p>
                       
-                      <div className="flex items-start justify-between">
-                        <div className="w-72 border-2 border-black p-3 text-left space-y-1.5 font-semibold">
-                          <p>Pan Card No. <span className="border-b border-black inline-block w-40">{facultyInfo.pan}</span></p>
-                          <p>A/c No. <span className="border-b border-black inline-block w-48">{facultyInfo.account}</span></p>
-                          <p>Bank Name <span className="border-b border-black inline-block w-44">{facultyInfo.bankName}</span><br/><span className="text-[10px] font-normal italic">(State bank of India Compulsory)</span></p>
-                          <p>IFSC Code <span className="border-b border-black inline-block w-44">{facultyInfo.ifsc}</span></p>
-                          <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{facultyInfo.aadhaar}</span></p>
-                        </div>
+                      <div className="flex justify-between mt-8" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                         
-                        <div className="mt-20 flex flex-col items-center font-bold text-[14px]">
-                          <p>_____________________________________</p>
-                          <p>Name & Signature of Visiting Faculty</p>
+                        {/* LEFT COLUMN: Bank Details & Payment Info */}
+                        <div className="flex flex-col justify-between">
+                          <div className="w-72 border-2 border-black p-3 text-left space-y-1.5 font-semibold text-[13px]">
+                            <p>Pan Card No. <span className="border-b border-black inline-block w-40">{facultyInfo.pan}</span></p>
+                            <p>A/c No. <span className="border-b border-black inline-block w-48">{facultyInfo.account}</span></p>
+                            <p>Bank Name <span className="border-b border-black inline-block w-44">{facultyInfo.bankName}</span><br/><span className="text-[10px] font-normal italic">(State bank of India Compulsory)</span></p>
+                            <p>IFSC Code <span className="border-b border-black inline-block w-44">{facultyInfo.ifsc}</span></p>
+                            <p>Aadhaar No. <span className="border-b border-black inline-block w-40">{facultyInfo.aadhaar}</span></p>
+                          </div>
+                          
+                          <div className="font-semibold space-y-2 text-[14px] mt-10">
+                            <p>Date : {submissionDate}</p>
+                            <p>Received Payments of Rs. <span className="font-bold underline underline-offset-4">{totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span></p>
+                            <p>Cheque No. ____________</p>
+                          </div>
                         </div>
-                      </div>
-                    </div>
 
-                    <div className="flex flex-col items-end gap-14 font-bold text-[14px]" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                      <div className="text-center">
-                        <p>_____________________________________</p>
-                        <p>Verified by Coordinator (Name & Signature)</p>
-                      </div>
-                      <div className="w-full flex justify-between items-end">
-                        <div className="font-semibold space-y-2">
-                          <p>Date : {submissionDate}</p>
-                          <p>Received Payments of Rs. ____________</p>
-                          <p>Cheque No. ____________</p>
+                        {/* RIGHT COLUMN: All Signatures Perfectly Aligned */}
+                        <div className="flex flex-col justify-between items-center font-bold text-[12px] gap-8">
+                          <div className="text-center mt-2">
+                            <p>_____________________________________</p>
+                            <p className="mt-1">Name & Signature of Visiting Faculty</p>
+                          </div>
+                          <div className="text-center">
+                            <p>_____________________________________</p>
+                            <p className="mt-1">Name & Signature of Batch Mentor</p>
+                          </div>
+                          <div className="text-center">
+                            <p>_____________________________________</p>
+                            <p className="mt-1">Verified by Coordinator (Name & Signature)</p>
+                          </div>
+                          <div className="text-center">
+                            <p>_____________________________________</p>
+                            <p className="mt-1">Signature Director/Head (Name & Seal)</p>
+                          </div>
                         </div>
-                        <div className="text-center">
-                          <p>_____________________________________</p>
-                          <p>Signature Director/Head (Name & Seal)</p>
-                        </div>
+
                       </div>
                     </div>
                   </div>
                 </div>
-
                 {/* --- PAGE 2: ATTENDANCE REGISTER --- */}
                 <div className={`mx-auto w-full min-h-[297mm] bg-white text-black print:block print-force-break ${billPage === 2 ? 'block' : 'hidden'}`}>
                   <div className="text-[13px] leading-relaxed p-6 pt-12">

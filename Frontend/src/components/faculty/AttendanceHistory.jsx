@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Download, Calendar, Clock, IndianRupee, ChevronDown, Filter, ChevronLeft, ChevronRight, Loader2, Check, ArrowUpDown, Trash2, AlertTriangle } from "lucide-react";
 import PageHeader from "./shared/PageHeader";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
 const typeStyles = {
   Theory: "bg-brand-100 text-brand-700",
@@ -77,8 +77,8 @@ export default function AttendanceHistory() {
 
       // Fetch History and Allocations concurrently
       const [historyRes, allocationsRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/attendance/history/${targetId}`, { headers }),
-        axios.get(`http://localhost:5000/api/attendance/my-allocations/${targetId}`, { headers }).catch(() => ({ data: { allocations: [] } })) 
+        api.get(`/attendance/history/${targetId}`),
+        api.get(`/attendance/my-allocations/${targetId}`).catch(() => ({ data: { allocations: [] } })) 
       ]);
 
       if (historyRes.data.success) {
@@ -112,9 +112,7 @@ export default function AttendanceHistory() {
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
       
-      const response = await axios.delete(`http://localhost:5000/api/attendance/record/${recordToDelete.attendance_id}`, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      const response = await api.delete(`/attendance/record/${recordToDelete.attendance_id}`);
 
       if (response.data.success) {
         setHistory(prevHistory => prevHistory.filter(record => record.attendance_id !== recordToDelete.attendance_id));
@@ -147,7 +145,7 @@ export default function AttendanceHistory() {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
       const targetId = session.userId;
       
-      let url = `http://localhost:5000/api/attendance/faculty/${targetId}`;
+     let url = `/attendance/faculty/${targetId}`;
       const today = new Date();
 
       // Dynamically attach query parameters based on the currently selected UI filter

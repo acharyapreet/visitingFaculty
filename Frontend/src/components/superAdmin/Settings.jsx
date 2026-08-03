@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Topbar from "./Topbar";
 import { Download, Printer, ClipboardList, CheckCircle2, XCircle, X } from "lucide-react"; 
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
 const tabs = ["General", "Security", "Audit Log"];
 
@@ -77,11 +77,8 @@ export default function Settings() {
          throw new Error("No active session found. Please log in again.");
       }
 
-      const response = await axios.put(
-        `http://localhost:5000/api/auth/update/${currentUserId}`,
-        profileData,
-        { headers: { Authorization: `Bearer ${session.token}` } }
-      );
+      const response = await api.put(`/auth/update/${currentUserId}`, profileData);
+
 
       if (response.data.success) {
         showToast("Profile updated successfully!", "success");
@@ -117,15 +114,11 @@ export default function Settings() {
         throw new Error("No active session found. Please log in again.");
       }
 
-      const response = await axios.put(
-        `http://localhost:5000/api/auth/changePassword`,
-        {
-          user_id: currentUserId,
-          oldPassword: passwords.currentPassword,
-          newPassword: passwords.newPassword
-        },
-        { headers: { Authorization: `Bearer ${session.token}` } }
-      );
+      const response = await api.put(`/auth/changePassword`, {
+      user_id: currentUserId,
+      oldPassword: passwords.currentPassword,
+      newPassword: passwords.newPassword
+    });
 
       if (response.data.success) {
         showToast("Password changed successfully!", "success");
@@ -144,9 +137,7 @@ export default function Settings() {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
       if (!session.token) return;
 
-      const response = await axios.get("http://localhost:5000/api/super_admin/allAdmin", {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      const response = await api.get("/super_admin/allAdmin");
       const processedLogs = response.data.data.filter(
         admin => admin.AdminApproval?.status === 'approved' || admin.AdminApproval?.status === 'rejected' || admin.is_approved
       );

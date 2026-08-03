@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Topbar from "./Topbar";
 import { Users, UserCheck, ClipboardList, Download, ChevronLeft, ChevronRight, Loader2, Eye, CheckCircle, X, AlertCircle } from "lucide-react";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
 export default function AllAdminsPage({ onNavigate }) {
   const [admins, setAdmins] = useState([]);
@@ -23,9 +23,7 @@ export default function AllAdminsPage({ onNavigate }) {
   const fetchAllAdmins = async () => {
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-      const response = await axios.get(`http://localhost:5000/api/super_admin/approvedAdmin`, {
-        headers: { 'Authorization': `Bearer ${session.token}` }
-      });
+      const response = await api.get("/super_admin/approvedAdmin");
       setAdmins(response.data.data || []);
     } catch (err) {
       console.error("Error fetching all admins:", err);
@@ -46,11 +44,7 @@ export default function AllAdminsPage({ onNavigate }) {
       const action = currentlyActive ? 'deactivate' : 'activate';
       const targetId = selectedAdmin.user_id;
 
-      await axios.put(
-        `http://localhost:5000/api/account-status/super_admin/admin/${targetId}/${action}`, 
-        {}, 
-        { headers: { 'Authorization': `Bearer ${session.token}` } }
-      );
+      await api.put(`/account-status/super_admin/admin/${targetId}/${action}`, {});
 
       // Instantly update the local state so the UI reflects the change without a full reload
       const updatedAdmin = { ...selectedAdmin, is_active: !currentlyActive };

@@ -9,7 +9,7 @@ import {
   X,
 } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
 const PAGE_SIZE = 6;
 const TYPES = ["Theory", "Practical"];
@@ -54,18 +54,6 @@ export default function SubjectAllocation({ prefilledFaculty }) {
 
   const dropdownRef = useRef(null);
 
-  const getAxiosConfig = () => {
-    const session = JSON.parse(
-      localStorage.getItem("iipsCurrentSession") || "{}",
-    );
-    return {
-      headers: {
-        Authorization: `Bearer ${session.token}`,
-        "Content-Type": "application/json",
-      },
-    };
-  };
-
   // ==========================================
   // 1. DATA FETCHING & AUTO-FILL
   // ==========================================
@@ -82,7 +70,6 @@ export default function SubjectAllocation({ prefilledFaculty }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- NEW: Auto-fill logic when clicking from Faculty Management ---
   // --- NEW: Auto-fill logic when clicking from Faculty Management ---
   useEffect(() => {
     if (prefilledFaculty) {
@@ -112,12 +99,10 @@ export default function SubjectAllocation({ prefilledFaculty }) {
       setFacultySearch(`${targetName} (${targetEmail})`);
     }
   }, [prefilledFaculty]);
+
   const fetchCourses = async () => {
     try {
-      const res = await axios.get(
-        "http://localhost:5000/api/admin/courses",
-        getAxiosConfig(),
-      );
+      const res = await api.get("/admin/courses");
       setCourses(res.data.data || []);
     } catch (err) {
       console.error("Failed to load courses", err);
@@ -127,10 +112,7 @@ export default function SubjectAllocation({ prefilledFaculty }) {
   const fetchAllocations = async () => {
     setLoadingAllocations(true);
     try {
-      const res = await axios.get(
-        "http://localhost:5000/api/admin/allocations",
-        getAxiosConfig(),
-      );
+      const res = await api.get("/admin/allocations");
       setAllocations(res.data.data || []);
     } catch (err) {
       console.error("Failed to load allocations", err);
@@ -153,10 +135,7 @@ export default function SubjectAllocation({ prefilledFaculty }) {
         return;
       }
       try {
-        const res = await axios.get(
-          `http://localhost:5000/api/admin/search-faculty?q=${facultySearch}`,
-          getAxiosConfig(),
-        );
+        const res = await api.get(`/admin/search-faculty?q=${facultySearch}`);
         setFacultyOptions(res.data.data || []);
       } catch (err) {
         setFacultyOptions([]);
@@ -171,19 +150,13 @@ export default function SubjectAllocation({ prefilledFaculty }) {
   // ==========================================
   useEffect(() => {
     if (form.course_id) {
-      axios
-        .get(
-          `http://localhost:5000/api/admin/courses/${form.course_id}/sections`,
-          getAxiosConfig(),
-        )
+      api
+        .get(`/admin/courses/${form.course_id}/sections`)
         .then((res) => setSections(res.data.data || []))
         .catch(() => setSections([]));
 
-      axios
-        .get(
-          `http://localhost:5000/api/admin/courses/${form.course_id}/semesters`,
-          getAxiosConfig(),
-        )
+      api
+        .get(`/admin/courses/${form.course_id}/semesters`)
         .then((res) => setSemesters(res.data.data || []))
         .catch(() => setSemesters([]));
     } else {
@@ -201,11 +174,8 @@ export default function SubjectAllocation({ prefilledFaculty }) {
 
   useEffect(() => {
     if (form.course_id && form.semester_id) {
-      axios
-        .get(
-          `http://localhost:5000/api/admin/courses/${form.course_id}/semesters/${form.semester_id}/subjects`,
-          getAxiosConfig(),
-        )
+      api
+        .get(`/admin/courses/${form.course_id}/semesters/${form.semester_id}/subjects`)
         .then((res) => setSubjects(res.data.data || []))
         .catch(() => setSubjects([]));
     } else {
@@ -240,11 +210,7 @@ export default function SubjectAllocation({ prefilledFaculty }) {
     setSubmitting(true);
     try {
       const payload = { ...form, section_id: form.section_id || null };
-      await axios.post(
-        "http://localhost:5000/api/admin/allocations",
-        payload,
-        getAxiosConfig(),
-      );
+      await api.post("/admin/allocations", payload);
 
       setSuccessModal(true); // Trigger custom success modal
       setForm(emptyForm);
@@ -265,10 +231,7 @@ export default function SubjectAllocation({ prefilledFaculty }) {
     if (!deleteConfirmId) return;
     setDeleting(true);
     try {
-      await axios.delete(
-        `http://localhost:5000/api/admin/allocations/${deleteConfirmId}`,
-        getAxiosConfig(),
-      );
+      await api.delete(`/admin/allocations/${deleteConfirmId}`);
       setDeleteConfirmId(null);
       fetchAllocations();
     } catch (err) {

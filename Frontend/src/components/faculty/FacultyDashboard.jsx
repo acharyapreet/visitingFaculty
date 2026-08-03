@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FileText, BookX, Loader2 } from "lucide-react";
-import axios from "axios";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth;
 
 import PageHeader from "./shared/PageHeader";
 import Sidebar from "./shared/Sidebar"; 
@@ -144,10 +144,8 @@ export default function FacultyDashboard({ onSignOut }) {
         let finalName = session.fullName || session.name || "Visiting Faculty";
         let finalRole = session.role || "Faculty";
 
-        try {
-          const profileRes = await axios.get(`http://localhost:5000/api/admin/faculty/${targetId}`, {
-            headers: { 'Authorization': `Bearer ${session.token}` }
-          });
+try {
+          const profileRes = await api.get(`/admin/faculty/${targetId}`);
           
           if (profileRes.data.success) {
             const data = profileRes.data.data;
@@ -175,9 +173,7 @@ export default function FacultyDashboard({ onSignOut }) {
         }));
 
         // 2. Fetch Allocations
-        const allocRes = await axios.get(`http://localhost:5000/api/attendance/my-allocations/${targetId}`, {
-          headers: { 'Authorization': `Bearer ${session.token}` }
-        });
+        const allocRes = await api.get(`/attendance/my-allocations/${targetId}`);
 
         if (allocRes.data.success) {
           if (allocRes.data.allocations && allocRes.data.allocations.length > 0) {

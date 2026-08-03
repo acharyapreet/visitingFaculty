@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, ClipboardList, Users, Settings, LogOut, BookOpen } from "lucide-react";
-import axios from "axios";
+import { ShieldCheck, ClipboardList, Users, Settings, LogOut, BookOpen, CalendarDays } from "lucide-react";
+import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
 export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 3 }) {
   
@@ -8,6 +8,7 @@ export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 
     { key: "pending", label: "Pending Approvals", icon: ClipboardList, badge: pendingCount },
     { key: "programincharges", label: "All Program Incharge", icon: Users },
     { key: "programs", label: "Programs", icon: BookOpen }, 
+    { key: "monthly-summary", label: "Monthly Summary", icon: CalendarDays },
     { key: "settings", label: "Settings", icon: Settings }, 
   ];
 
@@ -29,11 +30,7 @@ export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 
     try {
       const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
       if (session.token) {
-        await axios.post(
-          "http://localhost:5000/api/auth/logout",
-          {},
-          { headers: { Authorization: `Bearer ${session.token}` } }
-        );
+        await api.post("/auth/logout", {});
       }
     } catch (err) {
       console.error("Backend logout failed, proceeding with local sign out", err);
