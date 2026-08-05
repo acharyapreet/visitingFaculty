@@ -932,7 +932,7 @@ function BillPreview({ bill, onDownload }) {
                   </tr>
                   <tr>
                     <td className="border border-black p-2.5">Month and Year : {bill.month} {bill.year}</td>
-                    <td className="border border-black p-2.5">Semester and Session : {bill.semester} ({bill.session})</td>
+                    <td className="border border-black p-2.5">Session : {bill.session}</td>
                   </tr>
                 </tbody>
               </table>
@@ -950,18 +950,11 @@ function BillPreview({ bill, onDownload }) {
                 <tbody>
                   {billableRecords.map((r, i) => (
                     <tr key={i}>
-                      <td className="border border-black p-2.5">{formatDate(r.attendance_date)}</td>
-                      <td className="border border-black p-2.5 font-semibold">{r.subject_code}</td>
-                      <td className="border border-black p-2.5 text-left pl-4 font-semibold">{r.subject_name}</td>
-                      <td className="border border-black p-2.5">{r.session_type || 'Theory'}</td>
-                      <td className="border border-black p-2.5 font-bold">{parseFloat(r.hours)}</td>
-                    </tr>
-                  ))}
-                  {/* FIX: Ensure a minimum of 15 rows so the page is fully structured regardless of record count */}
-                  {[...Array(Math.max(0, 15 - billableRecords.length))].map((_, i) => (
-                    <tr key={`empty-att-${i}`}>
-                      <td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td>
-                      <td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td><td className="border border-black p-3.5"></td>
+                      <td className="border border-black py-1 px-2.5">{formatDate(r.attendance_date)}</td>
+                      <td className="border border-black py-1 px-2.5 font-semibold">{r.subject_code}</td>
+                      <td className="border border-black py-1 px-2.5 text-left pl-4 font-semibold">{r.subject_name}</td>
+                      <td className="border border-black py-1 px-2.5">{r.session_type || 'Theory'}</td>
+                      <td className="border border-black py-1 px-2.5 font-bold">{parseFloat(r.hours)}</td>
                     </tr>
                   ))}
                 </tbody>
