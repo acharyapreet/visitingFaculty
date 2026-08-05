@@ -28,7 +28,8 @@ const User = sequelize.define('User', {
     },
     phone_number: {
         type: DataTypes.STRING(15),
-        allowNull: false
+        allowNull: false,
+        unique: true
     },
     address: {
         type: DataTypes.TEXT,
@@ -45,7 +46,8 @@ const User = sequelize.define('User', {
     },
     account_no: {
         type: DataTypes.STRING(20),
-        allowNull: true
+        allowNull: true,
+        unique: true
     },
     bank_name: {
         type: DataTypes.STRING(50),

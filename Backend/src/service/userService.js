@@ -9,12 +9,41 @@ require('dotenv').config();
 
 // faculty registration logic
 async function registerFaculty(facultyData) {
-    const existingUser = await User.findOne({
+    const existingUserEmail = await User.findOne({
         where: { email: facultyData.email }
     });
 
     if (existingUser) {
         throw new Error('Email already exist');
+    }
+    const existingUserAadhar = await User.findOne({
+        where: { aadhaar_no: facultyData.aadhaar_no }
+    });
+
+    if (existingUserAadhar) {
+        throw new Error('Aadhaar Number already exist');
+    }
+    const existingUserPan = await User.findOne({
+        where: { pan_card_no: facultyData.pan_card_no }
+    });
+
+    if (existingUserPan) {
+        throw new Error('Pan Card Number already exist');
+    }
+    const existingUserAccount = await User.findOne({
+        where: { account_no: facultyData.account_no }
+    });
+
+    if (existingUserAccount) {
+        throw new Error('Account Number already exist');
+    }
+
+    const existingUserMobile = await User.findOne({
+        where: { phone_number: facultyData.phone_number }
+    });
+
+    if (existingUserMobile) {
+        throw new Error('Mobile Number already exist');
     }
 
     const { password, user_id, ...restFacultyData } = facultyData;
@@ -41,6 +70,13 @@ async function registerAdmin(adminData) {
 
     if (existingUser) {
         throw new Error('Email already exist');
+    }
+    const existingUserMobile = await User.findOne({
+        where: { phone_number: adminData.phone_number }
+    });
+
+    if (existingUserMobile) {
+        throw new Error('Mobile Number already exist');
     }
 
     const { password, user_id, ...restAdminData } = adminData;
