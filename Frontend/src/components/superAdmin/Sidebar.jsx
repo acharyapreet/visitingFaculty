@@ -1,39 +1,65 @@
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, ClipboardList, Users, Settings, LogOut, BookOpen, CalendarDays } from "lucide-react";
+import {
+  ShieldCheck,
+  ClipboardList,
+  Users,
+  Settings,
+  LogOut,
+  BookOpen,
+  CalendarDays,
+} from "lucide-react";
 import api from "../../api/axiosInstance"; // Adjust the ../ as needed based on folder depth
 
-export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 3 }) {
-  
+export default function Sidebar({
+  active,
+  onNavigate,
+  onSignOut,
+  pendingCount = 3,
+}) {
   const navItems = [
-    { key: "pending", label: "Pending Approvals", icon: ClipboardList, badge: pendingCount },
+    {
+      key: "pending",
+      label: "Pending Approvals",
+      icon: ClipboardList,
+      badge: pendingCount,
+    },
     { key: "programincharges", label: "All Program Incharge", icon: Users },
-    { key: "programs", label: "Programs", icon: BookOpen }, 
+    { key: "programs", label: "Programs", icon: BookOpen },
     { key: "monthly-summary", label: "Monthly Summary", icon: CalendarDays },
-    { key: "settings", label: "Settings", icon: Settings }, 
+    { key: "settings", label: "Settings", icon: Settings },
   ];
 
   const [adminName, setAdminName] = useState("Super Admin");
 
   useEffect(() => {
-    const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+    const session = JSON.parse(
+      localStorage.getItem("iipsCurrentSession") || "{}",
+    );
     if (session.name) setAdminName(session.name);
-    
+
     const handleStorageChange = () => {
-      const updatedSession = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+      const updatedSession = JSON.parse(
+        localStorage.getItem("iipsCurrentSession") || "{}",
+      );
       if (updatedSession.name) setAdminName(updatedSession.name);
     };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const handleLogout = async () => {
     try {
-      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
+      const session = JSON.parse(
+        localStorage.getItem("iipsCurrentSession") || "{}",
+      );
       if (session.token) {
         await api.post("/auth/logout", {});
       }
     } catch (err) {
-      console.error("Backend logout failed, proceeding with local sign out", err);
+      console.error(
+        "Backend logout failed, proceeding with local sign out",
+        err,
+      );
     } finally {
       if (onSignOut) onSignOut();
     }
@@ -48,13 +74,19 @@ export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 
             <ShieldCheck className="w-6 h-6 text-white" />
           </div>
           <div>
-            <div className="text-purple-600 font-bold text-lg leading-tight">DAVV</div>
-            <div className="text-gray-400 text-sm leading-tight">Super Admin</div>
+            <div className="text-purple-600 font-bold text-lg leading-tight">
+              IIPS DAVV
+            </div>
+            <div className="text-gray-400 text-sm leading-tight">
+              Super Admin
+            </div>
           </div>
         </div>
 
         <div className="px-4 pt-5">
-          <p className="text-xs font-semibold tracking-wider text-gray-400 px-2 mb-3">SUPER ADMIN MENU</p>
+          <p className="text-xs font-semibold tracking-wider text-gray-400 px-2 mb-3">
+            SUPER ADMIN MENU
+          </p>
           <nav className="flex flex-col gap-1">
             {navItems.map((item) => {
               const isActive = active === item.key;
@@ -64,21 +96,27 @@ export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 
                   key={item.key}
                   onClick={() => onNavigate(item.key)}
                   className={`flex items-center justify-between px-3 py-2.5 rounded-full border text-[15px] font-medium transition-colors ${
-                    isActive ? "bg-purple-50 border-gray-900 text-purple-600" : "bg-white border-transparent text-gray-700 hover:bg-gray-50"
+                    isActive
+                      ? "bg-purple-50 border-gray-900 text-purple-600"
+                      : "bg-white border-transparent text-gray-700 hover:bg-gray-50"
                   }`}
                 >
                   <span className="flex items-center gap-3">
-                    <Icon className={`w-5 h-5 ${isActive ? "text-purple-600" : "text-gray-400"}`} />
+                    <Icon
+                      className={`w-5 h-5 ${isActive ? "text-purple-600" : "text-gray-400"}`}
+                    />
                     {item.label}
                   </span>
-                  
+
                   <div className="flex items-center gap-2">
                     {item.badge > 0 && (
                       <span className="bg-amber-400 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                         {item.badge}
                       </span>
                     )}
-                    {isActive && <span className="w-2 h-2 rounded-full bg-purple-500" />}
+                    {isActive && (
+                      <span className="w-2 h-2 rounded-full bg-purple-500" />
+                    )}
                   </div>
                 </button>
               );
@@ -93,12 +131,19 @@ export default function Sidebar({ active, onNavigate, onSignOut, pendingCount = 
             <ShieldCheck className="w-5 h-5 text-purple-600" />
           </div>
           <div className="overflow-hidden">
-            <div className="text-gray-900 font-semibold text-sm leading-tight truncate">{adminName}</div>
-            <div className="text-gray-400 text-xs leading-tight truncate">System Administrator</div>
+            <div className="text-gray-900 font-semibold text-sm leading-tight truncate">
+              {adminName}
+            </div>
+            <div className="text-gray-400 text-xs leading-tight truncate">
+              System Administrator
+            </div>
           </div>
         </div>
-        
-        <button onClick={handleLogout} className="flex items-center gap-2 px-2 text-red-500 font-semibold text-sm hover:text-red-600 w-full transition-colors">
+
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 px-2 text-red-500 font-semibold text-sm hover:text-red-600 w-full transition-colors"
+        >
           <LogOut className="w-4 h-4" /> Sign Out
         </button>
       </div>

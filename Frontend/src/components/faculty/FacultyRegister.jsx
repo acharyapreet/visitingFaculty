@@ -6,7 +6,7 @@ const initialFormState = {
   phone_number: '',
   email: '',
   address: '',
-  qualification: '',
+  qualification: [], // Changed to array to hold multiple qualifications
   aadhaar_no: '',
   pan_card_no: '',
   bank_name: '',
@@ -26,12 +26,15 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // States for handling "Other" qualification
+  const [otherQualification, setOtherQualification] = useState('');
+  const [showOtherQualification, setShowOtherQualification] = useState(false);
+
   // Reference to the top of the form for scrolling
   const formTopRef = useRef(null);
 
   const progressWidth = step === 1 ? '36%' : '100%';
 
-  // NEW: Password requirements array linked to formData.password
   const passwordRequirements = [
     { label: 'At least 8 characters', met: formData.password.length >= 8 },
     { label: 'One special symbol (e.g., @, #, $)', met: /[!@#$%^&*(),.?":{}|<>]/.test(formData.password) },
@@ -55,6 +58,38 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
     setSubmitError('');
   };
 
+  // --- New Qualification Handlers ---
+  const handleQualSelect = (e) => {
+    const val = e.target.value;
+    if (val === '') return;
+    
+    if (val === 'Other') {
+      setShowOtherQualification(true);
+    } else {
+      setShowOtherQualification(false);
+      if (!formData.qualification.includes(val)) {
+        setFormData(prev => ({ ...prev, qualification: [...prev.qualification, val] }));
+      }
+    }
+  };
+
+  const removeQual = (qualToRemove) => {
+    setFormData(prev => ({
+      ...prev,
+      qualification: prev.qualification.filter(q => q !== qualToRemove)
+    }));
+  };
+
+  const addOtherQual = () => {
+    const trimmed = otherQualification.trim();
+    if (trimmed && !formData.qualification.includes(trimmed)) {
+      setFormData(prev => ({ ...prev, qualification: [...prev.qualification, trimmed] }));
+      setOtherQualification('');
+      setShowOtherQualification(false);
+    }
+  };
+  // -----------------------------------
+
   const scrollToError = () => {
     setTimeout(() => {
       if (formTopRef.current) {
@@ -72,7 +107,7 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
   };
 
   const validateStepTwo = () => {
-    if (!formData.qualification.trim()) return 'Qualification: Please select your highest qualification.';
+    if (formData.qualification.length === 0) return 'Qualification: Please select at least one qualification.';
     
     if (!/^[0-9]{12}$/.test(formData.aadhaar_no.trim())) {
       return 'Aadhaar No: It must be exactly 12 numeric digits without spaces.';
@@ -92,7 +127,6 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
       return 'IFSC Code: Invalid format. It must be 4 letters, a zero (0), and 6 letters/numbers (e.g., SBIN0001234).';
     }
     
-    // Check that all password requirements are strictly met
     if (!passwordRequirements.every(r => r.met)) {
       return 'Password: Please meet all password requirements.';
     }
@@ -135,7 +169,7 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
       phone_number: formData.phone_number.trim(),
       email: formData.email.trim(),
       address: formData.address.trim(),
-      qualification: formData.qualification.trim(),
+      qualification: formData.qualification.join(', '), // Joins array into a string for the backend
       aadhaar_no: formData.aadhaar_no.trim(), 
       pan_card_no: formData.pan_card_no.trim().toUpperCase(),
       bank_name: formData.bank_name.trim(),
@@ -167,7 +201,6 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
       setStep(3);
       scrollToError(); 
     } catch (error) {
-      // ENHANCED ERROR CATCHING: Combines raw DB errors and formatted API duplicate responses
       const errorMessage = error.response?.data?.message?.toLowerCase() || error.message?.toLowerCase() || '';
       const errorDetails = typeof error.response?.data?.data === 'string' ? error.response.data.data.toLowerCase() : '';
       const fullError = errorMessage + ' ' + errorDetails;
@@ -336,42 +369,80 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
                 </div>
 
                 <div className="grid gap-5 md:grid-cols-2">
+                  {/* Multi-Select Qualification Logic */}
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-[#424656]">Qualification / Specialization</label>
+                    
+                    {/* Render selected qualifications as tags */}
+                    {formData.qualification.length > 0 && (
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        {formData.qualification.map((qual, index) => (
+                          <span key={index} className="flex items-center gap-1 bg-[#EEF3FF] text-[#004DD2] px-2.5 py-1 rounded-md text-xs font-semibold border border-[#D9E3FF]">
+                            {qual}
+                            <button 
+                              type="button" 
+                              onClick={() => removeQual(qual)} 
+                              className="text-[#004DD2] hover:text-red-500 hover:bg-white rounded-full p-0.5 transition-colors focus:outline-none"
+                              aria-label="Remove qualification"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     <select
-                      name="qualification"
-                      value={formData.qualification}
-                      onChange={handleChange}
+                      value=""
+                      onChange={handleQualSelect}
                       className="w-full rounded-lg border border-[#C3C5D8] px-4 py-2.5 text-[#141B2B] focus:border-[#004DD2] focus:outline-none focus:ring-2 focus:ring-[#004DD2]/20"
-                      required
                     >
-                      <option value="">Select highest qualification</option>
+                      <option value="">Select a qualification to add...</option>
                       <optgroup label="Doctoral Degrees">
                         <option value="Ph.D. (Computer Science)">Ph.D. (Computer Science)</option>
                         <option value="Ph.D. (Management)">Ph.D. (Management)</option>
                         <option value="Ph.D. (Information Technology)">Ph.D. (Information Technology)</option>
-                        <option value="Ph.D. (Other)">Ph.D. (Other Fields)</option>
                       </optgroup>
                       <optgroup label="Master's Degrees">
                         <option value="M.Tech (Computer Science/IT)">M.Tech (CS / IT)</option>
                         <option value="MCA (Master of Computer Applications)">MCA</option>
                         <option value="MBA (Master of Business Administration)">MBA</option>
                         <option value="M.Sc. (Computer Science/Electronics)">M.Sc. (CS / Electronics)</option>
-                        <option value="M.A. / M.Com / Other Masters">Other Master's Degree</option>
                       </optgroup>
                       <optgroup label="Bachelor's / Graduation Degrees">
                         <option value="B.Tech / B.E. (Computer Science/IT)">B.Tech / B.E. (CS / IT)</option>
                         <option value="BCA (Bachelor of Computer Applications)">BCA</option>
                         <option value="BBA (Bachelor of Business Administration)">BBA</option>
                         <option value="B.Sc. (Computer Science/IT/Electronics)">B.Sc. (CS / IT / Electronics)</option>
-                        <option value="B.A. / B.Com / Other Bachelor's">Other Bachelor's Degree</option>
                       </optgroup>
                       <optgroup label="Professional Certifications / Clearance">
                         <option value="UGC NET Qualified">UGC NET Qualified</option>
                         <option value="CSIR NET Qualified">CSIR NET Qualified</option>
                         <option value="GATE Qualified">GATE Qualified</option>
                       </optgroup>
+                      <option value="Other">Other (Please specify)</option>
                     </select>
+
+                    {/* Show input box if 'Other' is selected */}
+                    {showOtherQualification && (
+                      <div className="mt-2 flex gap-2">
+                        <input 
+                          type="text" 
+                          value={otherQualification} 
+                          onChange={(e) => setOtherQualification(e.target.value)} 
+                          placeholder="Type specific qualification"
+                          className="flex-1 rounded-lg border border-[#C3C5D8] px-4 py-2 text-[#141B2B] text-sm focus:border-[#004DD2] focus:outline-none focus:ring-2 focus:ring-[#004DD2]/20"
+                          autoFocus
+                        />
+                        <button 
+                          type="button" 
+                          onClick={addOtherQual} 
+                          className="bg-[#004DD2] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#003bb3] transition-colors"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -528,7 +599,6 @@ export default function Register({ onNavigate, onRegistrationSuccess }) {
                   </div>
                 </div>
 
-                {/* Requirements Box placed below the password row */}
                 <div className="rounded-xl bg-[#F7F6FF] p-4 text-sm text-[#585F6C] space-y-2 mt-4">
                   <p className="font-bold text-[#141B2B] text-xs uppercase mb-2">Password Requirements</p>
                   {passwordRequirements.map((req, i) => (
