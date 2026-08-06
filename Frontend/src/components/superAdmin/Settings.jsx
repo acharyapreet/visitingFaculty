@@ -169,7 +169,6 @@ export default function Settings({ onMenuClick }) {
     const lowerQuery = (searchQuery || "").toLowerCase();
     const matchesSearch = !searchQuery || (
       (log.full_name && String(log.full_name).toLowerCase().includes(lowerQuery)) ||
-      (log.user_id && String(log.user_id).toLowerCase().includes(lowerQuery)) ||
       (String(status).toLowerCase().includes(lowerQuery))
     );
 
@@ -177,17 +176,27 @@ export default function Settings({ onMenuClick }) {
   });
 
   const exportToCSV = () => {
-    const headers = ["Sr.", "Action", "Program Incharge Name", "User ID", "Date", "Remarks"];
+    // UPDATED: Removed User ID Issued and Remarks from headers
+    const headers = ["Sr.", "Action", "Program Incharge Name", "Performed By", "Date"];
     const csvContent = [
       headers.join(","), 
-      ...filteredLogs.map((l, i) => [
-        i + 1, 
-        getLogStatus(l), 
-        l.full_name || "Unknown", 
-        l.user_id, 
-        new Date(l.updated_at).toLocaleDateString(), 
-        (l.AdminApproval?.rejection_reason || "-").replace(/,/g, "") 
-      ].join(","))
+      ...filteredLogs.map((l, i) => {
+        // Formatted date string
+        const dateStr = l.updated_at 
+          ? new Date(l.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) 
+          : "-";
+          
+        // UPDATED: Added ="..." wrapper to force Excel to treat date as text to avoid ### squishing
+        const safeDateForExcel = `="${dateStr}"`;
+
+        return [
+          i + 1, 
+          getLogStatus(l), 
+          l.full_name || "Unknown", 
+          "Super Admin", 
+          safeDateForExcel 
+        ].join(",");
+      })
     ].join("\n");
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -202,12 +211,43 @@ export default function Settings({ onMenuClick }) {
 
   return (
     <div className="flex-1 bg-gray-50 min-h-screen relative overflow-hidden">
+      {/* UPDATED: Extensive print CSS to enforce consistent, full-width mobile view during printing */}
       <style>{`
         @media print {
+          @page { margin: 0.5cm; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          
           body * { visibility: hidden; }
           #audit-log-container, #audit-log-container * { visibility: visible; }
-          #audit-log-container { position: absolute; left: 0; top: 0; width: 100%; border: none; box-shadow: none; }
           .no-print { display: none !important; }
+          
+          #audit-log-container { 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            width: 100% !important; 
+            margin: 0 !important;
+            padding: 10px !important;
+            border: none !important; 
+            box-shadow: none !important; 
+          }
+
+          /* Force overflow visible so table isn't cut off on the right */
+          .print-table-wrapper {
+            overflow: visible !important;
+          }
+
+          table {
+            width: 100% !important;
+            table-layout: auto !important;
+            font-size: 12px !important;
+          }
+
+          th, td {
+            white-space: normal !important;
+            word-break: break-word !important;
+            padding: 8px !important;
+          }
         }
       `}</style>
 
@@ -247,13 +287,10 @@ export default function Settings({ onMenuClick }) {
           />
       </div>
 
-      {/* UPDATED: Responsive padding matching other pages */}
       <div className="px-4 sm:px-8 py-8 pb-24 max-w-full">
-        {/* UPDATED: Responsive text sizes */}
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 no-print">Settings</h1>
         <p className="text-sm sm:text-base text-gray-400 mb-6 no-print">System-wide configuration, security and audit log</p>
 
-        {/* UPDATED: Added overflow-x-auto for tabs to prevent breaking on mobile */}
         <div className="overflow-x-auto hide-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 mb-6 no-print">
           <div className="inline-flex bg-gray-100 rounded-full p-1 whitespace-nowrap min-w-max">
             {tabs.map((tab) => {
@@ -279,7 +316,6 @@ export default function Settings({ onMenuClick }) {
 
         {activeTab === "General" && (
           <div className="flex flex-col lg:flex-row gap-6">
-            {/* UPDATED: Adjusted padding to be responsive p-4 sm:p-8 */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-8 flex-1 max-w-2xl">
               <h3 className="font-bold text-gray-900 mb-6">Super Admin Account</h3>
               
@@ -454,24 +490,24 @@ export default function Settings({ onMenuClick }) {
               </div>
             </div>
 
-            {/* UPDATED: Added hide-scrollbar to match other pages */}
-            <div className="overflow-x-auto hide-scrollbar">
-              <table className="w-full text-left min-w-[700px]">
+            {/* UPDATED: Added print-table-wrapper to un-hide overflow during print */}
+            <div className="overflow-x-auto hide-scrollbar print-table-wrapper">
+              {/* UPDATED: Min-width adjusted to match fewer columns */}
+              <table className="w-full text-left min-w-[500px]">
                 <thead>
                   <tr className="text-xs font-semibold text-gray-400 border-b border-gray-100 uppercase">
+                    {/* UPDATED: Removed User ID Issued and Remarks Headers */}
                     <th className="py-3 whitespace-nowrap pr-4">Sr.</th>
                     <th className="py-3 whitespace-nowrap pr-4">Action</th>
                     <th className="py-3 whitespace-nowrap pr-4">Program Incharge Name</th>
-                    <th className="py-3 whitespace-nowrap pr-4">User ID Issued</th>
                     <th className="py-3 whitespace-nowrap pr-4">Performed By</th>
-                    <th className="py-3 whitespace-nowrap pr-4">Date</th>
-                    <th className="py-3 whitespace-nowrap">Remarks</th>
+                    <th className="py-3 whitespace-nowrap">Date</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm">
                   {filteredLogs.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="py-16 text-center text-gray-500 text-sm">
+                      <td colSpan="5" className="py-16 text-center text-gray-500 text-sm">
                         {searchQuery ? (
                           <span>No Program Incharges found matching "{searchQuery}".</span>
                         ) : (
@@ -484,6 +520,7 @@ export default function Settings({ onMenuClick }) {
                       const status = getLogStatus(log);
                       return (
                         <tr key={log.user_id || i} className="border-b border-gray-50">
+                          {/* UPDATED: Removed User ID Issued and Remarks TD cells */}
                           <td className="py-4 text-gray-500 whitespace-nowrap pr-4">{i + 1}</td>
                           <td className="py-4 whitespace-nowrap pr-4">
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold inline-block ${
@@ -493,10 +530,10 @@ export default function Settings({ onMenuClick }) {
                             </span>
                           </td>
                           <td className="py-4 font-medium text-gray-900 whitespace-nowrap pr-4">{log.full_name || "Unknown"}</td>
-                          <td className="py-4 text-purple-600 font-semibold whitespace-nowrap pr-4">{status === 'Approved' ? log.user_id : "—"}</td>
                           <td className="py-4 text-gray-600 whitespace-nowrap pr-4">Super Admin</td>
-                          <td className="py-4 text-gray-600 whitespace-nowrap pr-4">{new Date(log.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                          <td className="py-4 text-gray-400 whitespace-nowrap">{log.AdminApproval?.rejection_reason || '—'}</td>
+                          <td className="py-4 text-gray-600 whitespace-nowrap">
+                            {log.updated_at ? new Date(log.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}
+                          </td>
                         </tr>
                       );
                     })

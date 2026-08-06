@@ -35,7 +35,6 @@ const navItems = [
   { id: "bill-generation", label: "Bill Generation", icon: FileText },
 ];
 
-// --- INLINE ADMIN PROFILE MODAL ---
 // --- INLINE ADMIN PROFILE MODAL (BALANCED RATIO VERSION) ---
 function AdminProfileModal({ isOpen, onClose, userId, token }) {
   const [profileData, setProfileData] = useState(null);
@@ -157,7 +156,6 @@ function AdminProfileModal({ isOpen, onClose, userId, token }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md transition-all">
-      {/* Changed to max-w-xl (narrower) and added min-h-[550px] to keep the ratio elegant */}
       <div className="relative w-full max-w-xl max-h-[92vh] min-h-[550px] overflow-hidden flex flex-col rounded-[24px] bg-white shadow-2xl ring-1 ring-slate-900/5">
         
         {/* Modal Header */}
@@ -197,7 +195,7 @@ function AdminProfileModal({ isOpen, onClose, userId, token }) {
 
               {/* Personal Information Section */}
               <section>
-                <div className="mb-5 flex items-center justify-between">
+                <div className="mb-5 flex flex-wrap gap-3 items-center justify-between">
                   <h3 className="text-sm font-bold text-[#004DD2] uppercase tracking-wider flex items-center gap-2">
                     <User className="h-4 w-4" /> Personal Details
                   </h3>
@@ -350,7 +348,7 @@ function AdminProfileModal({ isOpen, onClose, userId, token }) {
                             className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-[#9CA3AF] hover:text-[#004DD2] transition-colors focus:outline-none"
                           >
                             {showNewPassword ? (
-                              <svg className="h-5 w-5 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                              <svg className="h-5 w-5 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" y1="2" x2="22" y2="22" /></svg>
                             ) : (
                               <svg className="h-5 w-5 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" y1="2" x2="22" y2="22" /></svg>
                             )}
@@ -431,7 +429,8 @@ function AdminProfileModal({ isOpen, onClose, userId, token }) {
 }
 
 // --- ADMIN SIDEBAR MAIN COMPONENT ---
-export default function Sidebar({ activeTab, setActiveTab, onSignOut }) {
+// UPDATED: Added isOpen and onClose to manage mobile sidebar drawer
+export default function Sidebar({ activeTab, setActiveTab, onSignOut, isOpen, onClose }) {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [adminName, setAdminName] = useState("Loading...");
   const [adminRole, setAdminRole] = useState("Program Incharge");
@@ -462,7 +461,21 @@ export default function Sidebar({ activeTab, setActiveTab, onSignOut }) {
 
   return (
     <>
-      <aside className="hidden md:flex md:flex-col w-[260px] shrink-0 h-screen sticky top-0 bg-white border-r border-slate-200">
+      {/* UPDATED: Overlay backdrop for mobile */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      {/* UPDATED: Mobile responsive classes added for the sliding drawer effect */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 flex flex-col w-[260px] shrink-0 h-screen bg-white border-r border-slate-200
+        transition-transform duration-300 ease-in-out
+        md:relative md:translate-x-0
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
         
         {/* Brand */}
         <div className="flex items-center gap-3 px-6 h-20 border-b border-slate-100">
@@ -471,7 +484,7 @@ export default function Sidebar({ activeTab, setActiveTab, onSignOut }) {
           </div>
           <div>
             <p className="text-xl font-black leading-tight text-[#004DD2] tracking-tight">IIPS</p>
-            <p className="text-xs font-semibold leading-tight text-slate-500 uppercase tracking-wider mt-0.5">Program Incharge Portal</p>
+            <p className="text-xs font-semibold leading-tight text-slate-500 uppercase tracking-wider mt-0.5">Program Incharge</p>
           </div>
         </div>
 
@@ -484,7 +497,13 @@ export default function Sidebar({ activeTab, setActiveTab, onSignOut }) {
             {navItems.map(({ id, label, icon: Icon }) => (
               <li key={id}>
                 <button
-                  onClick={() => setActiveTab(id)}
+                  onClick={() => {
+                    setActiveTab(id);
+                    // NEW: Fire the refresh event automatically when switching tabs!
+                    window.dispatchEvent(new Event('refresh-dashboard'));
+                    // Close the mobile menu automatically upon selection
+                    if (onClose) onClose();
+                  }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                     activeTab === id
                       ? "bg-[#004DD2] text-white shadow-md shadow-blue-500/20"

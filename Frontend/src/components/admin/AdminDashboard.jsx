@@ -21,6 +21,9 @@ export default function AdminDashboard({ onSignOut }) {
     return localStorage.getItem('adminActiveTab') || 'dashboard';
   });
 
+  // NEW: State to control mobile sidebar drawer
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   useEffect(() => {
     localStorage.setItem('adminActiveTab', activeTab);
   }, [activeTab]);
@@ -55,24 +58,33 @@ export default function AdminDashboard({ onSignOut }) {
       }
     }, []);
 
+  // 1. Fetch when tab becomes 'dashboard'
   useEffect(() => {
     if (activeTab === 'dashboard') {
       fetchPending();
     }
   }, [fetchPending, activeTab]);
 
-  // Unified handler to refresh table and show banner
-  // const handleFacultyAction = useCallback((toastData) => {
-  //   fetchPending(); // Instantly refresh pending table so the user disappears from the queue
-  //   if (toastData) {
-  //     setToastConfig(toastData); // Show the toast with the data from the modal
-  //   }
-  // }, [fetchPending]);
+  // 2. NEW: Global Event Listener for automatic background refreshing
+  useEffect(() => {
+    const handleGlobalRefresh = () => {
+      if (activeTab === 'dashboard') {
+        fetchPending();
+      }
+    };
+
+    window.addEventListener('refresh-dashboard', handleGlobalRefresh);
+    return () => window.removeEventListener('refresh-dashboard', handleGlobalRefresh);
+  }, [fetchPending, activeTab]);
+
   // Unified handler: instantly remove/update the pending list, no refetch needed
   const handleFacultyAction = useCallback((toastData) => {
     if (toastData?.userId && (toastData.action === 'approved' || toastData.action === 'rejected')) {
       // Remove from pending list immediately — approved/rejected faculty leave this queue
       setPendingFaculty(prev => prev.filter(f => (f.user_id || f.id) !== toastData.userId));
+      
+      // NEW: Tell the rest of the app to refresh its data globally
+      window.dispatchEvent(new Event('refresh-dashboard'));
     }
     if (toastData) {
       setToastConfig(toastData);
@@ -120,23 +132,23 @@ export default function AdminDashboard({ onSignOut }) {
       case 'dashboard':
       default:
         return (
-          <main className="p-4 sm:p-6 space-y-6">
+          <main className="p-4 sm:p-6 space-y-6 max-w-full overflow-hidden">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <h1 className="text-2xl font-bold text-slate-800">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
                   Welcome {admin.name || "Program Incharge"}
                 </h1>
                 <p className="text-sm text-slate-400">Here's the overview for {monthLabel}</p>
               </div>
-              <button className="self-start sm:self-auto px-4 py-2 rounded-full border border-slate-200 bg-white text-sm font-medium text-slate-600">
+              <button className="w-full sm:w-auto px-4 py-2 rounded-full border border-slate-200 bg-white text-sm font-medium text-slate-600">
                 Session {SESSION}
               </button>
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm w-full overflow-hidden">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-100 gap-3 sm:gap-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="font-semibold text-slate-800">
+                  <h2 className="font-semibold text-slate-800 text-sm sm:text-base">
                     Faculty Remaining for Registration approval
                   </h2>
                   <span className="px-2.5 py-0.5 rounded-md bg-[#FFEDD5] text-[#92400E] text-xs font-bold">
@@ -145,16 +157,17 @@ export default function AdminDashboard({ onSignOut }) {
                 </div>
                 <button
                   onClick={() => setActiveTab('faculty-management')}
-                  className="flex items-center gap-1 text-sm font-medium text-[#585F6C] hover:text-[#141B2B] transition-colors"
+                  className="flex items-center justify-center sm:justify-start gap-1 text-sm font-medium text-[#585F6C] hover:text-[#141B2B] transition-colors"
                 >
                   View All <ArrowRight size={16} />
                 </button>
               </div>
 
               {error && (
-                <p className="text-sm text-red-500 px-6 py-4">{error}</p>
+                <p className="text-sm text-red-500 px-4 sm:px-6 py-4">{error}</p>
               )}
 
+              {/* Ensure this child table component handles responsive overflow internally */}
               <PendingFacultyTable
                 faculty={filteredFaculty}
                 loading={loading}
@@ -178,10 +191,25 @@ export default function AdminDashboard({ onSignOut }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA]">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onSignOut={onSignOut} />
-      <div className="flex-1 min-w-0">
-        <Topbar onSearch={setSearch} />
+    <div className="flex min-h-screen bg-[#F8F9FA] relative">
+      {/* UPDATED: Pass mobile control props to the Sidebar */}
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          setIsMobileMenuOpen(false); // Close sidebar on mobile when changing tabs
+        }} 
+        onSignOut={onSignOut} 
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+      />
+      
+      <div className="flex-1 min-w-0 w-full flex flex-col">
+        {/* UPDATED: Pass the hamburger menu click handler to Topbar */}
+        <Topbar 
+          onSearch={setSearch} 
+          onMenuClick={() => setIsMobileMenuOpen(true)}
+        />
         {renderContent()}
       </div>
     </div>
