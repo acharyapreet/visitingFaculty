@@ -13,7 +13,7 @@ async function registerFaculty(facultyData) {
         where: { email: facultyData.email }
     });
 
-    if (existingUser) {
+    if (existingUserEmail) {
         throw new Error('Email already exist');
     }
     const existingUserAadhar = await User.findOne({
@@ -251,11 +251,11 @@ async function resetUserPassword(token, newPassword) {
 async function changePassword(user_id, oldPassword, newPassword) {
     try {
         const user = await User.findByPk(user_id);
-        if(!user){
+        if (!user) {
             throw new Error('user not found');
         }
         const isMatch = await user.comparePassword(oldPassword);
-        if(!isMatch){
+        if (!isMatch) {
             throw new Error('password does not match');
         }
         await user.update({

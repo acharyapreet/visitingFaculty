@@ -41,26 +41,23 @@ const User = sequelize.define('User', {
     },
     aadhaar_no: {
         type: DataTypes.STRING(12),
-        allowNull: true,
-        unique: true
+        allowNull: true
     },
     account_no: {
         type: DataTypes.STRING(20),
-        allowNull: true,
-        unique: true
+        allowNull: true
     },
     bank_name: {
         type: DataTypes.STRING(50),
-        allowNull: true
+        allowNull: false
     },
     ifsc_code: {
         type: DataTypes.STRING(11),
-        allowNull: true
+        allowNull: false
     },
     pan_card_no: {
         type: DataTypes.STRING(10),
-        allowNull: true,
-        unique: true
+        allowNull: true
     },
     uvfin: {
         type: DataTypes.STRING(20),
