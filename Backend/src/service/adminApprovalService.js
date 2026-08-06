@@ -1,6 +1,6 @@
 const { User, FacultyApproval, AdminApproval } = require('../Schema');
 const { generateFacultyId } = require('../utils/helper');
-const sendEmail = require('../utils/emailService');
+const { sendEmail } = require('../utils/emailService');
 
 async function approveFaculty(params, Details, currentUser) {
     try {

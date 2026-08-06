@@ -4,7 +4,7 @@ const { Op } = require('sequelize');
 const User = require('../Schema/userSchema');
 const FacultyApproval = require('../Schema/facultyApprovalSchema');
 const AdminApproval = require('../Schema/adminApprovalSchema');
-const sendEmail = require('../utils/emailService');
+const { sendEmail } = require('../utils/emailService');
 require('dotenv').config();
 
 // faculty registration logic

@@ -1,5 +1,5 @@
 const { User, AdminApproval } = require('../Schema');
-const sendEmail = require('../utils/emailService');
+const { sendEmail } = require('../utils/emailService');
 
 // ============================================
 // APPROVE ADMIN
