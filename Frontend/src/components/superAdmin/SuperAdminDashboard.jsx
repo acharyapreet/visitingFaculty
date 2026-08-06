@@ -14,7 +14,10 @@ export default function SuperAdminDashboard({ onSignOut }) {
     console.log("On refresh, found saved main tab:", savedTab); // For debugging
     return savedTab || "pending"; 
   });
-  const [pendingCount, setPendingCount] = useState(0);
+ const [pendingCount, setPendingCount] = useState(0);
+
+  // NEW: State to control mobile sidebar drawer
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // 2. Save to localStorage whenever the tab changes
   useEffect(() => {
@@ -56,38 +59,39 @@ export default function SuperAdminDashboard({ onSignOut }) {
     }
   };
 
-  const renderMainContent = () => {
+const renderMainContent = () => {
     switch (activeTab) {
       case "pending":
-        return <PendingApprovalsPage onNavigate={setActiveTab} />;
+        return <PendingApprovalsPage onNavigate={setActiveTab} onMenuClick={() => setIsSidebarOpen(true)} />;
         
-      // 🛑 CHECK YOUR SIDEBAR.JSX! 🛑 
-      // If your sidebar passes "allAdmins" or "all_admins", change the string below to match it!
       case "programincharges":
-        return <AllAdminsPage onNavigate={setActiveTab} />;
+        return <AllAdminsPage onNavigate={setActiveTab} onMenuClick={() => setIsSidebarOpen(true)} />;
         
       case "programs":
-        return <ProgramsPage onNavigate={setActiveTab} />;
+        return <ProgramsPage onNavigate={setActiveTab} onMenuClick={() => setIsSidebarOpen(true)} />;
       case "monthly-summary":
-        return <MonthlySummary />;
+        return <MonthlySummary onMenuClick={() => setIsSidebarOpen(true)} />;
       case "settings":
-        return <SettingsPage onNavigate={setActiveTab} />;
+        return <SettingsPage onNavigate={setActiveTab} onMenuClick={() => setIsSidebarOpen(true)} />;
       default:
-        // This default fallback is why PendingApprovals kept showing up!
-        return <PendingApprovalsPage onNavigate={setActiveTab} />;
+        return <PendingApprovalsPage onNavigate={setActiveTab} onMenuClick={() => setIsSidebarOpen(true)} />;
     }
   };
 
   return (
-    <div className="flex w-full h-screen overflow-hidden bg-gray-50">
+    // Added 'relative' to the parent wrapper
+    <div className="flex w-full h-screen overflow-hidden bg-gray-50 relative">
       <Sidebar 
         active={activeTab} 
         onNavigate={setActiveTab} 
         onSignOut={handleSignOut} 
-        pendingCount={pendingCount} 
+        pendingCount={pendingCount}
+        isOpen={isSidebarOpen}         // Pass state down
+        setIsOpen={setIsSidebarOpen}   // Pass setter down
       />
 
-      <main className="flex-1 h-screen overflow-y-auto">
+      {/* Added 'w-full' to ensure main content takes full width on mobile */}
+      <main className="flex-1 h-screen overflow-y-auto w-full">
         {renderMainContent()}
       </main>
     </div>
