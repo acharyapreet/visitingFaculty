@@ -102,6 +102,9 @@ export default function Settings({ onMenuClick }) {
         showToast("Profile updated successfully!", "success");
         session.name = profileData.full_name;
         localStorage.setItem("iipsCurrentSession", JSON.stringify(session));
+        
+        // NEW: Dispatch event so sidebar instantly updates your name
+        window.dispatchEvent(new Event('refresh-dashboard'));
       }
     } catch (err) {
       console.error("Error updating profile:", err);
@@ -194,6 +197,17 @@ export default function Settings({ onMenuClick }) {
     if (activeTab === "Audit Log") fetchAuditLogs();
   }, [activeTab]);
 
+  // NEW: Listen for global refresh events to auto-update the audit logs
+  useEffect(() => {
+    const handleRefresh = () => {
+      if (activeTab === "Audit Log") {
+        fetchAuditLogs();
+      }
+    };
+    window.addEventListener('refresh-dashboard', handleRefresh);
+    return () => window.removeEventListener('refresh-dashboard', handleRefresh);
+  }, [activeTab]);
+
   // Bulletproofed status logic
   const getLogStatus = (log) => {
     if (log.AdminApproval && log.AdminApproval.status) {
@@ -221,7 +235,6 @@ export default function Settings({ onMenuClick }) {
   });
 
   const exportToCSV = () => {
-    // UPDATED: Removed User ID Issued and Remarks from headers
     const headers = [
       "Sr.",
       "Action",
@@ -232,24 +245,17 @@ export default function Settings({ onMenuClick }) {
     const csvContent = [
       headers.join(","),
       ...filteredLogs.map((l, i) => {
-        // Formatted date string
+        // UPDATED: Used a shorter DD/MM/YYYY format so it fits in Excel without the "########" issue
         const dateStr = l.updated_at
-          ? new Date(l.updated_at).toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })
+          ? new Date(l.updated_at).toLocaleDateString("en-GB")
           : "-";
-
-        // UPDATED: Added ="..." wrapper to force Excel to treat date as text to avoid ### squishing
-        const safeDateForExcel = `="${dateStr}"`;
 
         return [
           i + 1,
           getLogStatus(l),
           l.full_name || "Unknown",
           "Super Admin",
-          safeDateForExcel,
+          dateStr,
         ].join(",");
       }),
     ].join("\n");
@@ -266,7 +272,7 @@ export default function Settings({ onMenuClick }) {
 
   return (
     <div className="flex-1 bg-gray-50 min-h-screen relative overflow-hidden">
-      {/* UPDATED: Extensive print CSS to enforce consistent, full-width mobile view during printing */}
+      {/* Extensive print CSS to enforce consistent, full-width mobile view during printing */}
       <style>{`
         @media print {
           @page { margin: 0.5cm; }
@@ -334,7 +340,7 @@ export default function Settings({ onMenuClick }) {
       )}
 
       <div className="no-print">
-        {/* UPDATED: Passed onMenuClick to Topbar */}
+        {/* Passed onMenuClick to Topbar */}
         <Topbar
           title="Settings"
           subtitle="System-wide configuration, security and audit log"
@@ -719,13 +725,10 @@ export default function Settings({ onMenuClick }) {
               </div>
             </div>
 
-            {/* UPDATED: Added print-table-wrapper to un-hide overflow during print */}
             <div className="overflow-x-auto hide-scrollbar print-table-wrapper">
-              {/* UPDATED: Min-width adjusted to match fewer columns */}
               <table className="w-full text-left min-w-[500px]">
                 <thead>
                   <tr className="text-xs font-semibold text-gray-400 border-b border-gray-100 uppercase">
-                    {/* UPDATED: Removed User ID Issued and Remarks Headers */}
                     <th className="py-3 whitespace-nowrap pr-4">Sr.</th>
                     <th className="py-3 whitespace-nowrap pr-4">Action</th>
                     <th className="py-3 whitespace-nowrap pr-4">
@@ -761,7 +764,6 @@ export default function Settings({ onMenuClick }) {
                           key={log.user_id || i}
                           className="border-b border-gray-50"
                         >
-                          {/* UPDATED: Removed User ID Issued and Remarks TD cells */}
                           <td className="py-4 text-gray-500 whitespace-nowrap pr-4">
                             {i + 1}
                           </td>

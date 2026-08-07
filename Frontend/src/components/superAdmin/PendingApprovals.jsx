@@ -73,49 +73,7 @@ export default function PendingApprovalsPage({ onNavigate, onMenuClick }) {
     return null;
   };
 
-  // const handleStatusUpdate = async (status) => {
-  //   if (status === 'rejected' && !rejectReason.trim()) {
-  //     setUpdateError("Please provide a reason for rejection.");
-  //     return;
-  //   }
-
-  //   if (!selectedAdmin) {
-  //     setUpdateError("No admin selected.");
-  //     return;
-  //   }
-
-  //   setIsUpdating(true);
-  //   setUpdateError("");
-
-  //   try {
-  //     const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
-  //     const targetUserId = selectedAdmin.user_id || selectedAdmin.id || selectedAdmin.userId;
-
-  //     if (!targetUserId) {
-  //       throw new Error("Could not identify the User ID.");
-  //     }
-
-  //     const payload = { status: status };
-  //     if (status === 'rejected') payload.rejection_reason = rejectReason;
-
-  //     await api.put(`/super_admin/admin/${targetUserId}/approve`, payload);
-
-  //     if (status === 'approved') {
-  //       showToast('success', 'Program Incharge Approved', `Credentials emailed to ${selectedAdmin.email}`);
-  //     } else {
-  //       showToast('error', 'Application Rejected', `Rejection notice sent to ${selectedAdmin.email}`);
-  //     }
-
-  //     closeModal();
-  //     fetchAdmins(activeTab); 
-
-  //   } catch (err) {
-  //     console.error(`Error updating status to ${status}:`, err);
-  //     setUpdateError(err.response?.data?.message || err.message || "An error occurred while updating.");
-  //   } finally {
-  //     setIsUpdating(false);
-  //   }
-  // };
+  // RESTORED: Uses your preferred server-sync method instead of local state mutation
   const handleStatusUpdate = async (status) => {
     if (status === 'rejected' && !rejectReason.trim()) {
       setUpdateError("Please provide a reason for rejection.");
@@ -131,6 +89,7 @@ export default function PendingApprovalsPage({ onNavigate, onMenuClick }) {
     setUpdateError("");
 
     try {
+      const session = JSON.parse(localStorage.getItem('iipsCurrentSession') || '{}');
       const targetUserId = selectedAdmin.user_id || selectedAdmin.id || selectedAdmin.userId;
 
       if (!targetUserId) {
@@ -148,27 +107,13 @@ export default function PendingApprovalsPage({ onNavigate, onMenuClick }) {
         showToast('error', 'Application Rejected', `Rejection notice sent to ${selectedAdmin.email}`);
       }
 
-      // Instantly update local state instead of refetching
-      setAdmins(prevAdmins =>
-        prevAdmins
-          .map(admin => {
-            const id = admin.user_id || admin.id || admin.userId;
-            if (id !== targetUserId) return admin;
-            return {
-              ...admin,
-              status: status,
-              AdminApproval: {
-                ...admin.AdminApproval,
-                status: status,
-                rejection_reason: status === 'rejected' ? rejectReason : admin.AdminApproval?.rejection_reason,
-              },
-            };
-          })
-          // If viewing the "pending" tab, the item should disappear immediately
-          .filter(admin => activeTab !== 'pendingAdmin' || getAdminStatus(admin) === 'pending')
-      );
-
       closeModal();
+      
+      // Fetch fresh data directly from the server to guarantee accuracy
+      fetchAdmins(activeTab); 
+      
+      // Fire the global refresh so the Sidebar and Topbar instantly sync their counts
+      window.dispatchEvent(new Event('refresh-dashboard'));
 
     } catch (err) {
       console.error(`Error updating status to ${status}:`, err);
