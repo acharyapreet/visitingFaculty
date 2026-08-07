@@ -13,7 +13,8 @@ const systemInfo = [
   { label: "Last Activity", value: "24 Dec 2024, 10:45 AM" },
 ];
 
-export default function Settings() {
+// UPDATED: Added onMenuClick prop
+export default function Settings({ onMenuClick }) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -78,7 +79,6 @@ export default function Settings() {
       }
 
       const response = await api.put(`/auth/update/${currentUserId}`, profileData);
-
 
       if (response.data.success) {
         showToast("Profile updated successfully!", "success");
@@ -169,7 +169,6 @@ export default function Settings() {
     const lowerQuery = (searchQuery || "").toLowerCase();
     const matchesSearch = !searchQuery || (
       (log.full_name && String(log.full_name).toLowerCase().includes(lowerQuery)) ||
-      (log.user_id && String(log.user_id).toLowerCase().includes(lowerQuery)) ||
       (String(status).toLowerCase().includes(lowerQuery))
     );
 
@@ -177,17 +176,27 @@ export default function Settings() {
   });
 
   const exportToCSV = () => {
-    const headers = ["Sr.", "Action", "Program Incharge Name", "User ID", "Date", "Remarks"];
+    // UPDATED: Removed User ID Issued and Remarks from headers
+    const headers = ["Sr.", "Action", "Program Incharge Name", "Performed By", "Date"];
     const csvContent = [
       headers.join(","), 
-      ...filteredLogs.map((l, i) => [
-        i + 1, 
-        getLogStatus(l), 
-        l.full_name || "Unknown", 
-        l.user_id, 
-        new Date(l.updated_at).toLocaleDateString(), 
-        (l.AdminApproval?.rejection_reason || "-").replace(/,/g, "") 
-      ].join(","))
+      ...filteredLogs.map((l, i) => {
+        // Formatted date string
+        const dateStr = l.updated_at 
+          ? new Date(l.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) 
+          : "-";
+          
+        // UPDATED: Added ="..." wrapper to force Excel to treat date as text to avoid ### squishing
+        const safeDateForExcel = `="${dateStr}"`;
+
+        return [
+          i + 1, 
+          getLogStatus(l), 
+          l.full_name || "Unknown", 
+          "Super Admin", 
+          safeDateForExcel 
+        ].join(",");
+      })
     ].join("\n");
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -201,13 +210,44 @@ export default function Settings() {
   const handlePrint = () => window.print();
 
   return (
-    <div className="flex-1 bg-gray-50 min-h-screen relative">
+    <div className="flex-1 bg-gray-50 min-h-screen relative overflow-hidden">
+      {/* UPDATED: Extensive print CSS to enforce consistent, full-width mobile view during printing */}
       <style>{`
         @media print {
+          @page { margin: 0.5cm; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          
           body * { visibility: hidden; }
           #audit-log-container, #audit-log-container * { visibility: visible; }
-          #audit-log-container { position: absolute; left: 0; top: 0; width: 100%; border: none; box-shadow: none; }
           .no-print { display: none !important; }
+          
+          #audit-log-container { 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            width: 100% !important; 
+            margin: 0 !important;
+            padding: 10px !important;
+            border: none !important; 
+            box-shadow: none !important; 
+          }
+
+          /* Force overflow visible so table isn't cut off on the right */
+          .print-table-wrapper {
+            overflow: visible !important;
+          }
+
+          table {
+            width: 100% !important;
+            table-layout: auto !important;
+            font-size: 12px !important;
+          }
+
+          th, td {
+            white-space: normal !important;
+            word-break: break-word !important;
+            padding: 8px !important;
+          }
         }
       `}</style>
 
@@ -229,7 +269,7 @@ export default function Settings() {
           <p className="text-sm font-semibold pr-4">{toast.message}</p>
           <button 
             onClick={() => setToast({ ...toast, show: false })} 
-            className="text-gray-400 hover:text-gray-600 transition-colors ml-auto"
+            className="text-gray-400 hover:text-gray-600 transition-colors ml-auto shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -237,42 +277,46 @@ export default function Settings() {
       )}
 
       <div className="no-print">
+        {/* UPDATED: Passed onMenuClick to Topbar */}
         <Topbar 
             title="Settings" 
             subtitle="System-wide configuration, security and audit log" 
             showSearch={activeTab === 'Audit Log'}
             onSearch={setSearchQuery} 
+            onMenuClick={onMenuClick}
           />
       </div>
 
-      <div className="px-8 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1 no-print">Settings</h1>
-        <p className="text-gray-400 mb-6 no-print">System-wide configuration, security and audit log</p>
+      <div className="px-4 sm:px-8 py-8 pb-24 max-w-full">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 no-print">Settings</h1>
+        <p className="text-sm sm:text-base text-gray-400 mb-6 no-print">System-wide configuration, security and audit log</p>
 
-        <div className="inline-flex bg-gray-100 rounded-full p-1 mb-6 no-print">
-          {tabs.map((tab) => {
-            const isAudit = tab === "Audit Log";
-            const isActive = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {tab}
-                {isAudit && <span className="text-gray-400 font-normal"> ({filteredLogs.length})</span>}
-              </button>
-            );
-          })}
+        <div className="overflow-x-auto hide-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 mb-6 no-print">
+          <div className="inline-flex bg-gray-100 rounded-full p-1 whitespace-nowrap min-w-max">
+            {tabs.map((tab) => {
+              const isAudit = tab === "Audit Log";
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 sm:px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {tab}
+                  {isAudit && <span className="text-gray-400 font-normal"> ({filteredLogs.length})</span>}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {activeTab === "General" && (
           <div className="flex flex-col lg:flex-row gap-6">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex-1 max-w-2xl">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-8 flex-1 max-w-2xl">
               <h3 className="font-bold text-gray-900 mb-6">Super Admin Account</h3>
               
               <div className="space-y-5">
@@ -309,18 +353,18 @@ export default function Settings() {
                 <button 
                   onClick={handleProfileUpdate}
                   disabled={isUpdatingProfile}
-                  className="bg-[#004DD2] hover:bg-[#003bb3] text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-md mt-2 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="w-full sm:w-auto justify-center bg-[#004DD2] hover:bg-[#003bb3] text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-md mt-2 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isUpdatingProfile ? "Updating..." : "Update Profile"}
                 </button>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex-1 max-w-md h-fit">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-8 flex-1 max-w-md h-fit">
               <h3 className="font-bold text-gray-900 mb-6">System Information</h3>
               <div className="flex flex-col divide-y divide-gray-100">
                 {systemInfo.map((item) => (
-                  <div key={item.label} className="flex items-center justify-between py-3.5 first:pt-0">
+                  <div key={item.label} className="flex flex-col sm:flex-row sm:items-center justify-between py-3.5 first:pt-0 gap-1 sm:gap-0">
                     <span className="text-gray-400 text-sm">{item.label}</span>
                     <span className="text-gray-900 font-semibold text-sm">{item.value}</span>
                   </div>
@@ -332,7 +376,7 @@ export default function Settings() {
 
         {activeTab === "Security" && (
           <div className="flex flex-col lg:flex-row gap-6">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex-1 max-w-2xl">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-8 flex-1 max-w-2xl">
               <h3 className="font-bold text-gray-900 mb-6">Change Password</h3>
               <div className="space-y-5">
                 
@@ -399,14 +443,14 @@ export default function Settings() {
                 <button 
                   onClick={handleChangePassword}
                   disabled={isUpdatingPassword}
-                  className="bg-[#004DD2] hover:bg-[#003bb3] text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto justify-center bg-[#004DD2] hover:bg-[#003bb3] text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-md disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isUpdatingPassword ? "Changing..." : "Change Password"}
                 </button>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex-1 max-w-md h-fit">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-8 flex-1 max-w-md h-fit">
               <h3 className="font-bold text-gray-900 mb-6">Session & Access</h3>
               <div className="space-y-6">
                 {[
@@ -414,12 +458,12 @@ export default function Settings() {
                   { label: "Two-Factor Auth", sub: "OTP via registered email" },
                   { label: "Login Attempts", sub: "Lock after 5 failed attempts" }
                 ].map((item) => (
-                  <div key={item.label} className="flex items-center justify-between">
+                  <div key={item.label} className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-sm font-semibold text-gray-900">{item.label}</p>
                       <p className="text-xs text-gray-400">{item.sub}</p>
                     </div>
-                    <input type="checkbox" defaultChecked className="w-5 h-5 accent-[#8B5CF6] text-[#8B5CF6] rounded cursor-pointer" />
+                    <input type="checkbox" defaultChecked className="w-5 h-5 accent-[#8B5CF6] text-[#8B5CF6] rounded cursor-pointer shrink-0" />
                   </div>
                 ))}
               </div>
@@ -428,41 +472,42 @@ export default function Settings() {
         )}
 
         {activeTab === "Audit Log" && (
-          <div id="audit-log-container" className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
-            <div className="flex items-center justify-between mb-6 no-print">
+          <div id="audit-log-container" className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 no-print">
               <h3 className="font-bold text-gray-900">Audit Log</h3>
-              <div className="flex gap-3">
-                <select value={auditFilter} onChange={(e) => setAuditFilter(e.target.value)} className="border px-4 py-2 rounded-full text-sm outline-none focus:border-blue-500">
+              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                <select value={auditFilter} onChange={(e) => setAuditFilter(e.target.value)} className="flex-1 sm:flex-none border px-4 py-2 rounded-full text-sm outline-none focus:border-blue-500">
                   <option>Select...</option>
                   <option>Approved</option>
                   <option>Rejected</option>
                 </select>
-                <button onClick={exportToCSV} className="flex items-center gap-2 border rounded-full px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                  <Download className="w-4 h-4" /> Export CSV
+                <button onClick={exportToCSV} className="flex-1 sm:flex-none justify-center flex items-center gap-2 border rounded-full px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                  <Download className="w-4 h-4 shrink-0" /> Export CSV
                 </button>
-                <button onClick={handlePrint} className="flex items-center gap-2 border rounded-full px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                  <Printer className="w-4 h-4" /> Print
+                <button onClick={handlePrint} className="flex-1 sm:flex-none justify-center flex items-center gap-2 border rounded-full px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                  <Printer className="w-4 h-4 shrink-0" /> Print
                 </button>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
+            {/* UPDATED: Added print-table-wrapper to un-hide overflow during print */}
+            <div className="overflow-x-auto hide-scrollbar print-table-wrapper">
+              {/* UPDATED: Min-width adjusted to match fewer columns */}
+              <table className="w-full text-left min-w-[500px]">
                 <thead>
                   <tr className="text-xs font-semibold text-gray-400 border-b border-gray-100 uppercase">
-                    <th className="py-3">Sr.</th>
-                    <th className="py-3">Action</th>
-                    <th className="py-3">Program Incharge Name</th>
-                    <th className="py-3">User ID Issued</th>
-                    <th className="py-3">Performed By</th>
-                    <th className="py-3">Date</th>
-                    <th className="py-3">Remarks</th>
+                    {/* UPDATED: Removed User ID Issued and Remarks Headers */}
+                    <th className="py-3 whitespace-nowrap pr-4">Sr.</th>
+                    <th className="py-3 whitespace-nowrap pr-4">Action</th>
+                    <th className="py-3 whitespace-nowrap pr-4">Program Incharge Name</th>
+                    <th className="py-3 whitespace-nowrap pr-4">Performed By</th>
+                    <th className="py-3 whitespace-nowrap">Date</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm">
                   {filteredLogs.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="py-16 text-center text-gray-500 text-sm">
+                      <td colSpan="5" className="py-16 text-center text-gray-500 text-sm">
                         {searchQuery ? (
                           <span>No Program Incharges found matching "{searchQuery}".</span>
                         ) : (
@@ -475,19 +520,20 @@ export default function Settings() {
                       const status = getLogStatus(log);
                       return (
                         <tr key={log.user_id || i} className="border-b border-gray-50">
-                          <td className="py-4 text-gray-500">{i + 1}</td>
-                          <td className="py-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          {/* UPDATED: Removed User ID Issued and Remarks TD cells */}
+                          <td className="py-4 text-gray-500 whitespace-nowrap pr-4">{i + 1}</td>
+                          <td className="py-4 whitespace-nowrap pr-4">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold inline-block ${
                               status === 'Approved' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
                             }`}>
                               {status}
                             </span>
                           </td>
-                          <td className="py-4 font-medium text-gray-900">{log.full_name || "Unknown"}</td>
-                          <td className="py-4 text-purple-600 font-semibold">{status === 'Approved' ? log.user_id : "—"}</td>
-                          <td className="py-4 text-gray-600">Super Admin</td>
-                          <td className="py-4 text-gray-600">{new Date(log.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                          <td className="py-4 text-gray-400">{log.AdminApproval?.rejection_reason || '—'}</td>
+                          <td className="py-4 font-medium text-gray-900 whitespace-nowrap pr-4">{log.full_name || "Unknown"}</td>
+                          <td className="py-4 text-gray-600 whitespace-nowrap pr-4">Super Admin</td>
+                          <td className="py-4 text-gray-600 whitespace-nowrap">
+                            {log.updated_at ? new Date(log.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}
+                          </td>
                         </tr>
                       );
                     })
