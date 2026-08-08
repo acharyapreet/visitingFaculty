@@ -285,7 +285,7 @@ export default function AllAdminsPage({ onNavigate, onMenuClick }) {
             <div className="flex items-start justify-between p-4 sm:p-6 border-b border-gray-100">
               <div>
                 <h2 className="text-lg sm:text-xl font-bold text-gray-900">Program Incharge Application Details</h2>
-                <p className="text-xs sm:text-sm text-gray-500 mt-1">Ref: {selectedAdmin.user_id || 'AR00X'} - Submitted {formatDate(selectedAdmin.created_at || selectedAdmin.submitted_date)}</p>
+                <p className="text-xs sm:text-sm text-gray-500 mt-1">Submitted: {formatDate(selectedAdmin.created_at || selectedAdmin.submitted_date)}</p>
               </div>
               <button onClick={closeModal} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors shrink-0">
                 <X className="w-5 h-5" />

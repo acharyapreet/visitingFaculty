@@ -274,7 +274,6 @@ export default function PendingApprovalsPage({ onNavigate, onMenuClick }) {
                 <thead>
                   <tr className="text-xs font-semibold text-gray-400 border-b border-gray-100">
                     {/* UPDATED: added whitespace-nowrap to prevent squishing */}
-                    <th className="py-3 pr-4 font-semibold uppercase whitespace-nowrap">Registration ID</th>
                     <th className="py-3 pr-4 font-semibold uppercase whitespace-nowrap">Program Incharge Name</th>
                     <th className="py-3 pr-4 font-semibold uppercase whitespace-nowrap">Designation</th>
                     <th className="py-3 pr-4 font-semibold uppercase whitespace-nowrap">Employee ID</th>
@@ -289,7 +288,6 @@ export default function PendingApprovalsPage({ onNavigate, onMenuClick }) {
                     
                     return (
                       <tr key={index} className="border-b border-gray-50 last:border-0 align-middle hover:bg-gray-50 transition-colors">
-                        <td className="py-4 pr-4 text-gray-700 text-sm font-medium">{r.user_id || `AR00${indexOfFirstRecord + index + 1}`}</td>
                         <td className="py-4 pr-4 min-w-[200px]">
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-semibold text-sm shrink-0 uppercase">
@@ -388,7 +386,7 @@ export default function PendingApprovalsPage({ onNavigate, onMenuClick }) {
                 <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                   {modalType === 'details' ? 'Program Incharge Application Details' : modalType === 'approve' ? 'Review Program Incharge Application' : 'Reject Program Incharge Application'}
                 </h2>
-                <p className="text-xs sm:text-sm text-gray-500 mt-1">Ref: {selectedAdmin.user_id || 'AR00X'} - Submitted {formatDate(selectedAdmin.created_at || selectedAdmin.submitted_date)}</p>
+                <p className="text-xs sm:text-sm text-gray-500 mt-1">Submitted: {formatDate(selectedAdmin.created_at || selectedAdmin.submitted_date)}</p>
               </div>
               <button onClick={closeModal} disabled={isUpdating} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50 shrink-0">
                 <X className="w-5 h-5" />
